@@ -6,7 +6,7 @@
 use crate::explain;
 use crate::netze::{self, Fingerprint};
 use crate::tls::{self, Verdict};
-use crate::{dns, hier, portal};
+use crate::{dns, geraete, hier, portal};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::hash_map::RandomState;
@@ -302,8 +302,29 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     let portal = portal::check().status == portal::Status::PortalVermutet;
     let mut erg = auswerten(&mut store, fp.key(), new, portal);
     erg.netz = known[i].name.clone();
+    if let Some(old) = &erg.vorher {
+        let list =
+            geraete::neue_zufaellige(&path.with_file_name("geraete.json"), &fp.key(), old.time)?;
+        erg.unterschiede.extend(zufalls_befund(&list));
+    }
+    // Every rule above may append findings; the verdict is the first entry, so sort once here.
+    erg.unterschiede
+        .sort_by_key(|u| std::cmp::Reverse(u.klasse));
     netze::save(&store_path, &store)?;
     Ok(erg)
+}
+
+/// New devices with a random MAC: worth a look, never an alarm (phones make them up on purpose).
+fn zufalls_befund(list: &[geraete::Device]) -> Vec<Unterschied> {
+    list.iter()
+        .map(|d| Unterschied {
+            klasse: Klasse::Auffaellig,
+            text: format!(
+                "Neues Gerät mit zufälliger Adresse ({}), Hersteller nicht erkennbar. Das ist bei Handys mit „privater WLAN-Adresse“ üblich. Kennst du das Gerät nicht, sieh in `netzinfo geraete` nach.",
+                d.mac.as_deref().unwrap_or("-")
+            ),
+        })
+        .collect()
 }
 
 /// Compares `new` with the stored measurement of `key` and puts the merged one into the store.
@@ -564,5 +585,25 @@ mod tests {
         netze::save(&path, &s).unwrap();
         assert_eq!(netze::load_json::<Store>(&path).unwrap(), s);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn random_mac_is_noticeable_never_alarm() {
+        let d = geraete::Device {
+            ip: ip("192.168.178.5"),
+            name: None,
+            ports: vec![],
+            first_seen: 1,
+            last_seen: 1,
+            mac: Some("02:00:5e:00:53:01".into()),
+            ip_verlauf: vec![],
+            ipv6: vec![],
+            hersteller: None,
+            mac_zufaellig: true,
+        };
+        let u = zufalls_befund(&[d]);
+        assert_eq!(u.len(), 1);
+        assert_eq!(u[0].klasse, Klasse::Auffaellig);
+        assert!(zufalls_befund(&[]).is_empty());
     }
 }

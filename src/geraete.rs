@@ -35,6 +35,13 @@ pub struct Device {
     pub ip_verlauf: Vec<Ipv4Addr>,
     #[serde(default)]
     pub ipv6: Vec<Ipv6Addr>,
+    /// Registered maker of the MAC (issue #27); `None` for random or unknown prefixes.
+    #[serde(default)]
+    pub hersteller: Option<String>,
+    /// MAC is locally administered, i.e. made up by the device (private Wi-Fi address). It stays
+    /// the same per network, so the same one at the next visit is the same device.
+    #[serde(default)]
+    pub mac_zufaellig: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -182,6 +189,10 @@ fn merge(
                     }
                     k.ip = d.ip;
                 }
+                if d.mac.is_some() {
+                    k.hersteller = d.hersteller;
+                    k.mac_zufaellig = d.mac_zufaellig;
+                }
                 k.mac = d.mac.or(k.mac.take());
                 if !d.ipv6.is_empty() {
                     k.ipv6 = d.ipv6;
@@ -236,11 +247,17 @@ fn add_neighbours(found: &mut Vec<Device>, table: &[Nachbar], target: &Subnet, t
                         mac: None,
                         ip_verlauf: vec![],
                         ipv6: vec![],
+                        hersteller: None,
+                        mac_zufaellig: false,
                     });
                     found.len() - 1
                 }
             };
             found[i].mac = Some(n.mac.clone());
+            if let Some(h) = crate::hersteller::fuer_text(&n.mac) {
+                found[i].hersteller = h.name;
+                found[i].mac_zufaellig = h.zufaellig;
+            }
             found[i].ipv6 = n.ipv6.clone();
         }
     }
@@ -261,10 +278,11 @@ fn show(d: &Device, tag: &str) {
         )
     };
     println!(
-        "  {:<15}  {:<5} {:<17}  {}  {}",
+        "  {:<15}  {:<5} {:<17}  {:<24}  {}  {}",
         d.ip.to_string(),
         tag,
         d.mac.as_deref().unwrap_or("-"),
+        crate::hersteller::anzeige(d.mac.as_deref()),
         d.name.as_deref().unwrap_or("-"),
         ports
     );
@@ -323,6 +341,8 @@ fn suchen_in(
             mac: None,
             ip_verlauf: vec![],
             ipv6: vec![],
+            hersteller: None,
+            mac_zufaellig: false,
         })
         .collect();
     if let Some(link) = link {
@@ -412,6 +432,12 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         e(
             "Hat ein Gerät mehrere IPv6-Adressen, wechselt meist eine davon regelmäßig, damit man das Gerät im Internet nicht verfolgen kann.",
         );
+        e(
+            "Der Hersteller steht in der MAC-Adresse. Die ersten drei Byte vergibt die Normungsorganisation IEEE an Firmen; ich schlage sie in einer Liste nach, die in Netzinfo steckt (kein Abruf im Netz). Gemeint ist der Hersteller der Netzkarte, nicht unbedingt des Geräts: Viele Steckdosen und Lampen haben einen Chip derselben Firma.",
+        );
+        e(
+            "Dieses Gerät benutzt eine zufällige Adresse, damit man es nicht über Netze hinweg verfolgen kann. Den Hersteller kann man deshalb nicht erkennen. Pro Netz bleibt die zufällige Adresse gleich, darum gilt sie beim nächsten Besuch als bekannt.",
+        );
     }
     e(
         "Zu jedem gefundenen Gerät frage ich den DNS-Server deines Systems nach dem Namen. Das ist ein PTR-Eintrag (Pointer): die Rückwärtsauflösung von IP zu Name, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.",
@@ -443,6 +469,15 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Devices of network `key` with a random MAC that first showed up after `since` (Unix seconds);
+/// `pruefen` turns them into a finding. Empty if `geraete` never ran there.
+pub fn neue_zufaellige(path: &Path, key: &str, since: u64) -> Result<Vec<Device>, String> {
+    let mut store: Store = netze::load_json(path)?;
+    let mut list = store.remove(key).unwrap_or_default();
+    list.retain(|d| d.mac_zufaellig && d.first_seen > since);
+    Ok(list)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -465,6 +500,8 @@ mod tests {
             mac: None,
             ip_verlauf: vec![],
             ipv6: vec![],
+            hersteller: None,
+            mac_zufaellig: false,
         }
     }
 
@@ -678,5 +715,47 @@ mod tests {
         assert_eq!(r, vec![(lo, vec![open])]);
         // refused only: still present, no open ports
         assert_eq!(discover(&[lo], &[closed]), vec![(lo, vec![])]);
+    }
+
+    #[test]
+    fn old_store_without_hersteller_still_loads() {
+        let old = r#"{"k":[{"ip":"192.168.178.2","name":null,"ports":[],"first_seen":1,"last_seen":2,"mac":"02:00:5e:00:53:01"}]}"#;
+        let s: Store = serde_json::from_str(old).unwrap();
+        assert_eq!(
+            (s["k"][0].hersteller.clone(), s["k"][0].mac_zufaellig),
+            (None, false)
+        );
+    }
+
+    #[test]
+    fn same_random_mac_is_known_and_new_one_is_listed() {
+        let dir = std::env::temp_dir().join(format!("netz-zufall-{}", std::process::id()));
+        let path = dir.join("geraete.json");
+        let mut a = dev("192.168.178.2", 5);
+        a.mac = Some("02:00:5e:00:53:01".into());
+        a.mac_zufaellig = true;
+        let mut b = dev("192.168.178.3", 50);
+        b.mac = Some("02:00:5e:00:53:02".into());
+        b.mac_zufaellig = true;
+        let mut c = dev("192.168.178.4", 60);
+        c.mac = Some("00:00:5e:00:53:03".into());
+        let mut store = Store::new();
+        store.insert("k".into(), vec![a.clone(), b, c]);
+        netze::save(&path, &store).unwrap();
+        let n = neue_zufaellige(&path, "k", 10).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0].ip, ip("192.168.178.3"));
+        // same random MAC seen again, other IP: merged, first_seen stays
+        let mut known = vec![a];
+        let mut again = dev("192.168.178.9", 100);
+        again.mac = Some("02:00:5e:00:53:01".into());
+        let (new, _) = merge(
+            &mut known,
+            vec![again],
+            ip("192.168.178.0"),
+            ip("192.168.178.255"),
+        );
+        assert!(new.is_empty() && known[0].first_seen == 5);
     }
 }
