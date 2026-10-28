@@ -7,6 +7,10 @@
        die echte Oberfläche aus ui/. Aufruf: vorschau.html#bekannt  oder  #unbekannt,formular  oder
        #netze  #pruefung  #vpn  #fehler, dazu optional ,erklaeren  und  ,vergessen. -->
   <link rel="stylesheet" href="ui/style.css">
+  <link rel="stylesheet" href="ui/ansichten/gemerkte-netze.css">
+  <link rel="stylesheet" href="ui/ansichten/pruefung.css">
+  <link rel="stylesheet" href="ui/ansichten/qualitaet.css">
+  <link rel="stylesheet" href="ui/ansichten/geraete.css">
   <style>
     /* Chrome hat kein Fenstermaterial: die Seitenleiste bekommt hier ersatzweise ihre Farbe. */
     html { background: #e4e4e8; }
@@ -39,7 +43,8 @@
       },
       netz_vergessen: async ({ name }) => { netze = netze.filter((n) => n.name !== name); },
     };
-    window.__TAURI__ = { core: { invoke: (befehl, args) => antworten[befehl](args) } };
+    window.VORSCHAU = antworten;
+    window.__TAURI__ = { core: { invoke: (befehl, args) => VORSCHAU[befehl](args) } };
 
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       const klick = (s) => document.querySelector(s)?.click();
@@ -54,6 +59,10 @@
       }, 150);
     }, 100));
   </script>
+  <script src="vorschau/gemerkte-netze.js"></script>
+  <script src="vorschau/pruefung.js"></script>
+  <script src="vorschau/qualitaet.js"></script>
+  <script src="vorschau/geraete.js"></script>
   <script defer src="ui/app.js"></script>
   <script defer src="ui/ansichten/dieses-netz.js"></script>
   <script defer src="ui/ansichten/gemerkte-netze.js"></script>

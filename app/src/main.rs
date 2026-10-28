@@ -21,6 +21,39 @@ fn gemerkte_netze() -> Result<Vec<Netz>, String> {
 }
 
 #[tauri::command(async)]
+fn netz_umbenennen(alt: String, neu: String) -> Result<Netz, String> {
+    netze::umbenennen(&alt, &neu)
+}
+
+#[tauri::command(async)]
+fn netz_markieren(name: String, meins: bool) -> Result<Netz, String> {
+    netze::markieren(&name, meins)
+}
+
+#[tauri::command(async)]
+fn pruefen() -> Result<netz::pruefen::PruefErgebnis, String> {
+    netz::pruefen::pruefen()
+}
+
+#[tauri::command(async)]
+fn messen_einmal() -> Result<netz::messen::Probe, String> {
+    netz::messen::messen_einmal()
+}
+
+#[tauri::command(async)]
+fn bericht(name: Option<String>) -> Result<netz::messen::Bericht, String> {
+    netz::messen::bericht_daten(name.as_deref())
+}
+
+#[tauri::command(async)]
+fn geraete_suchen(
+    cidr: Option<String>,
+    gross: bool,
+) -> Result<netz::geraete::GeraeteErgebnis, String> {
+    netz::geraete::suchen(cidr.as_deref(), gross)
+}
+
+#[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
 }
@@ -31,7 +64,13 @@ fn main() {
             dieses_netz,
             netz_merken,
             gemerkte_netze,
-            netz_vergessen
+            netz_vergessen,
+            netz_umbenennen,
+            netz_markieren,
+            pruefen,
+            messen_einmal,
+            bericht,
+            geraete_suchen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

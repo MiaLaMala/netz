@@ -1,6 +1,6 @@
 //! Command line front end of netz. The logic lives in the library (src/lib.rs).
 
-use netz::{dns, geraete, hier, messen, netze, ports, pruefen, tls};
+use netz::{dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls};
 
 use std::process::ExitCode;
 
@@ -20,6 +20,9 @@ Befehle:
   netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
   netz bericht [Netz]    Qualität eines Netzes über die Zeit
   netz geraete           Geräte im eigenen Netz, neu und verschwunden
+  netz pfad [Ziel]       Weg ins Internet Hop für Hop
+  netz portal            Hängt das Netz hinter einer Anmeldeseite?
+  netz offen             Welche Programme auf diesem Rechner Ports offen haben
 
 Optionen:
   --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
@@ -45,6 +48,9 @@ fn main() -> ExitCode {
         "messen" => messen::run_messen(rest, explain_on),
         "bericht" => messen::run_bericht(rest, explain_on),
         "geraete" => geraete::run(rest, explain_on),
+        "pfad" => pfad::run(rest, explain_on),
+        "portal" => portal::run(rest, explain_on),
+        "offen" => offen::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
