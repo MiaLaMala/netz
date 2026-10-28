@@ -6,7 +6,7 @@ use std::net::Ipv4Addr;
 use std::process::Command;
 
 /// What we know about the current network. Fields are None when macOS has no answer.
-#[allow(dead_code)] // later stages (#5, #6) read these fields
+#[allow(dead_code)] // later stages (#6) read these fields
 #[derive(Debug, Default, PartialEq)]
 pub struct NetInfo {
     pub interface: String,
@@ -174,6 +174,7 @@ fn list<T: std::fmt::Display>(v: &[T]) -> String {
 
 pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
     let n = collect()?;
+    crate::netze::hier_hinweis(&n, explain_on);
     let vpn = n.interface.starts_with("utun");
     println!("Schnittstelle: {}", n.interface);
     explain(

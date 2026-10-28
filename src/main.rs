@@ -2,6 +2,7 @@
 
 mod dns;
 mod hier;
+mod netze;
 mod ports;
 mod subnetz;
 mod tls;
@@ -17,6 +18,9 @@ Befehle:
   netz dns <Name>        DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen
   netz tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
   netz ports <Host>      Offene Ports eines eigenen Geräts
+  netz merken <Name> [--meins]  Aktuelles Netz merken, optional als „meins“ markieren
+  netz netze             Gemerkte Netze auflisten
+  netz vergessen <Name>  Ein gemerktes Netz löschen
 
 Optionen:
   --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
@@ -42,6 +46,9 @@ fn main() -> ExitCode {
         "dns" => dns::run(rest, explain_on),
         "tls" => tls::run(rest, explain_on),
         "ports" => ports::run(rest, explain_on),
+        "merken" => netze::run_merken(rest, explain_on),
+        "netze" => netze::run_netze(rest, explain_on),
+        "vergessen" => netze::run_vergessen(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

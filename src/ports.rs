@@ -90,8 +90,19 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     let target = target.ok_or("Es fehlt das Ziel, z. B. `netz ports 192.168.178.20 --meins`.")?;
 
+    let (meins, grund) = if meins {
+        (true, "du hast mit `--meins` bestätigt, dass es dir gehört")
+    } else if crate::netze::current_is_meins() {
+        (
+            true,
+            "dieses Netz ist mit `netz merken` als „meins“ markiert",
+        )
+    } else {
+        (false, "")
+    };
     // Refuse before resolving, so a hostname causes no DNS traffic without --meins.
-    if !meins {
+    // Loopback literals are always fine.
+    if !meins && !target.parse::<IpAddr>().is_ok_and(|a| a.is_loopback()) {
         return Err(refusal_text(target));
     }
     crate::explain(
@@ -111,7 +122,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let ip = addrs[0];
     crate::explain(
         explain_on,
-        "Alle Adressen des Ziels sind privat, und du hast mit `--meins` bestätigt, dass es dir gehört. Der Scan darf starten.",
+        &if meins {
+            format!("Alle Adressen des Ziels sind privat, und {grund}. Der Scan darf starten.")
+        } else {
+            "Das Ziel ist die eigene Maschine (Loopback). Der Scan darf starten.".to_string()
+        },
     );
 
     let list: Vec<(u16, String)> = match ports {
@@ -159,13 +174,17 @@ fn explain_handshake(on: bool) {
     );
 }
 
-/// The one place that decides whether a scan may run (issue #5 swaps `meins` for a stored marking).
+/// The one place that decides whether a scan may run. `meins` is true when the user passed
+/// `--meins` or the current network is stored as „meins“. Loopback is always allowed.
 fn check_target(addrs: &[IpAddr], meins: bool) -> Result<(), String> {
-    if !meins {
-        return Err(refusal_text("das Ziel"));
-    }
     if addrs.is_empty() {
         return Err("Das Ziel hat keine Adresse. Prüfe die Schreibweise.".into());
+    }
+    if addrs.iter().all(|a| a.is_loopback()) {
+        return Ok(());
+    }
+    if !meins {
+        return Err(refusal_text("das Ziel"));
     }
     if let Some(bad) = addrs.iter().find(|a| !is_private(**a)) {
         return Err(format!(
@@ -177,7 +196,7 @@ fn check_target(addrs: &[IpAddr], meins: bool) -> Result<(), String> {
 
 fn refusal_text(target: &str) -> String {
     format!(
-        "Ohne `--meins` scanne ich {target} nicht. In Netzen, die dir nicht gehören (Schule, Arbeit, Hotspot), gibt ein Portscan ohne Erlaubnis Ärger. Wenn Gerät und Netz dir gehören: `netz ports {target} --meins`."
+        "Ohne `--meins` scanne ich {target} nicht. In Netzen, die dir nicht gehören (Schule, Arbeit, Hotspot), gibt ein Portscan ohne Erlaubnis Ärger. Wenn Gerät und Netz dir gehören: `netz ports {target} --meins`, oder einmalig `netz merken <Name> --meins` im richtigen Netz."
     )
 }
 
@@ -330,6 +349,10 @@ mod tests {
         // hostname resolving to one private and one public address is refused
         assert!(check_target(&[ip("10.0.0.5"), ip("203.0.113.7")], true).is_err());
         assert!(check_target(&[], true).is_err());
+        // loopback needs no marking
+        assert!(check_target(&[ip("127.0.0.1")], false).is_ok());
+        assert!(check_target(&[ip("::1")], false).is_ok());
+        assert!(check_target(&[ip("127.0.0.1"), ip("192.168.178.20")], false).is_err());
     }
 
     #[test]
