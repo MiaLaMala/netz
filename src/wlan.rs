@@ -103,6 +103,7 @@ pub fn snr(rssi: Option<i32>, rauschen: Option<i32>) -> Option<i32> {
     Some(rssi? - rauschen?)
 }
 
+#[cfg(target_os = "macos")]
 fn standard_name(phy: i64) -> Option<&'static str> {
     Some(match phy {
         1 => "802.11a",
