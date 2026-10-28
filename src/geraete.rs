@@ -1,11 +1,12 @@
 //! `netz geraete`: devices in an own network, new and vanished (issue #8).
 
+use crate::nachbarn::{self, Nachbar};
 use crate::netze::{self, Fingerprint};
 use crate::ports::{MAX_THREADS, State, classify};
 use crate::subnetz::{self, Subnet};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -26,6 +27,14 @@ pub struct Device {
     /// Unix seconds.
     pub first_seen: u64,
     pub last_seen: u64,
+    /// Hardware address from the neighbour table (`--nachbarn`); the stable identity.
+    #[serde(default)]
+    pub mac: Option<String>,
+    /// Earlier IPv4 addresses of the same MAC, oldest first.
+    #[serde(default)]
+    pub ip_verlauf: Vec<Ipv4Addr>,
+    #[serde(default)]
+    pub ipv6: Vec<Ipv6Addr>,
 }
 
 #[derive(Debug, Serialize)]
@@ -160,8 +169,23 @@ fn merge(
     let mut new = Vec::new();
     let found_ips: Vec<Ipv4Addr> = found.iter().map(|d| d.ip).collect();
     for d in found {
-        match known.iter_mut().find(|k| k.ip == d.ip) {
+        // same MAC = same device, even with a new IP; without MACs on both sides the IP decides
+        let same = |k: &Device| match (&k.mac, &d.mac) {
+            (Some(a), Some(b)) => a == b,
+            _ => k.ip == d.ip,
+        };
+        match known.iter_mut().find(|k| same(k)) {
             Some(k) => {
+                if k.ip != d.ip {
+                    if !k.ip_verlauf.contains(&k.ip) {
+                        k.ip_verlauf.push(k.ip);
+                    }
+                    k.ip = d.ip;
+                }
+                k.mac = d.mac.or(k.mac.take());
+                if !d.ipv6.is_empty() {
+                    k.ipv6 = d.ipv6;
+                }
                 k.name = d.name.or(k.name.take());
                 k.ports = d.ports;
                 k.last_seen = d.last_seen;
@@ -181,6 +205,48 @@ fn merge(
     (new, gone)
 }
 
+/// Local Network privacy of macOS silently drops our packets without permission and the table
+/// stays empty. Heuristic: the router lies in the range but is missing from the table.
+fn check_permission(table: &[Nachbar], router: Ipv4Addr, target: &Subnet) -> Result<(), String> {
+    let in_range = (target.first..=target.last).contains(&router);
+    if in_range && !table.iter().any(|n| n.ipv4.contains(&router)) {
+        return Err("Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Vermutlich fehlt die Erlaubnis für „Lokales Netzwerk“: Öffne Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk und erlaube dort dein Terminal (oder die App). Dann probiere es noch einmal.".into());
+    }
+    Ok(())
+}
+
+/// Puts MAC and IPv6 addresses on the devices found by TCP; neighbours in the range without
+/// an open port become devices too (no open ports, but a MAC proves they exist).
+fn add_neighbours(found: &mut Vec<Device>, table: &[Nachbar], target: &Subnet, t: u64) {
+    for n in table {
+        for ip in n
+            .ipv4
+            .iter()
+            .filter(|a| (target.first..=target.last).contains(*a))
+        {
+            let i = match found.iter().position(|d| d.ip == *ip) {
+                Some(i) => i,
+                None => {
+                    found.push(Device {
+                        ip: *ip,
+                        name: None,
+                        ports: vec![],
+                        first_seen: t,
+                        last_seen: t,
+                        mac: None,
+                        ip_verlauf: vec![],
+                        ipv6: vec![],
+                    });
+                    found.len() - 1
+                }
+            };
+            found[i].mac = Some(n.mac.clone());
+            found[i].ipv6 = n.ipv6.clone();
+        }
+    }
+    found.sort_by_key(|d| d.ip);
+}
+
 fn show(d: &Device, tag: &str) {
     let ports = if d.ports.is_empty() {
         "keine offenen Ports (Verbindung abgelehnt)".to_string()
@@ -195,9 +261,10 @@ fn show(d: &Device, tag: &str) {
         )
     };
     println!(
-        "  {:<15}  {:<5} {}  {}",
+        "  {:<15}  {:<5} {:<17}  {}  {}",
         d.ip.to_string(),
         tag,
+        d.mac.as_deref().unwrap_or("-"),
         d.name.as_deref().unwrap_or("-"),
         ports
     );
@@ -207,6 +274,16 @@ fn show(d: &Device, tag: &str) {
 /// range lies inside the current subnet (or is 127.0.0.1) and, above /22, `gross` is set.
 /// Nothing is sent before the checks pass.
 pub fn suchen(cidr: Option<&str>, gross: bool) -> Result<GeraeteErgebnis, String> {
+    suchen_mit(cidr, gross, false)
+}
+
+/// Like `suchen`; with `nachbarn` the neighbour table adds MAC addresses and devices that have
+/// no open port (same „meins“ gate, the ping sweep runs after it).
+pub fn suchen_mit(
+    cidr: Option<&str>,
+    gross: bool,
+    nachbarn: bool,
+) -> Result<GeraeteErgebnis, String> {
     let cidr = cidr
         .map(|c| subnetz::parse_args(&[c.to_string()]))
         .transpose()?;
@@ -215,7 +292,8 @@ pub fn suchen(cidr: Option<&str>, gross: bool) -> Result<GeraeteErgebnis, String
     let fp = netze::fingerprint(&info)?;
     let current = info.subnet.ok_or("Das aktuelle Subnetz ist unbekannt.")?;
     let path = netze::data_path()?.with_file_name("geraete.json");
-    suchen_in(&path, &fp, meins, &current, cidr, gross)
+    let link = nachbarn.then_some(info.interface.as_str());
+    suchen_in(&path, &fp, meins, &current, cidr, gross, link)
 }
 
 fn suchen_in(
@@ -225,6 +303,7 @@ fn suchen_in(
     current: &Subnet,
     cidr: Option<(Ipv4Addr, u8)>,
     gross: bool,
+    link: Option<&str>,
 ) -> Result<GeraeteErgebnis, String> {
     let target = gate(meins, current, cidr, gross)?;
     let hosts: Vec<Ipv4Addr> = (u32::from(target.first)..=u32::from(target.last))
@@ -233,24 +312,35 @@ fn suchen_in(
     let present = discover(&hosts, PORTS);
     let resolver = crate::dns::system_resolver().ok();
     let t = netze::now();
-    let names = par(present.len(), |i| {
-        let ip = present[i].0;
+    let mut found: Vec<Device> = present
+        .into_iter()
+        .map(|(ip, ports)| Device {
+            ip,
+            name: None,
+            ports,
+            first_seen: t,
+            last_seen: t,
+            mac: None,
+            ip_verlauf: vec![],
+            ipv6: vec![],
+        })
+        .collect();
+    if let Some(link) = link {
+        nachbarn::anstossen(&hosts, link)?;
+        let table = nachbarn::lesen(link)?;
+        check_permission(&table, fp.router, &target)?;
+        add_neighbours(&mut found, &table, &target, t);
+    }
+    let names = par(found.len(), |i| {
+        let ip = found[i].ip;
         // loopback is never worth a packet to the resolver
         resolver
             .filter(|_| !ip.is_loopback())
             .and_then(|r| reverse_name(r, ip))
     });
-    let found: Vec<Device> = present
-        .into_iter()
-        .zip(names)
-        .map(|((ip, ports), name)| Device {
-            ip,
-            name,
-            ports,
-            first_seen: t,
-            last_seen: t,
-        })
-        .collect();
+    for (d, name) in found.iter_mut().zip(names) {
+        d.name = name;
+    }
 
     let mut store: Store = netze::load_json(path)?;
     let list = store.entry(fp.key()).or_default();
@@ -275,12 +365,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let e = |t: &str| crate::explain(explain_on, t);
     let mut cidr = None;
     let mut gross = false;
+    let mut nachbarn = false;
     for a in args {
         match a.as_str() {
             "--gross" => gross = true,
+            "--nachbarn" => nachbarn = true,
             s if s.starts_with("--") => {
                 return Err(format!(
-                    "Unbekannte Option „{s}“. Es gibt nur `--gross` und `--erklaer`."
+                    "Unbekannte Option „{s}“. Es gibt nur `--gross`, `--nachbarn` und `--erklaer`."
                 ));
             }
             _ if cidr.is_none() => cidr = Some(a.as_str()),
@@ -295,7 +387,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     e(
         "Zuerst prüfe ich, ob dieses Netz als „meins“ markiert ist. Fremde Netze (Schule, Firma, Hotspot) durchzuprobieren gibt Ärger, deshalb gibt es hier keine Abkürzung wie bei `netz ports`. Bis zu dieser Prüfung wird kein Paket gesendet.",
     );
-    let r = suchen(cidr, gross)?;
+    let r = suchen_mit(cidr, gross, nachbarn)?;
     e("Erlaubt: Das Netz ist „meins“, und der Bereich liegt ganz im eigenen Subnetz.");
     println!(
         "Suche Geräte in {} (Adressen: {}, Ports je Adresse: {}, Timeout {} ms)",
@@ -310,6 +402,17 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     e(
         "Ein Gerät gilt als da, wenn ein Port offen ist ODER die Verbindung aktiv abgelehnt wird. Eine Ablehnung ist ein RST-Paket, und das kann nur ein laufendes Gerät schicken. Wo gar nichts antwortet, ist entweder niemand da oder eine Firewall schweigt: Solche Geräte sehe ich nicht.",
     );
+    if nachbarn {
+        e(
+            "Mit `--nachbarn` schicke ich zusätzlich an jede Adresse einen Ping ohne Root-Rechte. Die Antwort ist egal: Um das Paket zuzustellen, fragt dein Mac per ARP „Wer hat diese IP?“ und merkt sich die Antwort in seiner Nachbartabelle. Diese Tabelle lese ich danach nur noch aus, so kommt zu jedem Gerät die MAC-Adresse, auch zu Geräten ohne offenen Port.",
+        );
+        e(
+            "Die MAC-Adresse ist die Hardware-Nummer der Netzkarte. Sie bleibt gleich, auch wenn der Router dem Gerät morgen eine andere IP gibt. Darum führe ich Geräte über die MAC zusammen und merke mir die alten IPs.",
+        );
+        e(
+            "Hat ein Gerät mehrere IPv6-Adressen, wechselt meist eine davon regelmäßig, damit man das Gerät im Internet nicht verfolgen kann.",
+        );
+    }
     e(
         "Zu jedem gefundenen Gerät frage ich den DNS-Server deines Systems nach dem Namen. Das ist ein PTR-Eintrag (Pointer): die Rückwärtsauflösung von IP zu Name, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.",
     );
@@ -359,6 +462,9 @@ mod tests {
             ports: vec![],
             first_seen: seen,
             last_seen: seen,
+            mac: None,
+            ip_verlauf: vec![],
+            ipv6: vec![],
         }
     }
 
@@ -417,7 +523,8 @@ mod tests {
     fn suchen_gate_sits_inside_and_sends_nothing_when_refused() {
         let fp = fp();
         let path = tmp("gate").join("geraete.json");
-        let go = |meins, cidr: &str, gross| suchen_in(&path, &fp, meins, &net(), c(cidr), gross);
+        let go =
+            |meins, cidr: &str, gross| suchen_in(&path, &fp, meins, &net(), c(cidr), gross, None);
         assert!(
             go(false, "127.0.0.1/32", true)
                 .unwrap_err()
@@ -433,12 +540,12 @@ mod tests {
         let dir = tmp("loop");
         let path = dir.join("geraete.json");
         let fp = fp();
-        let r1 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false).unwrap();
+        let r1 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false, None).unwrap();
         assert_eq!((r1.bereich.as_str(), r1.adressen), ("127.0.0.1/32", 1));
         assert!(r1.erster_lauf && r1.neu.is_empty());
         // loopback answers with at least a refusal, so it counts as a device
         assert_eq!(r1.geraete.len(), 1);
-        let r2 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false).unwrap();
+        let r2 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false, None).unwrap();
         let _ = std::fs::remove_dir_all(&dir);
         assert!(!r2.erster_lauf && r2.neu.is_empty() && r2.verschwunden.is_empty());
         assert!(serde_json::to_string(&r2).unwrap().contains("verschwunden"));
@@ -471,6 +578,76 @@ mod tests {
         // a small scan does not declare the rest of the network vanished
         let (_, gone) = merge(&mut known, found, ip("192.168.178.2"), ip("192.168.178.2"));
         assert!(gone.is_empty());
+    }
+
+    fn nb(mac: &str, v4: &[&str], v6: &[&str]) -> Nachbar {
+        Nachbar {
+            mac: mac.into(),
+            ipv4: v4.iter().map(|a| ip(a)).collect(),
+            ipv6: v6.iter().map(|a| a.parse().unwrap()).collect(),
+            schnittstelle: "en0".into(),
+        }
+    }
+
+    #[test]
+    fn neighbours_join_tcp_results_and_merge_by_mac() {
+        let t = subnetz::calc(ip("192.168.178.20"), 24).unwrap();
+        let mut tcp = dev("192.168.178.2", 9);
+        tcp.ports = vec![80];
+        let mut found = vec![tcp];
+        let table = [
+            nb("02:00:00:00:00:01", &["192.168.178.2"], &["2001:db8::2"]),
+            nb("02:00:00:00:00:02", &["192.168.178.7"], &[]), // no open port
+            nb("02:00:00:00:00:03", &["10.0.0.5"], &[]),      // outside the range
+        ];
+        add_neighbours(&mut found, &table, &t, 9);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].mac.as_deref(), Some("02:00:00:00:00:01"));
+        assert_eq!(found[0].ports, vec![80]);
+        assert_eq!(found[0].ipv6.len(), 1);
+        assert!(found[1].ports.is_empty() && found[1].ip == ip("192.168.178.7"));
+
+        // day 2: the router gave the first device a new IP; same MAC means same device
+        let mut known = found.clone();
+        for k in &mut known {
+            k.first_seen = 1;
+        }
+        let mut again = found[0].clone();
+        again.ip = ip("192.168.178.30");
+        let (lo, hi) = (ip("192.168.178.1"), ip("192.168.178.254"));
+        let (new, gone) = merge(&mut known, vec![again], lo, hi);
+        assert!(new.is_empty());
+        assert_eq!(known.len(), 2);
+        let k = known.iter().find(|d| d.mac == found[0].mac).unwrap();
+        assert_eq!((k.ip, k.first_seen), (ip("192.168.178.30"), 1));
+        assert_eq!(k.ip_verlauf, vec![ip("192.168.178.2")]);
+        assert_eq!(gone.len(), 1); // the other one was not found this time
+        // the same IP with another MAC is another device
+        let mut other = found[0].clone();
+        other.mac = Some("02:00:00:00:00:09".into());
+        other.ip = ip("192.168.178.7");
+        let (new, _) = merge(&mut known, vec![other], lo, hi);
+        assert_eq!(new.len(), 1);
+    }
+
+    #[test]
+    fn empty_table_with_router_in_range_means_missing_permission() {
+        let t = subnetz::calc(ip("192.168.178.20"), 24).unwrap();
+        let router = ip("192.168.178.1");
+        let err = check_permission(&[], router, &t).unwrap_err();
+        assert!(err.contains("Lokales Netzwerk"));
+        let ok = [nb("02:00:00:00:00:01", &["192.168.178.1"], &[])];
+        assert!(check_permission(&ok, router, &t).is_ok());
+        // router outside the scanned range: nothing to conclude
+        let small = subnetz::calc(ip("192.168.178.20"), 32).unwrap();
+        assert!(check_permission(&[], router, &small).is_ok());
+    }
+
+    #[test]
+    fn old_store_without_mac_still_loads() {
+        let old = r#"{"k":[{"ip":"192.168.178.2","name":null,"ports":[80],"first_seen":1,"last_seen":2}]}"#;
+        let s: Store = serde_json::from_str(old).unwrap();
+        assert_eq!(s["k"][0].mac, None);
     }
 
     #[test]

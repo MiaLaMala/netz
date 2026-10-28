@@ -6,6 +6,7 @@ pub mod dns;
 pub mod geraete;
 pub mod hier;
 pub mod messen;
+pub mod nachbarn;
 pub mod netze;
 pub mod offen;
 pub mod pfad;

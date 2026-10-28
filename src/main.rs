@@ -19,7 +19,7 @@ Befehle:
   netz pruefen           Was ist anders als beim letzten Besuch?
   netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
   netz bericht [Netz]    Qualität eines Netzes über die Zeit
-  netz geraete           Geräte im eigenen Netz, neu und verschwunden
+  netz geraete [--nachbarn]  Geräte im eigenen Netz, neu und verschwunden, mit MAC
   netz pfad [Ziel]       Weg ins Internet Hop für Hop
   netz portal            Hängt das Netz hinter einer Anmeldeseite?
   netz offen             Welche Programme auf diesem Rechner Ports offen haben
