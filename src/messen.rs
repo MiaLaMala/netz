@@ -6,7 +6,7 @@ use crate::netze::{self, Netz};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::{IpAddr, SocketAddr, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 const TARGETS: [&str; 3] = ["Router (DNS)", "1.1.1.1 (DNS)", "1.1.1.1 (TCP 443)"];
@@ -235,19 +235,108 @@ fn stats(d: &NetData, k: usize) -> Option<Stats> {
     })
 }
 
-struct Report {
-    name: String,
-    /// First and last sample time, unix seconds.
-    from: u64,
-    to: u64,
-    rows: Vec<(&'static str, Stats)>,
+/// Newest raw samples shown as a curve.
+const SERIES_SECS: u64 = 6 * 3600;
+
+/// Numbers of one target over all stored time. Times in milliseconds.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ZielStatistik {
+    pub ziel: &'static str,
+    pub messungen: u32,
+    pub verloren: u32,
+    pub verlust_prozent: f64,
+    pub median_ms: Option<f64>,
+    pub p95_ms: Option<f64>,
+    pub max_ms: Option<f64>,
+    /// Longest run of lost samples in seconds, 0 if none.
+    pub laengster_aussetzer_s: u64,
+    pub schlechteste_stunde: Option<SchlechtesteStunde>,
 }
 
-fn build_report(name: &str, d: &NetData) -> Option<Report> {
-    let rows: Vec<_> = (0..3)
-        .filter_map(|k| stats(d, k).map(|s| (TARGETS[k], s)))
+/// The hour with the highest loss, then the highest mean.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SchlechtesteStunde {
+    /// Unix seconds, start of the hour.
+    pub stunde: u64,
+    pub verlust_prozent: f64,
+    pub durchschnitt_ms: Option<f64>,
+}
+
+/// One point of the curve. Both `ms` and `verlust` empty never occurs: skipped targets leave
+/// out the point.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Punkt {
+    /// Unix seconds.
+    pub zeit: u64,
+    pub ms: Option<f64>,
+    pub verlust: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Reihe {
+    pub ziel: &'static str,
+    pub punkte: Vec<Punkt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Bericht {
+    pub netz: String,
+    /// First and last sample time, unix seconds. 0 when there is no data.
+    pub von: u64,
+    pub bis: u64,
+    /// Empty: no measurements for this network yet.
+    pub ziele: Vec<ZielStatistik>,
+    /// Raw series of the last 6 hours, one per target in the order of `TARGETS`.
+    pub reihen: Vec<Reihe>,
+}
+
+/// One measurement of all targets right now. Per target `ms`, `verlust`, or both empty
+/// (not measured: the router is not a DNS server of this network).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Probe {
+    /// Unix seconds.
+    pub zeit: u64,
+    pub werte: Vec<Wert>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Wert {
+    pub ziel: &'static str,
+    pub ms: Option<f64>,
+    pub verlust: bool,
+}
+
+fn us_ms(us: u32) -> Option<f64> {
+    (us < SKIP).then(|| f64::from(us) / 1000.0)
+}
+
+fn opt_ms(us: Option<u32>) -> Option<f64> {
+    us.and_then(us_ms)
+}
+
+fn zielstatistik(ziel: &'static str, s: &Stats) -> ZielStatistik {
+    ZielStatistik {
+        ziel,
+        messungen: s.n,
+        verloren: s.lost,
+        verlust_prozent: s.loss_pct(),
+        median_ms: opt_ms(s.median),
+        p95_ms: opt_ms(s.p95),
+        max_ms: opt_ms(s.max),
+        laengster_aussetzer_s: s.outage,
+        schlechteste_stunde: s.worst.map(|(h, loss, mean)| SchlechtesteStunde {
+            stunde: h,
+            verlust_prozent: loss,
+            durchschnitt_ms: opt_ms(mean),
+        }),
+    }
+}
+
+fn build_report(name: &str, d: &NetData, now: u64) -> Option<Bericht> {
+    let ziele: Vec<_> = (0..3)
+        .filter_map(|k| stats(d, k).map(|s| zielstatistik(TARGETS[k], &s)))
         .collect();
-    if rows.is_empty() {
+    if ziele.is_empty() {
         return None;
     }
     let from = d
@@ -256,18 +345,33 @@ fn build_report(name: &str, d: &NetData) -> Option<Report> {
         .map(|h| h.h)
         .or(d.samples.first().map(|s| s.t))?;
     let to = d.samples.last().map_or(from + 3600, |s| s.t);
-    Some(Report {
-        name: name.to_string(),
-        from,
-        to,
-        rows,
+    let since = now.saturating_sub(SERIES_SECS);
+    let reihen = (0..3)
+        .map(|k| Reihe {
+            ziel: TARGETS[k],
+            punkte: d
+                .samples
+                .iter()
+                .filter(|s| s.t >= since && s.v[k] != SKIP)
+                .map(|s| Punkt {
+                    zeit: s.t,
+                    ms: us_ms(s.v[k]),
+                    verlust: s.v[k] == LOSS,
+                })
+                .collect(),
+        })
+        .collect();
+    Some(Bericht {
+        netz: name.to_string(),
+        von: from,
+        bis: to,
+        ziele,
+        reihen,
     })
 }
 
-fn ms(us: Option<u32>) -> String {
-    us.map_or("-".into(), |u| {
-        format!("{:.1} ms", f64::from(u) / 1000.0).replace('.', ",")
-    })
+fn ms(v: Option<f64>) -> String {
+    v.map_or("-".into(), |v| format!("{v:.1} ms").replace('.', ","))
 }
 
 fn pct(p: f64) -> String {
@@ -282,60 +386,62 @@ fn dur(secs: u64) -> String {
     }
 }
 
-fn worst_text(s: &Stats) -> String {
-    s.worst.map_or("-".into(), |(h, loss, mean)| {
+fn worst_text(s: &ZielStatistik) -> String {
+    s.schlechteste_stunde.as_ref().map_or("-".into(), |w| {
         format!(
             "{}, Verlust {}, Durchschnitt {}",
-            netze::format_utc(h),
-            pct(loss),
-            ms(mean)
+            netze::format_utc(w.stunde),
+            pct(w.verlust_prozent),
+            ms(w.durchschnitt_ms)
         )
     })
 }
 
-fn report_text(r: &Report) -> String {
+fn report_text(r: &Bericht) -> String {
     let mut out = format!(
         "Qualität von „{}“, {} bis {}\n",
-        r.name,
-        netze::format_utc(r.from),
-        netze::format_utc(r.to)
+        r.netz,
+        netze::format_utc(r.von),
+        netze::format_utc(r.bis)
     );
-    for (t, s) in &r.rows {
+    for s in &r.ziele {
         out += &format!(
-            "\n{t}\n  Messungen: {}, Verlust: {}\n  Median: {}, 95. Perzentil: {}, Maximum: {}\n  Längster Aussetzer: {}\n  Schlechteste Stunde: {}\n",
-            s.n,
-            pct(s.loss_pct()),
-            ms(s.median),
-            ms(s.p95),
-            ms(s.max),
-            dur(s.outage),
+            "\n{}\n  Messungen: {}, Verlust: {}\n  Median: {}, 95. Perzentil: {}, Maximum: {}\n  Längster Aussetzer: {}\n  Schlechteste Stunde: {}\n",
+            s.ziel,
+            s.messungen,
+            pct(s.verlust_prozent),
+            ms(s.median_ms),
+            ms(s.p95_ms),
+            ms(s.max_ms),
+            dur(s.laengster_aussetzer_s),
             worst_text(s)
         );
     }
     out
 }
 
-fn report_markdown(r: &Report) -> String {
+fn report_markdown(r: &Bericht) -> String {
     let mut out = format!(
         "# Netzqualität: {}\n\nZeitraum: {} bis {}\n\nGemessen mit `netz messen` (DNS-Anfragen und TCP-Verbindungen, kein Root). Ein Verlust ist eine Anfrage ohne Antwort innerhalb von 2 Sekunden.\n\n| Ziel | Messungen | Verlust | Median | 95. Perzentil | Maximum | Längster Aussetzer |\n|---|---|---|---|---|---|---|\n",
-        r.name,
-        netze::format_utc(r.from),
-        netze::format_utc(r.to)
+        r.netz,
+        netze::format_utc(r.von),
+        netze::format_utc(r.bis)
     );
-    for (t, s) in &r.rows {
+    for s in &r.ziele {
         out += &format!(
-            "| {t} | {} | {} | {} | {} | {} | {} |\n",
-            s.n,
-            pct(s.loss_pct()),
-            ms(s.median),
-            ms(s.p95),
-            ms(s.max),
-            dur(s.outage)
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            s.ziel,
+            s.messungen,
+            pct(s.verlust_prozent),
+            ms(s.median_ms),
+            ms(s.p95_ms),
+            ms(s.max_ms),
+            dur(s.laengster_aussetzer_s)
         );
     }
     out += "\n## Schlechteste Stunde je Ziel\n\n";
-    for (t, s) in &r.rows {
-        out += &format!("- {t}: {}\n", worst_text(s));
+    for s in &r.ziele {
+        out += &format!("- {}: {}\n", s.ziel, worst_text(s));
     }
     out
 }
@@ -374,11 +480,88 @@ fn measure(router: Option<IpAddr>) -> [u32; 3] {
     [router.map_or(SKIP, dns), dns(one), tcp]
 }
 
+/// The router is only measured if it is one of the DNS servers of the network.
+fn router_of(info: &hier::NetInfo) -> Option<IpAddr> {
+    info.router
+        .filter(|r| info.dhcp_dns.contains(r))
+        .map(IpAddr::V4)
+}
+
+/// Measures once and appends the sample to the store under `key`.
+fn ablegen_messung(path: &Path, key: &str, router: Option<IpAddr>) -> Result<Sample, String> {
+    let s = Sample {
+        t: netze::now(),
+        v: measure(router),
+    };
+    ablegen(path, key, &s)?;
+    Ok(s)
+}
+
+fn ablegen(path: &Path, key: &str, s: &Sample) -> Result<(), String> {
+    let mut store: Store = netze::load_json(path)?;
+    let d = store.entry(key.to_string()).or_default();
+    d.samples.push(s.clone());
+    compact(d, s.t);
+    // ponytail: the whole file is rewritten per sample, pretty JSON, a few MB at most
+    // (48 h at 5 s). Upgrade path: append-only lines file plus compaction on start.
+    netze::save(path, &store)
+}
+
+/// Measures the current (stored) network once and stores the sample. The app calls this on
+/// its own timer, about every 5 s.
+pub fn messen_einmal() -> Result<Probe, String> {
+    let (net, info) = current_net()?;
+    let s = ablegen_messung(&store_path()?, &net.fingerprint.key(), router_of(&info))?;
+    Ok(Probe {
+        zeit: s.t,
+        werte: (0..3)
+            .map(|k| Wert {
+                ziel: TARGETS[k],
+                ms: us_ms(s.v[k]),
+                verlust: s.v[k] == LOSS,
+            })
+            .collect(),
+    })
+}
+
+/// Statistics and the 6 h curve of the named network, or of the current one.
+/// No measurements yet: `ziele` is empty.
+pub fn bericht_daten(name: Option<&str>) -> Result<Bericht, String> {
+    let (net_name, key) = match name {
+        Some(n) => {
+            let list = netze::load(&netze::data_path()?)?;
+            let net = list.iter().find(|x| x.name == n).ok_or_else(|| {
+                format!("Ein Netz „{n}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
+            })?;
+            (net.name.clone(), net.fingerprint.key())
+        }
+        None => {
+            let (net, _) = current_net()?;
+            (net.name.clone(), net.fingerprint.key())
+        }
+    };
+    bericht_aus(&store_path()?, &net_name, &key, netze::now())
+}
+
+fn bericht_aus(path: &Path, name: &str, key: &str, now: u64) -> Result<Bericht, String> {
+    let store: Store = netze::load_json(path)?;
+    Ok(store
+        .get(key)
+        .and_then(|d| build_report(name, d, now))
+        .unwrap_or_else(|| Bericht {
+            netz: name.to_string(),
+            von: 0,
+            bis: 0,
+            ziele: vec![],
+            reihen: vec![],
+        }))
+}
+
 fn cell(us: u32) -> String {
     match us {
         LOSS => "Verlust".into(),
         SKIP => "übersprungen".into(),
-        us => ms(Some(us)),
+        us => ms(us_ms(us)),
     }
 }
 
@@ -399,10 +582,7 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
     let takt = num(args, "--takt", 5, 3600)?;
     let (net, info) = current_net()?;
     let key = net.fingerprint.key();
-    let router = info
-        .router
-        .filter(|r| info.dhcp_dns.contains(r))
-        .map(IpAddr::V4);
+    let router = router_of(&info);
     if router.is_none() {
         println!(
             "Der Router ist nicht einer der DNS-Server dieses Netzes. Ich überspringe die DNS-Messung zum Router und messe nur 1.1.1.1."
@@ -421,23 +601,13 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
     let mut session = Vec::new();
     for i in 1..=total {
         let started = Instant::now();
-        let s = Sample {
-            t: netze::now(),
-            v: measure(router),
-        };
+        let s = ablegen_messung(&path, &key, router)?;
         println!(
             "{i}/{total}  Router {} | DNS 1.1.1.1 {} | TCP 1.1.1.1 {}",
             cell(s.v[0]),
             cell(s.v[1]),
             cell(s.v[2])
         );
-        let mut store: Store = netze::load_json(&path)?;
-        let d = store.entry(key.clone()).or_default();
-        d.samples.push(s.clone());
-        compact(d, s.t);
-        // ponytail: the whole file is rewritten per sample, pretty JSON, a few MB at most
-        // (48 h at 5 s). Upgrade path: append-only lines file plus compaction on start.
-        netze::save(&path, &store)?;
         session.push(s);
         if i < total
             && let Some(left) = Duration::from_secs(takt).checked_sub(started.elapsed())
@@ -449,7 +619,7 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
         samples: session,
         hours: vec![],
     };
-    if let Some(r) = build_report(&net.name, &d) {
+    if let Some(r) = build_report(&net.name, &d, netze::now()) {
         println!("\nZusammenfassung dieser Messung\n{}", report_text(&r));
     }
     explain(
@@ -492,26 +662,14 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
             name = Some(a.as_str());
         }
     }
-    let (net_name, key) = match name {
-        Some(n) => {
-            let list = netze::load(&netze::data_path()?)?;
-            let net = list.iter().find(|x| x.name == n).ok_or_else(|| {
-                format!("Ein Netz „{n}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
-            })?;
-            (net.name.clone(), net.fingerprint.key())
-        }
-        None => {
-            let (net, _) = current_net()?;
-            (net.name.clone(), net.fingerprint.key())
-        }
-    };
-    let store: Store = netze::load_json(&store_path()?)?;
-    let Some(r) = store.get(&key).and_then(|d| build_report(&net_name, d)) else {
+    let r = bericht_daten(name)?;
+    if r.ziele.is_empty() {
         println!(
-            "Für „{net_name}“ gibt es noch keine Messungen. Starte `netz messen`, am besten für mehrere Stunden mit `--minuten 240`."
+            "Für „{}“ gibt es noch keine Messungen. Starte `netz messen`, am besten für mehrere Stunden mit `--minuten 240`.",
+            r.netz
         );
         return Ok(());
-    };
+    }
     print!("{}", report_text(&r));
     if let Some(file) = md {
         std::fs::write(file, report_markdown(&r)).map_err(|e| {
@@ -662,12 +820,12 @@ mod tests {
         let st = stats(&d, 1).unwrap();
         assert_eq!((st.n, st.lost), (18, 3));
         assert_eq!(st.max, Some(90_000));
-        assert_eq!(build_report("X", &d).unwrap().from, 50 * 3600);
+        assert_eq!(build_report("X", &d, 0).unwrap().von, 50 * 3600);
     }
 
     #[test]
     fn report_texts() {
-        let r = build_report("Firma", &fixture()).unwrap();
+        let r = build_report("Firma", &fixture(), 0).unwrap();
         let t = report_text(&r);
         assert!(t.starts_with("Qualität von „Firma“"));
         assert!(t.contains("1.1.1.1 (DNS)\n  Messungen: 14, Verlust: 14,3 %"));
@@ -684,12 +842,58 @@ mod tests {
 
     #[test]
     fn report_without_data() {
-        assert!(build_report("X", &NetData::default()).is_none());
+        assert!(build_report("X", &NetData::default(), 0).is_none());
         let d = NetData {
             samples: vec![s(0, [SKIP; 3])],
             hours: vec![],
         };
-        assert!(build_report("X", &d).is_none());
+        assert!(build_report("X", &d, 0).is_none());
+    }
+
+    #[test]
+    fn series_covers_last_six_hours_only() {
+        let now = 100 * 3600 + 7 * 3600;
+        let d = NetData {
+            samples: vec![
+                one(now - 6 * 3600 - 1, 1000),
+                one(now - 6 * 3600, 2000),
+                s(now - 10, [SKIP, LOSS, 3000]),
+            ],
+            hours: vec![],
+        };
+        let r = build_report("X", &d, now).unwrap();
+        assert_eq!(r.reihen.len(), 3);
+        // too old sample is out, skipped router leaves no point
+        assert_eq!(r.reihen[0].punkte.len(), 1);
+        assert_eq!(r.reihen[1].punkte.len(), 2);
+        assert_eq!(r.reihen[1].punkte[0].zeit, now - 6 * 3600);
+        assert_eq!(r.reihen[1].punkte[0].ms, Some(2.0));
+        assert!(r.reihen[1].punkte[1].verlust && r.reihen[1].punkte[1].ms.is_none());
+        // the statistics still use all samples
+        assert_eq!(r.ziele[1].messungen, 3);
+        assert_eq!(r.ziele[1].median_ms, Some(1.5));
+        assert!(
+            serde_json::to_string(&r)
+                .unwrap()
+                .contains("laengster_aussetzer_s")
+        );
+    }
+
+    #[test]
+    fn store_and_report_from_file() {
+        let dir = std::env::temp_dir().join(format!("netz-messen-{}", std::process::id()));
+        let path = dir.join("qualitaet.json");
+        let now = netze::now();
+        let empty = bericht_aus(&path, "WG", "k", now).unwrap();
+        assert!(empty.ziele.is_empty() && empty.reihen.is_empty() && empty.netz == "WG");
+        ablegen(&path, "k", &s(now - 5, [SKIP, 4000, LOSS])).unwrap();
+        ablegen(&path, "k", &s(now, [SKIP, 6000, 9000])).unwrap();
+        let r = bericht_aus(&path, "WG", "k", now).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(r.ziele.len(), 2);
+        assert_eq!(r.ziele[0].ziel, TARGETS[1]);
+        assert_eq!(r.reihen[2].punkte.len(), 2);
+        assert_eq!(r.bis, now);
     }
 
     #[test]

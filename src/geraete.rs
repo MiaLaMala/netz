@@ -6,6 +6,7 @@ use crate::subnetz::{self, Subnet};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -16,12 +17,30 @@ const TIMEOUT: Duration = Duration::from_millis(300);
 const MAX_PLAIN_HOSTS_PREFIX: u8 = 22;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Device {
-    ip: Ipv4Addr,
-    name: Option<String>,
-    ports: Vec<u16>,
-    first_seen: u64,
-    last_seen: u64,
+pub struct Device {
+    pub ip: Ipv4Addr,
+    /// Reverse DNS name, if the resolver knows one.
+    pub name: Option<String>,
+    /// Open ports among the probed ones. Empty: the device refused every connection.
+    pub ports: Vec<u16>,
+    /// Unix seconds.
+    pub first_seen: u64,
+    pub last_seen: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GeraeteErgebnis {
+    /// Scanned range, e.g. `192.168.178.0/24`.
+    pub bereich: String,
+    /// Number of addresses probed.
+    pub adressen: usize,
+    /// Devices found now.
+    pub geraete: Vec<Device>,
+    /// Found now, unknown before. Always empty on the first run.
+    pub neu: Vec<Device>,
+    /// Known, inside the range, not found now.
+    pub verschwunden: Vec<Device>,
+    pub erster_lauf: bool,
 }
 
 /// Per network (key = `Fingerprint::key()`) the devices seen so far.
@@ -184,60 +203,35 @@ fn show(d: &Device, tag: &str) {
     );
 }
 
-pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    let e = |t: &str| crate::explain(explain_on, t);
-    let mut cidr = None;
-    let mut gross = false;
-    for a in args {
-        match a.as_str() {
-            "--gross" => gross = true,
-            s if s.starts_with("--") => {
-                return Err(format!(
-                    "Unbekannte Option „{s}“. Es gibt nur `--gross` und `--erklaer`."
-                ));
-            }
-            _ if cidr.is_none() => cidr = Some(subnetz::parse_args(std::slice::from_ref(a))?),
-            _ => {
-                return Err(
-                    "Es passt nur ein Bereich, z. B. `netz geraete 192.168.178.0/24`.".into(),
-                );
-            }
-        }
-    }
-
-    e(
-        "Zuerst prüfe ich, ob dieses Netz als „meins“ markiert ist. Fremde Netze (Schule, Firma, Hotspot) durchzuprobieren gibt Ärger, deshalb gibt es hier keine Abkürzung wie bei `netz ports`. Bis zu dieser Prüfung wird kein Paket gesendet.",
-    );
+/// Searches devices in the current network. Refuses unless the network is marked „meins“, the
+/// range lies inside the current subnet (or is 127.0.0.1) and, above /22, `gross` is set.
+/// Nothing is sent before the checks pass.
+pub fn suchen(cidr: Option<&str>, gross: bool) -> Result<GeraeteErgebnis, String> {
+    let cidr = cidr
+        .map(|c| subnetz::parse_args(&[c.to_string()]))
+        .transpose()?;
     let meins = netze::current_is_meins();
     let info = crate::hier::collect()?;
-    let fp: Fingerprint = netze::fingerprint(&info)?;
+    let fp = netze::fingerprint(&info)?;
     let current = info.subnet.ok_or("Das aktuelle Subnetz ist unbekannt.")?;
-    let target = gate(meins, &current, cidr, gross)?;
-    e("Erlaubt: Das Netz ist „meins“, und der Bereich liegt ganz im eigenen Subnetz.");
+    let path = netze::data_path()?.with_file_name("geraete.json");
+    suchen_in(&path, &fp, meins, &current, cidr, gross)
+}
 
+fn suchen_in(
+    path: &Path,
+    fp: &Fingerprint,
+    meins: bool,
+    current: &Subnet,
+    cidr: Option<(Ipv4Addr, u8)>,
+    gross: bool,
+) -> Result<GeraeteErgebnis, String> {
+    let target = gate(meins, current, cidr, gross)?;
     let hosts: Vec<Ipv4Addr> = (u32::from(target.first)..=u32::from(target.last))
         .map(Ipv4Addr::from)
         .collect();
-    println!(
-        "Suche Geräte in {}/{} (Adressen: {}, Ports je Adresse: {}, Timeout {} ms)",
-        target.network,
-        target.prefix,
-        hosts.len(),
-        PORTS.len(),
-        TIMEOUT.as_millis()
-    );
-    e(
-        "Ohne Root-Rechte kann ich weder pingen noch ARP lesen. Also versuche ich bei jeder Adresse einen TCP-Verbindungsaufbau auf ein paar gängige Ports (SSH, DNS, Web, Dateifreigabe, Drucker, AirPlay, iPhone-Sync).",
-    );
-    e(
-        "Ein Gerät gilt als da, wenn ein Port offen ist ODER die Verbindung aktiv abgelehnt wird. Eine Ablehnung ist ein RST-Paket, und das kann nur ein laufendes Gerät schicken. Wo gar nichts antwortet, ist entweder niemand da oder eine Firewall schweigt: Solche Geräte sehe ich nicht.",
-    );
     let present = discover(&hosts, PORTS);
-
     let resolver = crate::dns::system_resolver().ok();
-    e(
-        "Zu jedem gefundenen Gerät frage ich den DNS-Server deines Systems nach dem Namen. Das ist ein PTR-Eintrag (Pointer): die Rückwärtsauflösung von IP zu Name, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.",
-    );
     let t = netze::now();
     let names = par(present.len(), |i| {
         let ip = present[i].0;
@@ -258,26 +252,81 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         })
         .collect();
 
-    let path = netze::data_path()?.with_file_name("geraete.json");
-    let mut store: Store = netze::load_json(&path)?;
+    let mut store: Store = netze::load_json(path)?;
     let list = store.entry(fp.key()).or_default();
-    let had_any = !list.is_empty();
-    let all = found.clone();
-    let (new, gone) = merge(list, found, target.first, target.last);
+    let erster_lauf = list.is_empty();
+    let geraete = found.clone();
+    let (mut neu, verschwunden) = merge(list, found, target.first, target.last);
+    if erster_lauf {
+        neu.clear();
+    }
+    netze::save(path, &store)?;
+    Ok(GeraeteErgebnis {
+        bereich: format!("{}/{}", target.network, target.prefix),
+        adressen: hosts.len(),
+        geraete,
+        neu,
+        verschwunden,
+        erster_lauf,
+    })
+}
 
-    println!("Gefundene Geräte: {}", all.len());
-    for d in &all {
-        let is_new = had_any && new.iter().any(|n| n.ip == d.ip);
+pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    let e = |t: &str| crate::explain(explain_on, t);
+    let mut cidr = None;
+    let mut gross = false;
+    for a in args {
+        match a.as_str() {
+            "--gross" => gross = true,
+            s if s.starts_with("--") => {
+                return Err(format!(
+                    "Unbekannte Option „{s}“. Es gibt nur `--gross` und `--erklaer`."
+                ));
+            }
+            _ if cidr.is_none() => cidr = Some(a.as_str()),
+            _ => {
+                return Err(
+                    "Es passt nur ein Bereich, z. B. `netz geraete 192.168.178.0/24`.".into(),
+                );
+            }
+        }
+    }
+
+    e(
+        "Zuerst prüfe ich, ob dieses Netz als „meins“ markiert ist. Fremde Netze (Schule, Firma, Hotspot) durchzuprobieren gibt Ärger, deshalb gibt es hier keine Abkürzung wie bei `netz ports`. Bis zu dieser Prüfung wird kein Paket gesendet.",
+    );
+    let r = suchen(cidr, gross)?;
+    e("Erlaubt: Das Netz ist „meins“, und der Bereich liegt ganz im eigenen Subnetz.");
+    println!(
+        "Suche Geräte in {} (Adressen: {}, Ports je Adresse: {}, Timeout {} ms)",
+        r.bereich,
+        r.adressen,
+        PORTS.len(),
+        TIMEOUT.as_millis()
+    );
+    e(
+        "Ohne Root-Rechte kann ich weder pingen noch ARP lesen. Also versuche ich bei jeder Adresse einen TCP-Verbindungsaufbau auf ein paar gängige Ports (SSH, DNS, Web, Dateifreigabe, Drucker, AirPlay, iPhone-Sync).",
+    );
+    e(
+        "Ein Gerät gilt als da, wenn ein Port offen ist ODER die Verbindung aktiv abgelehnt wird. Eine Ablehnung ist ein RST-Paket, und das kann nur ein laufendes Gerät schicken. Wo gar nichts antwortet, ist entweder niemand da oder eine Firewall schweigt: Solche Geräte sehe ich nicht.",
+    );
+    e(
+        "Zu jedem gefundenen Gerät frage ich den DNS-Server deines Systems nach dem Namen. Das ist ein PTR-Eintrag (Pointer): die Rückwärtsauflösung von IP zu Name, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.",
+    );
+
+    println!("Gefundene Geräte: {}", r.geraete.len());
+    for d in &r.geraete {
+        let is_new = r.neu.iter().any(|n| n.ip == d.ip);
         show(d, if is_new { "neu" } else { "" });
     }
-    if had_any {
-        println!("{} neu seit dem letzten Mal.", new.len());
-    } else {
+    if r.erster_lauf {
         println!("Erster Lauf in diesem Netz: alles ist der Ausgangsstand, nichts ist „neu“.");
+    } else {
+        println!("{} neu seit dem letzten Mal.", r.neu.len());
     }
-    if !gone.is_empty() {
+    if !r.verschwunden.is_empty() {
         println!("Verschwunden (früher da, jetzt nicht gefunden):");
-        for d in &gone {
+        for d in &r.verschwunden {
             show(d, "weg");
             println!(
                 "                   zuletzt gesehen: {}",
@@ -285,7 +334,6 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             );
         }
     }
-    netze::save(&path, &store)?;
     e(
         "Die Liste liegt pro Netz in geraete.json neben deiner Netzliste. Verschwunden heißt nur: heute nicht gefunden. Ein Handy im Standby oder ein ausgeschalteter Rechner fällt genauso heraus.",
     );
@@ -350,6 +398,50 @@ mod tests {
         let t = gate(true, &net(), c("127.0.0.1/32"), false).unwrap();
         assert_eq!(t.first, ip("127.0.0.1"));
         assert!(gate(true, &net(), c("127.0.0.0/8"), false).is_err());
+    }
+
+    fn fp() -> Fingerprint {
+        Fingerprint {
+            router: ip("192.168.178.1"),
+            dhcp_server: ip("192.168.178.1"),
+            domain: None,
+            subnet: "192.168.178.0/24".into(),
+        }
+    }
+
+    fn tmp(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("netz-geraete-{}-{name}", std::process::id()))
+    }
+
+    #[test]
+    fn suchen_gate_sits_inside_and_sends_nothing_when_refused() {
+        let fp = fp();
+        let path = tmp("gate").join("geraete.json");
+        let go = |meins, cidr: &str, gross| suchen_in(&path, &fp, meins, &net(), c(cidr), gross);
+        assert!(
+            go(false, "127.0.0.1/32", true)
+                .unwrap_err()
+                .contains("„meins“")
+        );
+        assert!(go(true, "10.0.0.1/32", true).is_err());
+        assert!(go(true, "192.168.0.0/16", true).is_err());
+        assert!(!path.exists(), "a refusal must not write anything");
+    }
+
+    #[test]
+    fn suchen_on_loopback_first_run_then_second() {
+        let dir = tmp("loop");
+        let path = dir.join("geraete.json");
+        let fp = fp();
+        let r1 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false).unwrap();
+        assert_eq!((r1.bereich.as_str(), r1.adressen), ("127.0.0.1/32", 1));
+        assert!(r1.erster_lauf && r1.neu.is_empty());
+        // loopback answers with at least a refusal, so it counts as a device
+        assert_eq!(r1.geraete.len(), 1);
+        let r2 = suchen_in(&path, &fp, true, &net(), c("127.0.0.1/32"), false).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!r2.erster_lauf && r2.neu.is_empty() && r2.verschwunden.is_empty());
+        assert!(serde_json::to_string(&r2).unwrap().contains("verschwunden"));
     }
 
     #[test]
