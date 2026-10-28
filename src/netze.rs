@@ -4,6 +4,7 @@
 
 use crate::explain;
 use crate::hier::{self, NetInfo};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,18 @@ pub struct Fingerprint {
     pub domain: Option<String>,
     /// Network address and prefix, e.g. "192.168.178.0/24".
     pub subnet: String,
+}
+
+impl Fingerprint {
+    /// Stable string key for per-network data in other files (survives renaming a network).
+    #[allow(dead_code)] // used by #6, #7, #8; removed after they are merged
+    pub fn key(&self) -> String {
+        let domain = self.domain.as_deref().unwrap_or("");
+        format!(
+            "{}|{}|{}|{}",
+            self.router, self.dhcp_server, domain, self.subnet
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,18 +78,24 @@ pub fn data_path() -> Result<PathBuf, String> {
 /// Reads the store. A missing file is an empty list. A file that cannot be read or parsed is
 /// moved to `netze.json.kaputt-<secs>` and never overwritten; if that fails, nothing continues.
 pub fn load(path: &Path) -> Result<Vec<Netz>, String> {
+    load_json(path)
+}
+
+/// Same rules as `load` for any JSON file of netz (e.g. `data_path()?.with_file_name("x.json")`).
+/// A missing file gives `T::default()`.
+pub fn load_json<T: DeserializeOwned + Default>(path: &Path) -> Result<T, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
         Err(e) => return set_aside(path, &format!("nicht lesbar ({e})")),
     };
     match serde_json::from_str(&text) {
-        Ok(list) => Ok(list),
+        Ok(data) => Ok(data),
         Err(e) => set_aside(path, &format!("kaputt ({e})")),
     }
 }
 
-fn set_aside(path: &Path, why: &str) -> Result<Vec<Netz>, String> {
+fn set_aside<T: Default>(path: &Path, why: &str) -> Result<T, String> {
     let mut name = path.as_os_str().to_owned();
     name.push(format!(".kaputt-{}", now()));
     let aside = PathBuf::from(name);
@@ -87,18 +106,19 @@ fn set_aside(path: &Path, why: &str) -> Result<Vec<Netz>, String> {
         )
     })?;
     eprintln!(
-        "Hinweis: Die Datei mit den gemerkten Netzen war {why}. Ich habe sie als {} beiseitegelegt und fange mit einer leeren Liste an.",
+        "Hinweis: Die Datei {} war {why}. Ich habe sie als {} beiseitegelegt und fange leer an.",
+        path.display(),
         aside.display()
     );
-    Ok(Vec::new())
+    Ok(T::default())
 }
 
 /// Writes a temp file next to `path`, then renames it over `path`.
-pub fn save(path: &Path, list: &[Netz]) -> Result<(), String> {
+pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> {
     let err = |e: std::io::Error| {
         format!(
-            "Die gemerkten Netze ließen sich nicht speichern ({e}). Prüfe den Ordner {} und versuche es noch mal.",
-            path.parent().unwrap_or(path).display()
+            "Die Datei {} ließ sich nicht speichern ({e}). Prüfe den Ordner und versuche es noch mal.",
+            path.display()
         )
     };
     if let Some(dir) = path.parent() {

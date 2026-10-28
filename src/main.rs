@@ -1,9 +1,12 @@
 //! netz: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
 
 mod dns;
+mod geraete;
 mod hier;
+mod messen;
 mod netze;
 mod ports;
+mod pruefen;
 mod subnetz;
 mod tls;
 
@@ -21,6 +24,10 @@ Befehle:
   netz merken <Name> [--meins]  Aktuelles Netz merken, optional als „meins“ markieren
   netz netze             Gemerkte Netze auflisten
   netz vergessen <Name>  Ein gemerktes Netz löschen
+  netz pruefen           Was ist anders als beim letzten Besuch?
+  netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
+  netz bericht [Netz]    Qualität eines Netzes über die Zeit
+  netz geraete           Geräte im eigenen Netz, neu und verschwunden
 
 Optionen:
   --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
@@ -49,6 +56,10 @@ fn main() -> ExitCode {
         "merken" => netze::run_merken(rest, explain_on),
         "netze" => netze::run_netze(rest, explain_on),
         "vergessen" => netze::run_vergessen(rest, explain_on),
+        "pruefen" => pruefen::run(rest, explain_on),
+        "messen" => messen::run_messen(rest, explain_on),
+        "bericht" => messen::run_bericht(rest, explain_on),
+        "geraete" => geraete::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
