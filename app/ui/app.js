@@ -138,6 +138,8 @@
   }
 
   function start() {
+    // Only events, no initial check: unknown focus (e.g. headless Chrome) looks active.
+    for (const ev of ['focus', 'blur']) window.addEventListener(ev, () => document.documentElement.classList.toggle('inaktiv', ev === 'blur'));
     baueMenue();
     erklaermodus();
     document.getElementById('aktualisieren').addEventListener('click', neuLaden);

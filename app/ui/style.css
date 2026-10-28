@@ -79,8 +79,12 @@ button, input { font: inherit; color: inherit; }
   text-align: left; width: 100%;
 }
 .eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
-.eintrag[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 10%, transparent); }
-.eintrag:active { background: color-mix(in srgb, var(--fg) 16%, transparent); }
+/* Selection: system accent while the window is active, grey otherwise (html.inaktiv, set in app.js). */
+.eintrag[aria-selected="true"] { background: var(--accent); color: var(--auf-accent); }
+.eintrag[aria-selected="true"] svg { color: inherit; }
+.inaktiv .eintrag[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 14%, transparent); color: var(--fg); }
+.inaktiv .eintrag[aria-selected="true"] svg { color: var(--fg2); }
+.eintrag:active:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 16%, transparent); }
 
 /* Inhalt: fest, mit Werkzeugleiste */
 .inhalt {
@@ -187,5 +191,6 @@ button, input { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+.formular .liste { padding: 8px 0; }
 .formular .zeile { padding: 12px 0; }
 .formular .zeile:has(input[type="text"]) { align-items: center; }
