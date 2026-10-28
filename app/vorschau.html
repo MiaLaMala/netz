@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>netz Vorschau</title>
+  <!-- Nur zum Entwickeln, die App lädt diese Datei nicht. Ersetzt Tauri durch erfundene Daten und lädt dann
+       die echte Oberfläche aus ui/. Aufruf: vorschau.html#bekannt  oder  #unbekannt,formular  oder
+       #netze  #pruefung  #vpn  #fehler, dazu optional ,erklaeren  und  ,vergessen. -->
+  <link rel="stylesheet" href="ui/style.css">
+  <style>
+    /* Chrome hat kein Fenstermaterial: die Seitenleiste bekommt hier ersatzweise ihre Farbe. */
+    html { background: #e4e4e8; }
+    @media (prefers-color-scheme: dark) { html { background: #2c2c2e; } }
+  </style>
+  <script>
+    const marken = location.hash.slice(1).split(',');
+    const t = 1793050200; // Mo 26.10.2026, 21:30 UTC
+    const fp = (router, domain, subnet) => ({ router, dhcp_server: router, domain, subnet });
+    let netze = [
+      { name: 'WG', fingerprint: fp('192.168.178.1', 'fritz.box', '192.168.178.0/24'), meins: true, first_seen: t - 86400 * 90, last_seen: t },
+      { name: 'Arbeit', fingerprint: fp('10.20.0.1', 'firma.example', '10.20.0.0/22'), meins: false, first_seen: t - 86400 * 40, last_seen: t - 86400 * 3 },
+      { name: 'Hotspot', fingerprint: fp('172.20.10.1', null, '172.20.10.0/28'), meins: false, first_seen: t - 86400 * 12, last_seen: t - 86400 * 9 },
+    ];
+    const subnet = { ip: '192.168.178.20', prefix: 24, mask: '255.255.255.0', network: '192.168.178.0', broadcast: '192.168.178.255', first: '192.168.178.1', last: '192.168.178.254', hosts: 254 };
+    const wlan = { interface: 'en0', ip: '192.168.178.20', subnet, router: '192.168.178.1', dhcp_server: '192.168.178.1', dhcp_dns: ['192.168.178.1', '192.0.2.53'], system_dns: ['100.100.100.100', 'fd7a:115c:a1e0::53', '192.168.178.1'], domain: 'fritz.box' };
+    const vpn = { interface: 'utun4', ip: '100.64.0.7', subnet: null, router: '100.64.0.1', dhcp_server: null, dhcp_dns: [], system_dns: ['100.100.100.100'], domain: null };
+    const kein = 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
+    const antworten = {
+      dieses_netz: async () => {
+        if (marken.includes('fehler')) throw kein;
+        if (marken.includes('vpn')) return { info: vpn, netz: null, erkennung_fehler: 'Dieses Netz lässt sich nicht wiedererkennen: Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) gibt es keinen Fingerabdruck. Verbinde dich direkt mit dem WLAN oder Kabel und versuche es noch mal.', hinweis: null };
+        const bekannt = marken.includes('bekannt');
+        return { info: wlan, netz: bekannt ? { ...netze[0], last_seen: t - 3600 * 20 } : null, erkennung_fehler: null, hinweis: null };
+      },
+      gemerkte_netze: async () => (marken.includes('leerliste') ? [] : netze),
+      netz_merken: async ({ name }) => {
+        if (name.trim() === '') throw 'Der Name ist leer. Beispiel: `netz merken WG`.';
+        if (name.trim() === 'WG') throw 'Der Name „WG“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netz vergessen WG`.';
+      },
+      netz_vergessen: async ({ name }) => { netze = netze.filter((n) => n.name !== name); },
+    };
+    window.__TAURI__ = { core: { invoke: (befehl, args) => antworten[befehl](args) } };
+
+    addEventListener('DOMContentLoaded', () => setTimeout(() => {
+      const klick = (s) => document.querySelector(s)?.click();
+      if (marken.includes('netze')) klick('#tab-gemerkte-netze');
+      if (marken.includes('pruefung')) klick('#tab-pruefung');
+      if (marken.includes('geraete')) klick('#tab-geraete');
+      setTimeout(() => {
+        if (marken.includes('erklaeren')) klick('#erklaeren');
+        if (marken.includes('formular')) klick('.aktion button');
+        if (marken.includes('formular-fehler')) { klick('.aktion button'); document.querySelector('.formular').requestSubmit(); }
+        if (marken.includes('vergessen')) klick('.netz-zeile:nth-child(2) button');
+      }, 150);
+    }, 100));
+  </script>
+  <script defer src="ui/app.js"></script>
+  <script defer src="ui/ansichten/dieses-netz.js"></script>
+  <script defer src="ui/ansichten/gemerkte-netze.js"></script>
+  <script defer src="ui/ansichten/pruefung.js"></script>
+  <script defer src="ui/ansichten/qualitaet.js"></script>
+  <script defer src="ui/ansichten/geraete.js"></script>
+</head>
+<body>
+  <nav class="seite" aria-label="Bereiche">
+    <div class="ziehen"></div>
+    <div class="menue" id="menue" role="tablist" aria-orientation="vertical"></div>
+  </nav>
+  <div class="inhalt">
+    <header class="leiste">
+      <h1 id="titel"></h1>
+      <button class="erklaeren-schalter" id="erklaeren" role="switch" aria-checked="false"><span class="spur"></span><span>Erklären</span></button>
+      <button class="knopf" id="aktualisieren">Aktualisieren <span class="kbd" aria-hidden="true">⌘R</span></button>
+    </header>
+    <main class="scroll" id="scroll" role="tabpanel" tabindex="-1"></main>
+  </div>
+</body>
+</html>

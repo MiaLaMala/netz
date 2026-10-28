@@ -1,0 +1,191 @@
+/* netz: Mac-Optik. Systemschrift, System Settings als Vorbild. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --gruppe: #fff;
+  --fg: #1d1d1f;
+  --fg2: #6e6e73;
+  --linie: rgba(0, 0, 0, 0.1);
+  --knopf: #fff;
+  --knopf-aktiv: #ececef;
+  --seite-solid: #e8e8ea;
+  --gruen: #248a3d;
+  --orange: #c26a00;
+  --rot: #d70015;
+  --grau: #8e8e93;
+  --accent: #0a62e8;
+  --auf-accent: #fff;
+}
+@supports (color: -apple-system-control-accent) {
+  :root { --accent: -apple-system-control-accent; }
+}
+@supports (color: AccentColor) {
+  :root { --accent: AccentColor; --auf-accent: AccentColorText; }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --gruppe: #2a2a2c;
+    --fg: #f5f5f7;
+    --fg2: #a1a1a6;
+    --linie: rgba(255, 255, 255, 0.12);
+    --knopf: #3a3a3c;
+    --knopf-aktiv: #4a4a4d;
+    --seite-solid: #2c2c2e;
+    --gruen: #30d158;
+    --orange: #ff9f0a;
+    --rot: #ff453a;
+    --accent: #0a84ff;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: transparent; }
+body {
+  display: flex;
+  font: 13px/1.4 -apple-system, system-ui, sans-serif;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+dd, .meldung, .wert { -webkit-user-select: text; user-select: text; }
+h1, h2, p, dl, dd, ul { margin: 0; }
+button, input { font: inherit; color: inherit; }
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+.num, .wert { font-variant-numeric: tabular-nums; }
+
+/* Seitenleiste: läuft bis ganz nach oben, Material kommt vom Fenster */
+.seite {
+  flex: none;
+  width: 216px;
+  padding: 52px 10px 12px;
+  position: relative;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .seite { background: var(--seite-solid); }
+}
+.ziehen { position: absolute; inset: 0 0 auto 0; height: 52px; }
+.menue { display: flex; flex-direction: column; gap: 2px; }
+.eintrag {
+  display: flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: none;
+  text-align: left; width: 100%;
+}
+.eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.eintrag[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.eintrag:active { background: color-mix(in srgb, var(--fg) 16%, transparent); }
+
+/* Inhalt: fest, mit Werkzeugleiste */
+.inhalt {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  border-left: 0.5px solid var(--linie);
+}
+.leiste {
+  flex: none; height: 52px; padding: 0 20px;
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 0.5px solid var(--linie);
+  position: relative;
+}
+.leiste h1 { font-size: 15px; font-weight: 600; flex: 1; letter-spacing: -0.01em; }
+.leiste > * { position: relative; }
+.leiste .ziehen { height: 100%; position: absolute; }
+.erklaeren-schalter { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 4px; border-radius: 6px; }
+.spur {
+  width: 28px; height: 16px; border-radius: 8px; flex: none;
+  background: color-mix(in srgb, var(--fg) 22%, transparent);
+  position: relative; transition: background 0.15s ease-out;
+}
+.spur::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  transition: transform 0.15s ease-out;
+}
+[aria-checked="true"] > .spur { background: var(--accent); }
+[aria-checked="true"] > .spur::after { transform: translateX(12px); }
+.erklaeren-schalter:active .spur::after { width: 14px; }
+
+.knopf {
+  height: 24px; padding: 0 12px; border-radius: 6px;
+  border: 0.5px solid var(--linie); background: var(--knopf);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.knopf:active { background: var(--knopf-aktiv); }
+.knopf.haupt { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
+.knopf.haupt:active { filter: brightness(0.88); }
+.knopf:disabled { opacity: 0.5; }
+.knopf .kbd { color: var(--fg2); font-size: 12px; }
+
+.scroll { flex: 1; overflow-y: auto; }
+.ansicht { max-width: 620px; margin: 0 auto; padding: 22px 28px 40px; }
+.ansicht.neu { animation: rein 0.18s ease-out; }
+@keyframes rein { from { opacity: 0; transform: translateY(4px); } }
+
+/* Kopf einer Ansicht: ein Name, eine Statuszeile */
+.kopf h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.status { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: var(--fg2); }
+.punkt { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--grau); }
+.punkt.gruen { background: var(--gruen); }
+.punkt.orange { background: var(--orange); }
+.punkt.rot { background: var(--rot); }
+.aktion { margin-top: 14px; }
+
+/* Gruppen wie in den Systemeinstellungen */
+.gruppe { margin-top: 22px; }
+.gruppe > h3 { margin: 0 0 6px 14px; font-size: 12px; font-weight: 600; color: var(--fg2); }
+.liste { background: var(--gruppe); border-radius: 10px; border: 0.5px solid var(--linie); }
+.zeile { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 14px; padding: 8px 0; }
+.zeile + .zeile { border-top: 0.5px solid var(--linie); }
+.zeile dt, .zeile > .label { flex: none; }
+.zeile .wert { flex: 1; text-align: right; color: color-mix(in srgb, var(--fg) 68%, transparent); min-width: 0; overflow-wrap: anywhere; }
+.wert.leer { opacity: 0.8; }
+.erklaerung { display: none; flex-basis: 100%; font-size: 12px; color: var(--fg2); line-height: 1.4; }
+.erklaeren .erklaerung { display: block; }
+.fuss { margin: 6px 14px 0; font-size: 12px; color: var(--fg2); }
+
+/* Formular */
+.formular input[type="text"] {
+  flex: 1; height: 24px; padding: 0 8px; margin: 0; text-align: left;
+  border: 0; background: none; border-radius: 5px; -webkit-user-select: text; user-select: text;
+}
+.formular input[type="text"]::placeholder { color: var(--fg2); opacity: 0.8; }
+.haken { display: flex; align-items: center; gap: 8px; flex: 1; }
+.haken input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+.hilfe { flex-basis: 100%; padding-left: 22px; font-size: 12px; color: var(--fg2); }
+.knoepfe { display: flex; justify-content: flex-end; gap: 8px; margin: 12px 0 4px; }
+
+/* Gemerkte Netze */
+.netz-name { font-weight: 500; }
+.marke { color: var(--fg2); }
+.netz-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 14px; padding: 9px 0; }
+.netz-zeile + .netz-zeile { border-top: 0.5px solid var(--linie); }
+.netz-zeile .text { flex: 1; min-width: 0; }
+.netz-zeile .fein { color: var(--fg2); font-size: 12px; }
+.bestaetigung { flex-basis: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bestaetigung p { flex: 1; min-width: 200px; font-size: 12px; color: var(--fg2); }
+.knopf.gefahr { color: var(--rot); }
+
+/* Meldung und leerer Zustand */
+.meldung { display: flex; gap: 8px; align-items: baseline; margin-top: 16px; color: var(--fg); }
+.meldung .punkt { transform: translateY(-1px); }
+.leer-zustand {
+  min-height: 60%; padding-top: 18vh;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  text-align: center; color: var(--fg2); font-size: 14px;
+}
+.leer-zustand svg { width: 28px; height: 28px; }
+.leer-zustand p { max-width: 340px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.formular .zeile { padding: 12px 0; }
+.formular .zeile:has(input[type="text"]) { align-items: center; }

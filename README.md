@@ -32,6 +32,15 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netz` merkt sich je
 
 Läuft auf macOS und braucht keine Root-Rechte.
 
+## App
+
+Die Mac-App liegt in `app/` (Tauri 2, Oberfläche in schlichtem HTML, CSS und JavaScript ohne npm). Sie braucht nur Rust und die Xcode Command Line Tools:
+
+    cargo build -p netz-app
+    ./target/debug/netz-app
+
+Sie liest dieselbe Liste wie die Kommandozeile (`NETZ_DATEN` gilt auch hier). Die CI baut nur den Kern (`netz`), nicht die App. `app/vorschau.html` zeigt die Oberfläche mit erfundenen Daten in jedem Browser, ohne die App zu starten.
+
 ## Nur im eigenen Netz scannen
 
 `netz ports` und später `netz geraete` laufen nur gegen private Adressen und nur, wenn das Netz als deins markiert ist (`netz merken <Name> --meins`) oder du `--meins` angibst. Auf dem eigenen Rechner (Loopback) geht es immer. In fremden Netzen (Schule, Arbeit, Hotspot) macht `netz` nur, was jeder Laptop beim Verbinden ohnehin tut.
