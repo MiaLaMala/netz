@@ -318,6 +318,12 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
                 .map(|(klasse, text)| Unterschied { klasse, text }),
         );
     }
+    // Rule from #34: Wi-Fi security weaker than at an earlier visit.
+    if let Some((klasse, text)) =
+        crate::wlan::abstieg_pruefen(&path.with_file_name("wlan.json"), &fp.key())
+    {
+        erg.unterschiede.push(Unterschied { klasse, text });
+    }
     // Every rule above may append findings; the verdict is the first entry, so sort once here.
     erg.unterschiede
         .sort_by_key(|u| std::cmp::Reverse(u.klasse));

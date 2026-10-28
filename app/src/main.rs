@@ -91,6 +91,12 @@ fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, String> {
     netzinfo::dnsverschl::dns_daten()
 }
 
+/// Radio link of the current Wi-Fi connection, `None` without one, see issue #34.
+#[tauri::command(async)]
+fn wlan_lesen() -> Result<Option<netzinfo::wlan::Funkverbindung>, String> {
+    netzinfo::wlan::lesen()
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -113,7 +119,8 @@ fn main() {
             portal_pruefen,
             diagnose,
             portal_im_browser_oeffnen,
-            dns_verschluesselt
+            dns_verschluesselt,
+            wlan_lesen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

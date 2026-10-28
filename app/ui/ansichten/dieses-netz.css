@@ -1,0 +1,4 @@
+/* Styles for the view „dieses-netz“ only (WLAN card, #34). */
+.wert.wlan-signal.gut { color: var(--gruen); }
+.wert.wlan-signal.mittel { color: var(--orange); }
+.wert.wlan-signal.schwach, .wert.wlan-warn { color: var(--rot); }

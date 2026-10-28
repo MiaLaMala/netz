@@ -89,6 +89,40 @@
     return form;
   }
 
+  // Karte „WLAN“ (#34). Die Sätze folgen `netzinfo wlan --erklaer` (src/wlan.rs).
+  const SICHER = {
+    Offen: 'offen (unverschlüsselt)', Wep: 'WEP', Wpa: 'WPA', Wpa2: 'WPA2', Wpa3: 'WPA3',
+    Wpa2Wpa3Gemischt: 'WPA2/WPA3 gemischt', Unbekannt: 'unbekannt',
+  };
+  const SICHER_SATZ = {
+    Offen: 'Das WLAN ist offen: Jeder in Reichweite kann mitlesen. Nutze nur verschlüsselte Verbindungen oder ein VPN.',
+    Wep: 'WEP gilt seit Jahren als geknackt, es schützt kaum. Stelle den Router auf WPA2 oder WPA3 um.',
+    Wpa: 'WPA (die erste Version) ist veraltet. Stelle den Router auf WPA2 oder WPA3 um.',
+  };
+  const wlanKarte = (w) => {
+    const sicher = w.sicherheit ? SICHER[w.sicherheit] : null;
+    const staerke = w.rssi_dbm == null ? '' : w.rssi_dbm >= -70 ? ' gut' : w.rssi_dbm >= -80 ? ' mittel' : ' schwach';
+    const z = zeile('Signal', w.rssi_dbm == null ? null : `${w.rssi_dbm} dBm`,
+      w.rssi_dbm == null ? null : `Das Signal liegt bei minus ${-w.rssi_dbm} dBm. Je näher an null, desto besser, ab minus 70 wird es merklich schlechter.`);
+    z.querySelector('.wert').className += ` wlan-signal${staerke}`;
+    const warn = ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) ? ` wlan-warn` : '';
+    const sz = zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || 'Die Verschlüsselung ist zeitgemäß.');
+    sz.querySelector('.wert').className += warn;
+    return gruppe('WLAN', [
+      zeile('Standard', w.standard, 'Der Standard (Wi-Fi 4, 5, 6) bestimmt, wie schnell die Funkstrecke höchstens sein kann. Neuere Standards sind schneller und gehen besser mit vielen Geräten um.'),
+      zeile('Band', w.band, '2,4 GHz reicht weiter durch Wände, 5 und 6 GHz sind schneller, brauchen aber Nähe zum Router.'),
+      zeile('Kanal', w.kanal, 'Auf dem Kanal funkt dein WLAN. Teilen sich viele Nachbarnetze denselben Kanal, stören sie sich gegenseitig.'),
+      zeile('Kanalbreite', w.breite_mhz == null ? null : `${w.breite_mhz} MHz`, 'Breitere Kanäle sind schneller, aber störanfälliger und belegen mehr vom Band.'),
+      z,
+      zeile('Rauschen', w.rauschen_dbm == null ? null : `${w.rauschen_dbm} dBm`, 'Rauschen ist der Störpegel auf dem Kanal. Je weiter von null weg, desto besser. Manche Treiber melden es nicht, dann bleibt das Feld leer.'),
+      zeile('Abstand zum Rauschen', w.snr_db == null ? null : `${w.snr_db} dB`,
+        w.snr_db == null ? null : `Der Abstand zum Rauschen beträgt ${w.snr_db} dB. Über 25 dB gilt als gut für Videoanrufe.`),
+      zeile('Senderate', w.rate_mbit == null ? null : `${Math.round(w.rate_mbit)} MBit/s`, 'Die Senderate ist das, was Mac und Router gerade aushandeln, nicht die echte Geschwindigkeit. Echt kommt meist die Hälfte oder weniger an.'),
+      sz,
+      zeile('Land', w.land, 'Das Land bestimmt, welche Kanäle und welche Sendeleistung erlaubt sind.'),
+    ]);
+  };
+
   function offenKnopf() {
     return el('button', { class: 'knopf haupt', type: 'button', text: 'Dieses Netz merken …', onclick: oeffne });
   }
@@ -151,6 +185,9 @@
         dnsOrt.replaceWith(neu);
         dnsOrt = neu;
       }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
+      // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
+      const funk = await Netz.invoke('wlan_lesen').catch(() => null);
+      if (funk) wurzel.append(wlanKarte(funk));
     },
   });
 })();
