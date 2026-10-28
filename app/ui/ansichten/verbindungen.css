@@ -1,8 +1,10 @@
-/* Styles for the view „verbindungen“ only. */
-.verbindung-status { margin: 0; }
-.werkzeuge { display: flex; gap: 18px; margin: 14px 0 0; }
-.ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
-.ergebnis .fuss { margin-bottom: 4px; }
-.ergebnis { margin-top: 8px; }
-.erklaer-gruppe { display: none; }
-.erklaeren .erklaer-gruppe { display: block; }
+/* Styles for the view „verbindungen“ only, scoped: class names like .werkzeuge exist in other views too. */
+[data-ansicht='verbindungen'] .verbindung-status { margin: 0; }
+[data-ansicht='verbindungen'] .werkzeuge { display: flex; gap: 18px; margin: 14px 0 0; }
+[data-ansicht='verbindungen'] .ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
+[data-ansicht='verbindungen'] .ergebnis .fuss { margin-bottom: 4px; }
+[data-ansicht='verbindungen'] .ergebnis { margin-top: 8px; }
+/* Empty list: the delete button sits centred under the centred empty state. */
+[data-ansicht='verbindungen'] .ergebnis:has(.leer-zustand) + .aktion { text-align: center; }
+[data-ansicht='verbindungen'] .erklaer-gruppe { display: none; }
+.erklaeren [data-ansicht='verbindungen'] .erklaer-gruppe { display: block; }

@@ -314,6 +314,10 @@ pub fn sammeln(speichern: bool) -> Result<Ergebnis, String> {
         netze::load_json(&netze::data_path()?.with_file_name("geraete.json")).unwrap_or_default();
     let geraete = netz.as_ref().and_then(|n| geraete.get(&n.0));
     let mut cache = NAMEN.lock().unwrap_or_else(|e| e.into_inner());
+    // ponytail: the app runs for days; start over instead of an LRU once the cache is big.
+    if cache.len() > 4096 {
+        cache.clear();
+    }
     let resolver = dns::system_resolver().ok();
     let aufloeser: Aufloeser = Arc::new(move |ip| ptr_system(resolver?, ip));
     let ips: Vec<IpAddr> = vs

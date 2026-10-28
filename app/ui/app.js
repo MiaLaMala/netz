@@ -110,7 +110,8 @@
     const feld = document.getElementById('scroll');
     feld.setAttribute('aria-labelledby', `tab-${id}`);
     const nr = ++zaehler;
-    const wurzel = el('div', { class: `ansicht${wechsel ? ' neu' : ''}` });
+    // data-ansicht scopes a view's CSS file: all views share one document.
+    const wurzel = el('div', { class: `ansicht${wechsel ? ' neu' : ''}`, 'data-ansicht': id });
     feld.setAttribute('aria-busy', 'true');
     try {
       await a.render(wurzel);
