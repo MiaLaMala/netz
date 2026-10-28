@@ -1,1 +1,14 @@
 /* Styles for the view „qualitaet“ only. */
+.werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
+.werkzeuge select { height: 24px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); }
+.karte { margin-top: 16px; padding: 12px 10px 8px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+.karte .leer-zustand { min-height: 0; padding: 40px 0; }
+.kurve { display: block; width: 100%; height: auto; }
+.kurve .gitter { stroke: var(--linie); stroke-width: 1; }
+.kurve .achse { fill: var(--fg2); font-size: 11px; }
+.kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kurve .verlust { stroke-width: 2; stroke-linecap: round; }
+.legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+.legende li { display: flex; align-items: center; gap: 6px; }
+.legende .muster { width: 28px; height: 8px; }
