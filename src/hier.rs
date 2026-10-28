@@ -6,7 +6,6 @@ use std::net::Ipv4Addr;
 use std::process::Command;
 
 /// What we know about the current network. Fields are None when macOS has no answer.
-#[allow(dead_code)] // later stages (#6) read these fields
 #[derive(Debug, Default, PartialEq)]
 pub struct NetInfo {
     pub interface: String,

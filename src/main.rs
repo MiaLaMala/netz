@@ -1,5 +1,6 @@
 //! netz: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
 
+mod ansicht;
 mod dns;
 mod geraete;
 mod hier;
@@ -9,6 +10,7 @@ mod ports;
 mod pruefen;
 mod subnetz;
 mod tls;
+mod wache;
 
 use std::process::ExitCode;
 
@@ -28,6 +30,8 @@ Befehle:
   netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
   netz bericht [Netz]    Qualität eines Netzes über die Zeit
   netz geraete           Geräte im eigenen Netz, neu und verschwunden
+  netz wache             Meldet sich beim Netzwechsel (--installieren, --entfernen)
+  netz ansicht           Alles auf einem Bildschirm
 
 Optionen:
   --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
@@ -60,6 +64,8 @@ fn main() -> ExitCode {
         "messen" => messen::run_messen(rest, explain_on),
         "bericht" => messen::run_bericht(rest, explain_on),
         "geraete" => geraete::run(rest, explain_on),
+        "wache" => wache::run(rest, explain_on),
+        "ansicht" => ansicht::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

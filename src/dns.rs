@@ -253,8 +253,7 @@ pub fn query_raw(
     Err(fail(&last))
 }
 
-/// Asks any server one question; for later stages.
-#[allow(dead_code)] // used by later stages
+/// Asks any server one question.
 pub fn query(server: IpAddr, name: &str, qtype: u16, qclass: u16) -> Result<Answer, String> {
     query_raw(server, name, qtype, qclass).map(|r| r.2)
 }

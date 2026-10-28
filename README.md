@@ -16,10 +16,16 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netz` merkt sich je
 | `netz merken <Name> [--meins]` | aktuelles Netz speichern, optional als „meins“ markieren | #5 |
 | `netz netze` | gemerkte Netze auflisten | #5 |
 | `netz vergessen <Name>` | ein gemerktes Netz löschen | #5 |
+| `netz pruefen` | was ist anders als beim letzten Besuch? Router, DNS, Umleitungen, Zertifikate, öffentliche IP | #6 |
+| `netz messen [--minuten N]` | Antwortzeiten und Aussetzer sammeln | #7 |
+| `netz bericht [Netz] [--markdown Datei]` | Median, Ausreißer, Verluste und längster Aussetzer, auch als Datei für den IT-Support | #7 |
+| `netz geraete [CIDR]` | Geräte im eigenen Netz, neu und verschwunden | #8 |
+| `netz wache` | meldet sich beim Netzwechsel von selbst | #9 |
+| `netz ansicht` | alles auf einem Bildschirm im Terminal | #18 |
 
 `netz hier` sagt oben, ob das Netz bekannt ist („Bekanntes Netz: WG, zuletzt am …“) oder neu. Erkannt wird es an Router, DHCP-Server, Domain und Subnetz, nicht am WLAN-Namen. Die Liste liegt in `~/Library/Application Support/netz/netze.json` (anderer Pfad: Umgebungsvariable `NETZ_DATEN`). Zwei Netze mit demselben Werksrouter (z. B. zwei FRITZ!Boxen) sehen gleich aus.
 
-Geplant: Vergleich mit dem letzten Besuch (#6), Qualität über Zeit (#7), Geräte im eigenen Netz (#8), Wache im Hintergrund (#9).
+`netz pruefen` sortiert jede Abweichung ein. Harmlos ist etwa eine neue öffentliche IP. Auffällig sind andere DNS-Server. Alarm gibt es, wenn jemand die HTTPS-Verschlüsselung aufbricht oder das Netz für Namen, die es nicht gibt, Adressen erfindet. Messungen, Prüfungen und Gerätelisten liegen neben `netze.json`, jeweils nach Netz getrennt. `pruefen`, `messen` und `geraete` laufen nur in gemerkten Netzen, `geraete` zusätzlich nur in Netzen, die als „meins“ markiert sind.
 
 ## Bauen
 
