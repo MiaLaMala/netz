@@ -139,6 +139,7 @@ fn gruppieren(rows: &[Eintrag], index: u16, schnittstelle: &str) -> Vec<Nachbar>
 }
 
 /// Reads one address family of the kernel table. No program is started, no packet sent.
+#[cfg(target_os = "macos")]
 fn sysctl_table(family: libc::c_int) -> Result<Vec<u8>, String> {
     let mut mib = [
         libc::CTL_NET,
@@ -190,6 +191,12 @@ fn sysctl_table(family: libc::c_int) -> Result<Vec<u8>, String> {
         }
     }
     Err(fail(std::io::Error::from_raw_os_error(libc::ENOMEM)))
+}
+
+// ponytail: Linux (netlink RTM_GETNEIGH) and Windows (GetIpNetTable2) are not built yet
+#[cfg(not(target_os = "macos"))]
+fn sysctl_table(_family: libc::c_int) -> Result<Vec<u8>, String> {
+    Err("Die Nachbartabelle kann ich bisher nur auf dem Mac lesen.".into())
 }
 
 fn if_index(name: &str) -> Result<u32, String> {
