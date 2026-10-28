@@ -397,7 +397,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         TIMEOUT.as_millis()
     );
     e(
-        "Ohne Root-Rechte kann ich weder pingen noch ARP lesen. Also versuche ich bei jeder Adresse einen TCP-Verbindungsaufbau auf ein paar gängige Ports (SSH, DNS, Web, Dateifreigabe, Drucker, AirPlay, iPhone-Sync).",
+        "Bei jeder Adresse versuche ich einen TCP-Verbindungsaufbau auf ein paar gängige Ports (SSH, DNS, Web, Dateifreigabe, Drucker, AirPlay, iPhone-Sync). Dafür braucht es keine Root-Rechte.",
     );
     e(
         "Ein Gerät gilt als da, wenn ein Port offen ist ODER die Verbindung aktiv abgelehnt wird. Eine Ablehnung ist ein RST-Paket, und das kann nur ein laufendes Gerät schicken. Wo gar nichts antwortet, ist entweder niemand da oder eine Firewall schweigt: Solche Geräte sehe ich nicht.",
