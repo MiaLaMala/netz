@@ -12,6 +12,7 @@ use crate::explain;
 
 pub const A: u16 = 1;
 pub const CNAME: u16 = 5;
+pub const PTR: u16 = 12;
 pub const MX: u16 = 15;
 pub const TXT: u16 = 16;
 pub const AAAA: u16 = 28;
@@ -130,7 +131,7 @@ fn rdata_text(buf: &[u8], rtype: u16, start: usize, len: usize) -> Result<String
             o.copy_from_slice(rd);
             IpAddr::from(o).to_string()
         }
-        (CNAME, _) => read_name(buf, start)?.0,
+        (CNAME | PTR, _) => read_name(buf, start)?.0,
         (MX, 3..) => format!("{} {}", u16_at(buf, start)?, read_name(buf, start + 2)?.0),
         (TXT, _) => {
             let (mut i, mut out) = (0, String::new());
@@ -296,6 +297,7 @@ fn type_name(t: u16) -> String {
     match t {
         A => "A".into(),
         CNAME => "CNAME".into(),
+        PTR => "PTR".into(),
         MX => "MX".into(),
         TXT => "TXT".into(),
         AAAA => "AAAA".into(),
@@ -573,6 +575,20 @@ mod tests {
         let a = parse_response(&raw, 0x1234, "github.com", A, IN).unwrap();
         assert_eq!(a.records[0].data, "192.0.2.1");
         assert_eq!(a.records[0].ttl, 25);
+    }
+
+    #[test]
+    fn parses_ptr_record() {
+        // 20.178.168.192.in-addr.arpa PTR host.fritz.box (anonymised), answer name compressed
+        let qname = b"\x0220\x03178\x03168\x03192\x07in-addr\x04arpa\x00";
+        let mut p = vec![0x12, 0x34, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0];
+        p.extend_from_slice(qname);
+        p.extend_from_slice(&[0, 12, 0, 1]);
+        p.extend_from_slice(&[0xC0, 0x0C, 0, 12, 0, 1, 0, 0, 0, 60, 0, 16]);
+        p.extend_from_slice(b"\x04host\x05fritz\x03box\x00");
+        let a = parse_response(&p, 0x1234, "20.178.168.192.in-addr.arpa", PTR, IN).unwrap();
+        assert_eq!(a.records[0].rtype, PTR);
+        assert_eq!(a.records[0].data, "host.fritz.box");
     }
 
     #[test]
