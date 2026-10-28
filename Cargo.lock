@@ -1889,10 +1889,12 @@ dependencies = [
 name = "netz"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "ring",
  "rustls",
  "serde",
  "serde_json",
+ "socket2",
  "webpki-roots",
  "x509-cert",
 ]

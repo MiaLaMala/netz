@@ -17,3 +17,5 @@ ring = { version = "0.17.14", default-features = false }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = { version = "1.0.11", default-features = false }
 x509-cert = { version = "0.3.0", default-features = false }
+socket2 = { version = "0.6.5", features = ["all"] }
+libc = "0.2.191"
