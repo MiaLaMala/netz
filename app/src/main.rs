@@ -53,6 +53,18 @@ fn geraete_suchen(
     netzinfo::geraete::suchen(cidr.as_deref(), gross)
 }
 
+/// Hops to `ziel` (default 1.1.1.1), see issue #73.
+#[tauri::command(async)]
+fn pfad_messen(ziel: Option<String>) -> Result<netzinfo::pfad::PfadErgebnis, String> {
+    netzinfo::pfad::pfad_daten(ziel.as_deref().unwrap_or("1.1.1.1"), 20, 10, true)
+}
+
+/// Captive portal check, see issue #73.
+#[tauri::command(async)]
+fn portal_pruefen() -> netzinfo::portal::PortalErgebnis {
+    netzinfo::portal::check()
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -70,7 +82,9 @@ fn main() {
             pruefen,
             messen_einmal,
             bericht,
-            geraete_suchen
+            geraete_suchen,
+            pfad_messen,
+            portal_pruefen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

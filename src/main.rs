@@ -1,6 +1,9 @@
 //! Command line front end of Netzinfo. The logic lives in the library (src/lib.rs).
 
-use netzinfo::{dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls};
+use netzinfo::{
+    bonjour, diagnose, dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls,
+    verbindungen, wlan,
+};
 
 use std::process::ExitCode;
 
@@ -11,6 +14,8 @@ Befehle:
   netzinfo hier              Was ist das für ein Netz? IP, Subnetz, Router, DNS
   netzinfo subnetz <CIDR>    Subnetz ausrechnen, z. B. für 172.16.0.0/16
   netzinfo dns <Name>        DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen
+  netzinfo dns --verschluesselt
+                             Verschlüsseltes DNS (DoT, DoH) prüfen
   netzinfo tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
   netzinfo ports <Host>      Offene Ports eines eigenen Geräts
   netzinfo merken <Name> [--meins]
@@ -26,6 +31,10 @@ Befehle:
   netzinfo pfad [Ziel]       Weg ins Internet Hop für Hop
   netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
   netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
+  netzinfo bonjour           Dienste im Netz, die sich per Bonjour melden
+  netzinfo diagnose          Wo liegt das Problem? Schicht für Schicht eingrenzen
+  netzinfo wlan [--json]     Funkverbindung, Signal und Sicherheit des WLANs
+  netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -54,6 +63,10 @@ fn main() -> ExitCode {
         "pfad" => pfad::run(rest, explain_on),
         "portal" => portal::run(rest, explain_on),
         "offen" => offen::run(rest, explain_on),
+        "bonjour" => bonjour::run(rest, explain_on),
+        "diagnose" => diagnose::run(rest, explain_on),
+        "wlan" => wlan::run(rest, explain_on),
+        "verbindungen" => verbindungen::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

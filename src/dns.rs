@@ -471,6 +471,14 @@ fn show(a: &Reply) -> String {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    if args.iter().any(|a| a == "--verschluesselt") {
+        let rest: Vec<String> = args
+            .iter()
+            .filter(|a| *a != "--verschluesselt")
+            .cloned()
+            .collect();
+        return crate::dnsverschl::run(&rest, explain_on);
+    }
     let usage = "Aufruf: netzinfo dns <Name> [--typ A|AAAA|MX|TXT] oder netzinfo dns --meine-ip";
     let (mut name, mut qtype, mut my_ip) = (None, A, false);
     let mut it = args.iter();
