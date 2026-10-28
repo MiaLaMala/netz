@@ -20,8 +20,6 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netz` merkt sich je
 | `netz messen [--minuten N]` | Antwortzeiten und Aussetzer sammeln | #7 |
 | `netz bericht [Netz] [--markdown Datei]` | Median, Ausreißer, Verluste und längster Aussetzer, auch als Datei für den IT-Support | #7 |
 | `netz geraete [CIDR]` | Geräte im eigenen Netz, neu und verschwunden | #8 |
-| `netz wache` | meldet sich beim Netzwechsel von selbst | #9 |
-| `netz ansicht` | alles auf einem Bildschirm im Terminal | #18 |
 
 `netz hier` sagt oben, ob das Netz bekannt ist („Bekanntes Netz: WG, zuletzt am …“) oder neu. Erkannt wird es an Router, DHCP-Server, Domain und Subnetz, nicht am WLAN-Namen. Die Liste liegt in `~/Library/Application Support/netz/netze.json` (anderer Pfad: Umgebungsvariable `NETZ_DATEN`). Zwei Netze mit demselben Werksrouter (z. B. zwei FRITZ!Boxen) sehen gleich aus.
 

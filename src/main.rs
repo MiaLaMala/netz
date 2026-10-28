@@ -1,16 +1,6 @@
-//! netz: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
+//! Command line front end of netz. The logic lives in the library (src/lib.rs).
 
-mod ansicht;
-mod dns;
-mod geraete;
-mod hier;
-mod messen;
-mod netze;
-mod ports;
-mod pruefen;
-mod subnetz;
-mod tls;
-mod wache;
+use netz::{dns, geraete, hier, messen, netze, ports, pruefen, tls};
 
 use std::process::ExitCode;
 
@@ -30,19 +20,10 @@ Befehle:
   netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
   netz bericht [Netz]    Qualität eines Netzes über die Zeit
   netz geraete           Geräte im eigenen Netz, neu und verschwunden
-  netz wache             Meldet sich beim Netzwechsel (--installieren, --entfernen)
-  netz ansicht           Alles auf einem Bildschirm
 
 Optionen:
   --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
 ";
-
-/// Prints a German explanation line when `--erklaer` is on.
-pub fn explain(on: bool, text: &str) {
-    if on {
-        println!("  ↳ {text}");
-    }
-}
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -64,8 +45,6 @@ fn main() -> ExitCode {
         "messen" => messen::run_messen(rest, explain_on),
         "bericht" => messen::run_bericht(rest, explain_on),
         "geraete" => geraete::run(rest, explain_on),
-        "wache" => wache::run(rest, explain_on),
-        "ansicht" => ansicht::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
