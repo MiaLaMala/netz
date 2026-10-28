@@ -1,0 +1,7 @@
+[package]
+name = "netz"
+version = "0.1.0"
+edition = "2024"
+description = "Kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist."
+
+[dependencies]
