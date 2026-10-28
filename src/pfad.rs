@@ -72,10 +72,10 @@ fn echo_request(id: u16, seq: u16) -> Vec<u8> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct Reply {
-    seq: u16,
+pub(crate) struct Reply {
+    pub(crate) seq: u16,
     /// Echo reply (the target answered) instead of „Time Exceeded“ (a router answered).
-    echo: bool,
+    pub(crate) echo: bool,
 }
 
 /// Skips an IPv4 header if the buffer starts with one (macOS delivers it); `None` if malformed.
@@ -120,20 +120,20 @@ fn parse_reply(buf: &[u8]) -> Option<Reply> {
 // ---- measuring -----------------------------------------------------------------------------
 
 /// Two methods so tests can fake the network.
-trait Prober {
+pub(crate) trait Prober {
     fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String>;
     /// Blocks up to `wait`; `None` = nothing useful arrived in that time.
     fn recv(&mut self, wait: Duration) -> Option<(Ipv4Addr, Reply)>;
 }
 
-struct Icmp {
+pub(crate) struct Icmp {
     sock: UdpSocket,
     to: SocketAddr,
     id: u16,
 }
 
 impl Icmp {
-    fn open(target: Ipv4Addr) -> Result<Self, String> {
+    pub(crate) fn open(target: Ipv4Addr) -> Result<Self, String> {
         let s = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).map_err(|e| {
             format!("Kann keinen ICMP-Socket öffnen ({e}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.")
         })?;
@@ -278,7 +278,7 @@ fn is_private(ip: Ipv4Addr) -> bool {
 }
 
 /// Median of sorted, non-empty values.
-fn median(v: &[f64]) -> f64 {
+pub(crate) fn median(v: &[f64]) -> f64 {
     let n = v.len();
     if n % 2 == 1 {
         v[n / 2]
@@ -288,7 +288,7 @@ fn median(v: &[f64]) -> f64 {
 }
 
 /// Nearest-rank 95th percentile of sorted, non-empty values.
-fn p95(v: &[f64]) -> f64 {
+pub(crate) fn p95(v: &[f64]) -> f64 {
     v[(v.len() * 95).div_ceil(100).max(1) - 1]
 }
 

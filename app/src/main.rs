@@ -65,6 +65,12 @@ fn portal_pruefen() -> netzinfo::portal::PortalErgebnis {
     netzinfo::portal::check()
 }
 
+/// "Wo hakt es?": four ping series, one verdict, see issue #31.
+#[tauri::command(async)]
+fn diagnose() -> Result<netzinfo::diagnose::DiagnoseErgebnis, String> {
+    netzinfo::diagnose::diagnose_daten()
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -84,7 +90,8 @@ fn main() {
             bericht,
             geraete_suchen,
             pfad_messen,
-            portal_pruefen
+            portal_pruefen,
+            diagnose
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

@@ -101,6 +101,35 @@
     zeile('Schlechteste Stunde', stunde(z.schlechteste_stunde), E.stunde),
   ]));
 
+  // „Wo hakt es?“ (issue #31): own block, `netzinfo diagnose` in the app.
+  const AMPEL = { ok: 'gruen', schlecht: 'orange', stumm: 'rot', fehlt: 'grau' };
+  const WORT = { ok: 'in Ordnung', schlecht: 'auffällig', stumm: 'stumm', fehlt: 'nicht gemessen' };
+  const URTEIL = { in_ordnung: 'gruen', weit_weg: 'orange', wlan_oder_router: 'rot', anbieter: 'rot', kein_internet: 'rot' };
+  function diagnoseKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Wo hakt es?' });
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an vier Stellen'));
+      try {
+        const r = await Netz.invoke('diagnose');
+        ort.replaceChildren(
+          el('ul', { class: 'diagnose-ziele' }, r.ziele.map((z) => el('li', {},
+            el('span', { class: `punkt ${AMPEL[z.status]}` }),
+            el('span', { class: 'diagnose-name', text: z.name }),
+            el('span', { class: 'diagnose-wert', text: z.status === 'fehlt' ? 'nicht gemessen'
+              : `${z.beantwortet === 0 ? 'keine Antwort' : `${ms(z.median_ms)}, Verlust ${fmt(z.verlust_prozent)} %`} · ${WORT[z.status]}` })))),
+          el('p', { class: 'diagnose-urteil' }, el('span', { class: `punkt ${URTEIL[r.urteil]}` }), el('strong', { text: r.satz })),
+          el('ul', { class: 'diagnose-gruende' }, r.begruendung.map((t) => el('li', { text: t }))),
+          el('p', { class: 'diagnose-hinweis', text: `${r.mit_basis ? 'Verglichen mit den gespeicherten Werten dieses Netzes.' : 'Für dieses Netz gibt es noch keine gespeicherten Werte, es gelten feste Grenzen.'} Das Urteil ist eine Vermutung, kein Beweis.` }));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    });
+    return el('section', { class: 'karte diagnose', 'aria-label': 'Wo hakt es?' }, knopf, ort);
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -194,6 +223,7 @@
 
       wurzel.append(el('div', { class: 'kopf' }, el('h2', { text: b.netz })), stat,
         el('div', { class: 'werkzeuge' }, schalter, zeitraum, kopieren), fehler, kurvenOrt, zahlen);
+      wurzel.append(diagnoseKarte());
       zeichne();
       if (weiter) schalte(true);
     },

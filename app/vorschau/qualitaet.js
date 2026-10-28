@@ -54,3 +54,23 @@
     if (marken.includes('qualitaet-6h')) setTimeout(() => { const s = document.querySelector('.werkzeuge select'); if (s) { s.value = '6'; s.dispatchEvent(new Event('change')); } }, 400);
   });
 })();
+
+// „Wo hakt es?“ (issue #31). Marks: ,diagnose-ok (default), ,diagnose-router, ,diagnose-dns (see below), ,diagnose-laeuft,
+// plus ,qualitaet; the button is clicked for you. All numbers are made up.
+(() => {
+  const z = (name, ms, v = 0, status = 'ok') => ({ name, gesendet: 20, beantwortet: ms == null ? 0 : Math.round(20 * (1 - v / 100)), verlust_prozent: v, median_ms: ms, p95_ms: ms && ms * 1.8, jitter_ms: ms && 3, status, gruende: [] });
+  const gut = [z('Router', 3.2), z('Erster Rechner des Anbieters', 9.8), z('1.1.1.1', 12.1), z('9.9.9.9', 13.4)];
+  VORSCHAU.diagnose = () => new Promise((ok) => setTimeout(() => ok(
+    marken.includes('diagnose-router')
+      ? { ziele: [z('Router', 41.0, 15, 'schlecht'), ...gut.slice(1)], urteil: 'wlan_oder_router', satz: 'Das Problem liegt wahrscheinlich im WLAN oder am Router.', begruendung: ['Router verliert 15,0 % der Pakete.', 'Router: Im schlechten Moment (95. Perzentil) 73,8 ms statt sonst 6,1 ms, mehr als das Dreifache. Normalerweise antwortet Router hier in 3,0 ms, jetzt in 41,0 ms.'], tcp_443: null, mit_basis: true, zeitpunkt: 0 }
+      : marken.includes('diagnose-dns')
+        ? { ziele: [gut[0], z('Erster Rechner des Anbieters', 62, 20, 'schlecht'), z('1.1.1.1', 180, 10, 'schlecht'), z('9.9.9.9', 190, 25, 'schlecht')], urteil: 'anbieter', satz: 'Das Problem liegt wahrscheinlich beim Anbieter.', begruendung: ['Der Router antwortet in Ordnung.', 'Erster Rechner des Anbieters verliert 20,0 % der Pakete.', '1.1.1.1: Median 180,0 ms, über der festen Grenze von 150,0 ms.'], tcp_443: null, mit_basis: false, zeitpunkt: 0 }
+        : { ziele: gut, urteil: 'in_ordnung', satz: 'Keine Auffälligkeit gemessen.', begruendung: ['Router und beide Internet-Ziele antworten ohne Auffälligkeit.'], tcp_443: null, mit_basis: true, zeitpunkt: 0 },
+  ), marken.includes('diagnose-laeuft') ? 60000 : 300));
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('diagnose'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => document.querySelector('.diagnose button')?.click(), 500);
+    }
+  });
+})();
