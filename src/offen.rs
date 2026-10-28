@@ -29,10 +29,19 @@ pub struct Lauscher {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    if let Some(a) = args.first() {
-        return Err(format!(
-            "Unbekannte Option „{a}“. `netz offen` braucht keine Angaben."
-        ));
+    let json = match args.first().map(String::as_str) {
+        None => false,
+        Some("--json") if args.len() == 1 => true,
+        Some(a) => {
+            return Err(format!(
+                "Unbekannte Option „{a}“. `netz offen` kennt nur `--json`."
+            ));
+        }
+    };
+    if json {
+        let s = serde_json::to_string_pretty(&offen()?).map_err(|e| format!("JSON-Fehler: {e}"))?;
+        println!("{s}");
+        return Ok(());
     }
     let e = |t: &str| crate::explain(explain_on, t);
     e(
@@ -214,5 +223,21 @@ mod tests {
         assert_eq!(reichweite("::1"), Reichweite::Lokal);
         assert_eq!(reichweite("192.0.2.5"), Reichweite::Netz);
         assert_eq!(reichweite("host"), Reichweite::Unbekannt);
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")] // lsof lives in /usr/sbin only there
+    fn own_test_port_shows_up_as_local() {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        let v = offen().unwrap();
+        let me = v
+            .iter()
+            .find(|x| x.port == port && x.pid == std::process::id())
+            .expect("lsof should list our own listening test port");
+        assert_eq!(
+            (me.protokoll.as_str(), me.reichweite),
+            ("TCP", Reichweite::Lokal)
+        );
     }
 }
