@@ -837,7 +837,7 @@ mod tests {
         assert!(m.starts_with("# Netzqualität: Firma"));
         assert!(m.contains("| 1.1.1.1 (DNS) | 14 | 14,3 % | 5,5 ms | 90,0 ms | 90,0 ms | 10 s |"));
         assert!(m.contains("- 1.1.1.1 (TCP 443): "));
-        assert!(!t.contains('—') && !m.contains('—') && !m.contains('–'));
+        assert!(!t.contains('\u{2014}') && !m.contains('\u{2014}') && !m.contains('\u{2013}'));
     }
 
     #[test]
