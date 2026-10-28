@@ -25,7 +25,6 @@ pub struct Fingerprint {
 
 impl Fingerprint {
     /// Stable string key for per-network data in other files (survives renaming a network).
-    #[allow(dead_code)] // used by #6, #7, #8; removed after they are merged
     pub fn key(&self) -> String {
         let domain = self.domain.as_deref().unwrap_or("");
         format!(

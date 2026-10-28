@@ -259,7 +259,7 @@ pub fn query(server: IpAddr, name: &str, qtype: u16, qclass: u16) -> Result<Answ
 }
 
 /// First nameserver from `scutil --dns`, else /etc/resolv.conf.
-fn system_resolver() -> Result<IpAddr, String> {
+pub fn system_resolver() -> Result<IpAddr, String> {
     let scutil = Command::new("scutil")
         .arg("--dns")
         .output()
@@ -311,7 +311,7 @@ fn of_type(a: &Answer, qtype: u16) -> Vec<&Record> {
     a.records.iter().filter(|r| r.rtype == qtype).collect()
 }
 
-fn blocked(a: &Answer, qtype: u16) -> bool {
+pub fn blocked(a: &Answer, qtype: u16) -> bool {
     let r = of_type(a, qtype);
     a.rcode == 3 || (a.rcode == 0 && !r.is_empty() && r.iter().all(|x| is_null_addr(x)))
 }
