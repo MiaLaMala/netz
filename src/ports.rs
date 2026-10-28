@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-const MAX_THREADS: usize = 64;
+pub(crate) const MAX_THREADS: usize = 64;
 const DEFAULT_TIMEOUT_MS: u64 = 500;
 
 const COMMON: &[(u16, &str)] = &[
@@ -43,7 +43,7 @@ const COMMON: &[(u16, &str)] = &[
 ];
 
 #[derive(Debug, PartialEq)]
-enum State {
+pub(crate) enum State {
     Open,
     Closed,
     Filtered,
@@ -213,7 +213,7 @@ fn is_private(ip: IpAddr) -> bool {
     }
 }
 
-fn classify(r: &std::io::Result<TcpStream>) -> State {
+pub(crate) fn classify(r: &std::io::Result<TcpStream>) -> State {
     match r {
         Ok(_) => State::Open,
         Err(e) if e.kind() == ErrorKind::ConnectionRefused => State::Closed,
