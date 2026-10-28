@@ -164,6 +164,7 @@ fn parse_lsof(text: &str) -> Vec<Lauscher> {
 
 /// Parses `lsof -F pcLfPtnT` output (one field per line, first char = field id).
 /// Unknown or missing fields and unusable records are skipped.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))] // lsof parser, tested; Linux will need it too
 pub(crate) fn parse_sockets(text: &str) -> Vec<Socket> {
     let (mut pid, mut prog, mut user) = (None, String::new(), String::new());
     let (mut proto, mut name, mut state) = (String::new(), String::new(), String::new());
@@ -229,6 +230,7 @@ pub(crate) fn parse_sockets(text: &str) -> Vec<Socket> {
 }
 
 /// "*:80", "127.0.0.1:631", "[::1]:8080" to (host, port); None for "*:*".
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn split_addr(s: &str) -> Option<(String, u16)> {
     let (host, port) = s.rsplit_once(':')?;
     let host = host.trim_start_matches('[').trim_end_matches(']');
