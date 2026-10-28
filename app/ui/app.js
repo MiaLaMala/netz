@@ -42,8 +42,11 @@
   const text = (fehler) =>
     typeof fehler === 'string' ? fehler : 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
 
+  // Core sentences name CLI commands in `backticks`: show them as code, not as raw marks.
+  const mitCode = (satz) => satz.split('`').map((t, i) => (i % 2 ? el('code', { text: t }) : t));
+
   const meldung = (satz, farbe = 'rot') =>
-    el('p', { class: 'meldung', role: 'alert' }, el('span', { class: `punkt ${farbe}` }), el('span', { text: satz }));
+    el('p', { class: 'meldung', role: 'alert' }, el('span', { class: `punkt ${farbe}` }), el('span', {}, mitCode(satz)));
 
   const status = (farbe, wort) =>
     el('p', { class: 'status' }, el('span', { class: `punkt ${farbe}` }), el('span', { text: wort }));
@@ -138,6 +141,8 @@
   }
 
   function start() {
+    // Only events, no initial check: unknown focus (e.g. headless Chrome) looks active.
+    for (const ev of ['focus', 'blur']) window.addEventListener(ev, () => document.documentElement.classList.toggle('inaktiv', ev === 'blur'));
     baueMenue();
     erklaermodus();
     document.getElementById('aktualisieren').addEventListener('click', neuLaden);
