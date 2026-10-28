@@ -4,6 +4,6 @@ Netz.registriere({
   titel: 'Qualität',
   icon: Netz.icons.qualitaet,
   render(wurzel) {
-    wurzel.append(Netz.leerZustand(Netz.icons.qualitaet, 'Die Messungen und Berichte kommen mit Issue #19.'));
+    wurzel.append(Netz.leerZustand(Netz.icons.qualitaet, 'Die Messungen und Berichte kommen mit der nächsten Version. In der Kommandozeile gibt es sie schon.'));
   },
 });
