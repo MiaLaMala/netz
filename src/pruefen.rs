@@ -597,6 +597,8 @@ mod tests {
             last_seen: 1,
             mac: Some("02:00:5e:00:53:01".into()),
             ip_verlauf: vec![],
+            dienste: vec![],
+            mdns_name: None,
             ipv6: vec![],
             hersteller: None,
             mac_zufaellig: true,
