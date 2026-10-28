@@ -12,7 +12,7 @@ for url in URLS:
     req = urllib.request.Request(url, headers={"User-Agent": "curl/8.4.0"})
     text = urllib.request.urlopen(req, timeout=120).read().decode("utf-8")
     for r in csv.DictReader(io.StringIO(text)):
-        name = " ".join(r["Organization Name"].replace("–", "-").replace("—", "-").split())[:40]
+        name = " ".join(r["Organization Name"].replace("\u2013", "-").replace("\u2014", "-").split())[:40]
         if name and r["Assignment"]:
             rows[r["Assignment"].upper()] = name
 out = pathlib.Path(__file__).resolve().parent.parent / "data" / "oui.tsv"
