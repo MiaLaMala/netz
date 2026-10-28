@@ -409,12 +409,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         if let Some(h) = hint(&d.typ) {
             e(h);
         }
-        for (k, v) in &d.txt {
-            if txt {
+        if txt {
+            for (k, v) in &d.txt {
                 println!("      {k}={v}");
-            } else {
-                println!("      {k}");
             }
+        } else if !d.txt.is_empty() {
+            let keys: Vec<&str> = d.txt.keys().map(String::as_str).collect();
+            println!("      TXT: {}", keys.join(", "));
         }
     }
     if !txt && dienste.iter().any(|d| !d.txt.is_empty()) {
