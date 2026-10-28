@@ -42,6 +42,12 @@ pub struct Device {
     /// the same per network, so the same one at the next visit is the same device.
     #[serde(default)]
     pub mac_zufaellig: bool,
+    /// Bonjour services of this device (issue #28), as last heard.
+    #[serde(default)]
+    pub dienste: Vec<crate::bonjour::Dienst>,
+    /// Host name the device announces via mDNS, without `.local`.
+    #[serde(default)]
+    pub mdns_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -249,6 +255,8 @@ fn add_neighbours(found: &mut Vec<Device>, table: &[Nachbar], target: &Subnet, t
                         ipv6: vec![],
                         hersteller: None,
                         mac_zufaellig: false,
+                        dienste: vec![],
+                        mdns_name: None,
                     });
                     found.len() - 1
                 }
@@ -343,6 +351,8 @@ fn suchen_in(
             ipv6: vec![],
             hersteller: None,
             mac_zufaellig: false,
+            dienste: vec![],
+            mdns_name: None,
         })
         .collect();
     if let Some(link) = link {
@@ -502,6 +512,8 @@ mod tests {
             ipv6: vec![],
             hersteller: None,
             mac_zufaellig: false,
+            dienste: vec![],
+            mdns_name: None,
         }
     }
 

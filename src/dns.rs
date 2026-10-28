@@ -73,7 +73,7 @@ fn truncated() -> String {
     "Die DNS-Antwort ist abgeschnitten oder kaputt. Versuch es noch einmal.".into()
 }
 
-fn u16_at(b: &[u8], i: usize) -> Result<u16, String> {
+pub(crate) fn u16_at(b: &[u8], i: usize) -> Result<u16, String> {
     match b.get(i..i + 2) {
         Some(s) => Ok(u16::from_be_bytes([s[0], s[1]])),
         None => Err(truncated()),
