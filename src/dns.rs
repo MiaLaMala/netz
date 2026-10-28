@@ -16,6 +16,7 @@ pub const PTR: u16 = 12;
 pub const MX: u16 = 15;
 pub const TXT: u16 = 16;
 pub const AAAA: u16 = 28;
+pub const SVCB: u16 = 64;
 pub const IN: u16 = 1;
 pub const CH: u16 = 3;
 
@@ -122,6 +123,56 @@ fn read_name(buf: &[u8], pos: usize) -> Result<(String, usize), String> {
     }
 }
 
+/// SVCB (RFC 9460) as one line: `1 dns.example alpn=h2,dot port=853 ipv4hint=192.0.2.1`.
+/// Only the parameters DDR needs are spelled out; others show as `key<N>`.
+fn svcb_text(buf: &[u8], start: usize, len: usize) -> Result<String, String> {
+    let end = start + len;
+    let (target, mut p) = read_name(buf, start + 2)?;
+    let mut out = format!(
+        "{} {}",
+        u16_at(buf, start)?,
+        if target.is_empty() { "." } else { &target }
+    );
+    while p < end {
+        let (key, l) = (u16_at(buf, p)?, u16_at(buf, p + 2)? as usize);
+        let v = buf
+            .get(p + 4..p + 4 + l)
+            .filter(|_| p + 4 + l <= end)
+            .ok_or_else(truncated)?;
+        p += 4 + l;
+        let ips = |n: usize| {
+            v.chunks_exact(n)
+                .map(|c| match <[u8; 4]>::try_from(c) {
+                    Ok(a) => IpAddr::from(a).to_string(),
+                    Err(_) => <[u8; 16]>::try_from(c)
+                        .map_or(String::new(), |a| IpAddr::from(a).to_string()),
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        out.push(' ');
+        out.push_str(&match key {
+            1 => {
+                let (mut i, mut ids) = (0, Vec::new());
+                while i < v.len() {
+                    let n = v[i] as usize;
+                    let id = v.get(i + 1..i + 1 + n).ok_or_else(truncated)?;
+                    ids.push(
+                        String::from_utf8_lossy(id).replace(|c: char| !c.is_ascii_graphic(), "?"),
+                    );
+                    i += 1 + n;
+                }
+                format!("alpn={}", ids.join(","))
+            }
+            3 if l == 2 => format!("port={}", u16_at(v, 0)?),
+            4 if l % 4 == 0 => format!("ipv4hint={}", ips(4)),
+            6 if l % 16 == 0 => format!("ipv6hint={}", ips(16)),
+            _ => format!("key{key}"),
+        });
+    }
+    Ok(out)
+}
+
 fn rdata_text(buf: &[u8], rtype: u16, start: usize, len: usize) -> Result<String, String> {
     let rd = buf.get(start..start + len).ok_or_else(truncated)?;
     Ok(match (rtype, len) {
@@ -143,6 +194,7 @@ fn rdata_text(buf: &[u8], rtype: u16, start: usize, len: usize) -> Result<String
             }
             out
         }
+        (SVCB, 3..) => svcb_text(buf, start, len)?,
         (A | AAAA | MX, _) => return Err(truncated()),
         _ => format!("(Typ {rtype}, {len} Bytes)"),
     })
@@ -206,7 +258,7 @@ pub fn parse_response(
     })
 }
 
-fn random_id() -> u16 {
+pub(crate) fn random_id() -> u16 {
     RandomState::new().build_hasher().finish() as u16
 }
 

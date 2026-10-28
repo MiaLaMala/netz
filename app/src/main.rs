@@ -87,6 +87,11 @@ fn portal_im_browser_oeffnen() -> Result<(), String> {
 }
 
 #[tauri::command(async)]
+fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, String> {
+    netzinfo::dnsverschl::dns_daten()
+}
+
+#[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
 }
@@ -107,7 +112,8 @@ fn main() {
             pfad_messen,
             portal_pruefen,
             diagnose,
-            portal_im_browser_oeffnen
+            portal_im_browser_oeffnen,
+            dns_verschluesselt
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

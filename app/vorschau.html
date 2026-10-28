@@ -42,6 +42,11 @@
         if (name.trim() === 'WG') throw 'Der Name „WG“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netzinfo vergessen WG`.';
       },
       netz_vergessen: async ({ name }) => { netze = netze.filter((n) => n.name !== name); },
+      dns_verschluesselt: async () => {
+        if (marken.includes('dns-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
+        const gesperrt = marken.includes('dns-gesperrt');
+        return { netz: 'WG', vorher: null, messung: { dot: gesperrt ? 'Blockiert' : 'Erreichbar', doh: 'Erreichbar', ddr: gesperrt ? null : ['1 dns.example alpn=h2,dot port=853 ipv4hint=192.0.2.53'], zeit: t } };
+      },
     };
     window.VORSCHAU = antworten;
     window.__TAURI__ = { core: { invoke: (befehl, args) => VORSCHAU[befehl](args) } };
