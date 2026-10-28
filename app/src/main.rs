@@ -97,6 +97,17 @@ fn wlan_lesen() -> Result<Option<netzinfo::wlan::Funkverbindung>, String> {
     netzinfo::wlan::lesen()
 }
 
+/// Active connections per program, see issue #39. Stores only in „meins“ networks or with `speichern`.
+#[tauri::command(async)]
+fn verbindungen_zeigen(speichern: bool) -> Result<netzinfo::verbindungen::Ergebnis, String> {
+    netzinfo::verbindungen::sammeln(speichern)
+}
+
+#[tauri::command(async)]
+fn verbindungen_loeschen() -> Result<bool, String> {
+    netzinfo::verbindungen::loeschen()
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -120,7 +131,9 @@ fn main() {
             diagnose,
             portal_im_browser_oeffnen,
             dns_verschluesselt,
-            wlan_lesen
+            wlan_lesen,
+            verbindungen_zeigen,
+            verbindungen_loeschen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

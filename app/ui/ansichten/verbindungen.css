@@ -1,0 +1,8 @@
+/* Styles for the view „verbindungen“ only. */
+.verbindung-status { margin: 0; }
+.werkzeuge { display: flex; gap: 18px; margin: 14px 0 0; }
+.ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
+.ergebnis .fuss { margin-bottom: 4px; }
+.ergebnis { margin-top: 8px; }
+.erklaer-gruppe { display: none; }
+.erklaeren .erklaer-gruppe { display: block; }
