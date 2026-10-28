@@ -3,3 +3,7 @@
 .klasse { display: inline-flex; align-items: center; gap: 7px; }
 .zeile .wert.text { text-align: left; flex-basis: 100%; }
 .knopf.haupt .kbd { color: inherit; opacity: 0.85; }
+.portal-hinweis { margin: 14px 0 22px; padding: 12px 14px; border: 1px solid var(--orange); border-radius: 10px; background: var(--gruppe); }
+.portal-hinweis h3 { margin: 0 0 4px; color: var(--orange); font-size: 15px; }
+.portal-hinweis p { margin: 0 0 10px; }
+.portal-hinweis .erklaerung { margin: 10px 0 0; }

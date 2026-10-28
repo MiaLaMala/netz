@@ -71,6 +71,21 @@ fn diagnose() -> Result<netzinfo::diagnose::DiagnoseErgebnis, String> {
     netzinfo::diagnose::diagnose_daten()
 }
 
+/// Opens the portal login page in the default browser. Fixed URL on purpose: the UI passes nothing.
+#[tauri::command]
+fn portal_im_browser_oeffnen() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("http://captive.apple.com")
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Der Browser ließ sich nicht öffnen ({e}). Öffne http://captive.apple.com von Hand."))
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err("Den Browser öffnet nur die Mac-App. Öffne http://captive.apple.com von Hand.".into())
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -91,7 +106,8 @@ fn main() {
             geraete_suchen,
             pfad_messen,
             portal_pruefen,
-            diagnose
+            diagnose,
+            portal_im_browser_oeffnen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
