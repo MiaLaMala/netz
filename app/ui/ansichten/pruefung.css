@@ -1,1 +1,5 @@
 /* Styles for the view „pruefung“ only. */
+.wert .alt { display: block; font-size: 12px; color: var(--fg2); }
+.klasse { display: inline-flex; align-items: center; gap: 7px; }
+.zeile .wert.text { text-align: left; flex-basis: 100%; }
+.knopf.haupt .kbd { color: inherit; opacity: 0.85; }
