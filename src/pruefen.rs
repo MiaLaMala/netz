@@ -1,4 +1,4 @@
-//! `netz pruefen`: measure the current network and compare it with the last visit (issue #6).
+//! `netzinfo pruefen`: measure the current network and compare it with the last visit (issue #6).
 //!
 //! A check that failed (no internet, timeout) is `None`. `None` is shown, never compared, and
 //! never overwrites an older good value in the store.
@@ -294,7 +294,7 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     let path = netze::data_path()?;
     let known = netze::load(&path)?;
     let Some(i) = netze::find(&known, &fp) else {
-        return Err("Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netz merken <Name>` und prüfe dann noch mal.".into());
+        return Err("Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netzinfo merken <Name>` und prüfe dann noch mal.".into());
     };
     let store_path = path.with_file_name("pruefungen.json");
     let mut store: Store = netze::load_json(&store_path)?;
@@ -319,7 +319,7 @@ fn auswerten(store: &mut Store, key: String, new: Messung, portal: bool) -> Prue
     if portal {
         unterschiede.push(Unterschied {
             klasse: Klasse::Harmlos,
-            text: "Anmeldung nötig: Dein Netz hängt hinter einem Captive Portal (`netz portal`). Bis zur Anmeldung sind DNS- und Zertifikatsergebnisse nur auffällig, nicht Alarm. Melde dich an und prüfe dann noch mal.".into(),
+            text: "Anmeldung nötig: Dein Netz hängt hinter einem Captive Portal (`netzinfo portal`). Bis zur Anmeldung sind DNS- und Zertifikatsergebnisse nur auffällig, nicht Alarm. Melde dich an und prüfe dann noch mal.".into(),
         });
     }
     let stored = vorher
@@ -339,7 +339,7 @@ fn auswerten(store: &mut Store, key: String, new: Messung, portal: bool) -> Prue
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     if let Some(a) = args.first() {
         return Err(format!(
-            "`netz pruefen` kennt „{a}“ nicht. Es braucht keine Angaben, `--erklaer` erklärt die Schritte."
+            "`netzinfo pruefen` kennt „{a}“ nicht. Es braucht keine Angaben, `--erklaer` erklärt die Schritte."
         ));
     }
     let r = pruefen()?;

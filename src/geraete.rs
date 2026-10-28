@@ -1,4 +1,4 @@
-//! `netz geraete`: devices in an own network, new and vanished (issue #8).
+//! `netzinfo geraete`: devices in an own network, new and vanished (issue #8).
 
 use crate::nachbarn::{self, Nachbar};
 use crate::netze::{self, Fingerprint};
@@ -56,7 +56,7 @@ pub struct GeraeteErgebnis {
 type Store = BTreeMap<String, Vec<Device>>;
 
 fn refusal() -> String {
-    "`netz geraete` läuft nur in einem Netz, das du mit `netz merken <Name> --meins` als „meins“ markiert hast. Es gibt dafür bewusst keine Option: Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger. Es wurde nichts gesendet.".into()
+    "`netzinfo geraete` läuft nur in einem Netz, das du mit `netzinfo merken <Name> --meins` als „meins“ markiert hast. Es gibt dafür bewusst keine Option: Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger. Es wurde nichts gesendet.".into()
 }
 
 /// The one place that decides whether a discovery may run; returns the range to scan.
@@ -378,14 +378,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             _ if cidr.is_none() => cidr = Some(a.as_str()),
             _ => {
                 return Err(
-                    "Es passt nur ein Bereich, z. B. `netz geraete 192.168.178.0/24`.".into(),
+                    "Es passt nur ein Bereich, z. B. `netzinfo geraete 192.168.178.0/24`.".into(),
                 );
             }
         }
     }
 
     e(
-        "Zuerst prüfe ich, ob dieses Netz als „meins“ markiert ist. Fremde Netze (Schule, Firma, Hotspot) durchzuprobieren gibt Ärger, deshalb gibt es hier keine Abkürzung wie bei `netz ports`. Bis zu dieser Prüfung wird kein Paket gesendet.",
+        "Zuerst prüfe ich, ob dieses Netz als „meins“ markiert ist. Fremde Netze (Schule, Firma, Hotspot) durchzuprobieren gibt Ärger, deshalb gibt es hier keine Abkürzung wie bei `netzinfo ports`. Bis zu dieser Prüfung wird kein Paket gesendet.",
     );
     let r = suchen_mit(cidr, gross, nachbarn)?;
     e("Erlaubt: Das Netz ist „meins“, und der Bereich liegt ganz im eigenen Subnetz.");

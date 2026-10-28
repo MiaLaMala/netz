@@ -1,4 +1,4 @@
-//! `netz hier` und `netz subnetz`: siehe Issue #1.
+//! `netzinfo hier` und `netzinfo subnetz`: siehe Issue #1.
 
 use crate::explain;
 use crate::subnetz::{self, Subnet};
@@ -204,7 +204,7 @@ pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
             );
             explain(
                 explain_on,
-                "Die Maske trennt Netzanteil und Hostanteil. IP UND Maske ergibt die Netzadresse, alle Hostbits auf 1 ergeben den Broadcast. Den Rechenweg zeigt `netz subnetz <IP> <Maske> --erklaer`.",
+                "Die Maske trennt Netzanteil und Hostanteil. IP UND Maske ergibt die Netzadresse, alle Hostbits auf 1 ergeben den Broadcast. Den Rechenweg zeigt `netzinfo subnetz <IP> <Maske> --erklaer`.",
             );
         }
         None => {

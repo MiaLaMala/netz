@@ -1886,7 +1886,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "netz"
+name = "netzinfo"
 version = "0.1.0"
 dependencies = [
  "libc",
@@ -1900,10 +1900,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "netz-app"
+name = "netzinfo-app"
 version = "0.1.0"
 dependencies = [
- "netz",
+ "netzinfo",
  "tauri",
  "tauri-build",
 ]

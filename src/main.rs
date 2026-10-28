@@ -1,31 +1,34 @@
-//! Command line front end of netz. The logic lives in the library (src/lib.rs).
+//! Command line front end of Netzinfo. The logic lives in the library (src/lib.rs).
 
-use netz::{dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls};
+use netzinfo::{dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls};
 
 use std::process::ExitCode;
 
 const HELP: &str = "\
-netz: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
+Netzinfo: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
 
 Befehle:
-  netz hier              Was ist das für ein Netz? IP, Subnetz, Router, DNS
-  netz subnetz <CIDR>    Subnetz ausrechnen, z. B. netz subnetz 172.16.0.0/16
-  netz dns <Name>        DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen
-  netz tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
-  netz ports <Host>      Offene Ports eines eigenen Geräts
-  netz merken <Name> [--meins]  Aktuelles Netz merken, optional als „meins“ markieren
-  netz netze             Gemerkte Netze auflisten
-  netz vergessen <Name>  Ein gemerktes Netz löschen
-  netz pruefen           Was ist anders als beim letzten Besuch?
-  netz messen [--minuten N]  Antwortzeiten und Aussetzer messen
-  netz bericht [Netz]    Qualität eines Netzes über die Zeit
-  netz geraete [--nachbarn]  Geräte im eigenen Netz, neu und verschwunden, mit MAC
-  netz pfad [Ziel]       Weg ins Internet Hop für Hop
-  netz portal            Hängt das Netz hinter einer Anmeldeseite?
-  netz offen             Welche Programme auf diesem Rechner Ports offen haben
+  netzinfo hier              Was ist das für ein Netz? IP, Subnetz, Router, DNS
+  netzinfo subnetz <CIDR>    Subnetz ausrechnen, z. B. für 172.16.0.0/16
+  netzinfo dns <Name>        DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen
+  netzinfo tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
+  netzinfo ports <Host>      Offene Ports eines eigenen Geräts
+  netzinfo merken <Name> [--meins]
+                             Aktuelles Netz merken, optional als „meins“ markieren
+  netzinfo netze             Gemerkte Netze auflisten
+  netzinfo vergessen <Name>  Ein gemerktes Netz löschen
+  netzinfo pruefen           Was ist anders als beim letzten Besuch?
+  netzinfo messen [--minuten N]
+                             Antwortzeiten und Aussetzer messen
+  netzinfo bericht [Netz]    Qualität eines Netzes über die Zeit
+  netzinfo geraete [--nachbarn]
+                             Geräte im eigenen Netz, neu und verschwunden, mit MAC
+  netzinfo pfad [Ziel]       Weg ins Internet Hop für Hop
+  netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
+  netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
 
 Optionen:
-  --erklaer              Erklärt bei jedem Schritt, was im Netz passiert
+  --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
 ";
 
 fn main() -> ExitCode {
@@ -56,7 +59,7 @@ fn main() -> ExitCode {
             Ok(())
         }
         other => Err(format!(
-            "Unbekannter Befehl „{other}“. `netz hilfe` zeigt alle Befehle."
+            "Unbekannter Befehl „{other}“. `netzinfo hilfe` zeigt alle Befehle."
         )),
     };
     match result {

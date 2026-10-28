@@ -1,4 +1,4 @@
-//! `netz dns`: own DNS client over UDP (no DNS crate), see issue #2.
+//! `netzinfo dns`: own DNS client over UDP (no DNS crate), see issue #2.
 //! Responses are untrusted input: every length is checked, compression
 //! pointer jumps are capped, ID and question must match the query.
 
@@ -471,7 +471,7 @@ fn show(a: &Reply) -> String {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    let usage = "Aufruf: netz dns <Name> [--typ A|AAAA|MX|TXT] oder netz dns --meine-ip";
+    let usage = "Aufruf: netzinfo dns <Name> [--typ A|AAAA|MX|TXT] oder netzinfo dns --meine-ip";
     let (mut name, mut qtype, mut my_ip) = (None, A, false);
     let mut it = args.iter();
     while let Some(a) = it.next() {

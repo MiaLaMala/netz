@@ -1,4 +1,4 @@
-//! `netz pfad`: hop by hop path to a target, without root, see issue #30.
+//! `netzinfo pfad`: hop by hop path to a target, without root, see issue #30.
 //! One ICMP datagram socket (no root on macOS) sends echo requests with rising TTL; routers
 //! answer „Time Exceeded“. Received packets are untrusted: every read is bounds-checked.
 //! IPv4 only. ponytail: IPv6 (ICMPv6 socket, IPV6_UNICAST_HOPS) and Linux/Windows are not built.
@@ -65,7 +65,7 @@ fn echo_request(id: u16, seq: u16) -> Vec<u8> {
     let mut p = vec![8, 0, 0, 0];
     p.extend_from_slice(&id.to_be_bytes());
     p.extend_from_slice(&seq.to_be_bytes());
-    p.extend_from_slice(b"netz-pfad\0\0\0\0\0\0\0");
+    p.extend_from_slice(b"netzinfo-pfad\0\0\0");
     let c = checksum(&p);
     p[2..4].copy_from_slice(&c.to_be_bytes());
     p
@@ -344,7 +344,7 @@ fn resolve(ziel: &str) -> Result<Ipv4Addr, String> {
         return Ok(ip);
     }
     if ziel.parse::<IpAddr>().is_ok() {
-        return Err("IPv6 kann `netz pfad` noch nicht. Gib ein IPv4-Ziel an.".into());
+        return Err("IPv6 kann `netzinfo pfad` noch nicht. Gib ein IPv4-Ziel an.".into());
     }
     let a = dns::query(dns::system_resolver()?, ziel, dns::A, dns::IN)?;
     a.records
@@ -418,7 +418,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "--ohne-namen" => namen = false,
             f if f.starts_with("--") => return Err(format!("Unbekannte Option „{f}“.")),
             _ if ziel.is_none() => ziel = Some(a.as_str()),
-            _ => return Err("Es passt nur ein Ziel: `netz pfad <Ziel>`.".into()),
+            _ => return Err("Es passt nur ein Ziel: `netzinfo pfad <Ziel>`.".into()),
         }
     }
     let ziel = ziel.unwrap_or("1.1.1.1");

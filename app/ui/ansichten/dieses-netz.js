@@ -1,5 +1,5 @@
 // „Dieses Netz“: was der Mac gerade vom Netz weiß, und ob er es kennt.
-// Die Erklärsätze folgen den Zeilen von `netz hier --erklaer` (src/hier.rs).
+// Die Erklärsätze folgen den Zeilen von `netzinfo hier --erklaer` (src/hier.rs).
 (() => {
   const { el, zeit, gruppe, zeile, status, meldung } = Netz;
 

@@ -1,4 +1,4 @@
-//! `netz merken`, `netz netze`, `netz vergessen` and the recognition in `netz hier` (issue #5).
+//! `netzinfo merken`, `netzinfo netze`, `netzinfo vergessen` and the recognition in `netzinfo hier` (issue #5).
 //!
 //! The store functions take the file path as a parameter; only `data_path` reads `NETZ_DATEN`.
 
@@ -64,14 +64,14 @@ pub fn fingerprint(n: &NetInfo) -> Result<Fingerprint, String> {
     }
 }
 
-/// `NETZ_DATEN` or `~/Library/Application Support/netz/netze.json`.
+/// `NETZ_DATEN` or `~/Library/Application Support/netzinfo/netze.json`.
 pub fn data_path() -> Result<PathBuf, String> {
     if let Some(p) = std::env::var_os("NETZ_DATEN") {
         return Ok(PathBuf::from(p));
     }
     let home = std::env::var_os("HOME")
         .ok_or("Der Ordner für gemerkte Netze ist unbekannt (HOME fehlt). Setze `NETZ_DATEN` auf eine Datei.")?;
-    Ok(PathBuf::from(home).join("Library/Application Support/netz/netze.json"))
+    Ok(PathBuf::from(home).join("Library/Application Support/netzinfo/netze.json"))
 }
 
 /// Reads the store. A missing file is an empty list. A file that cannot be read or parsed is
@@ -80,7 +80,7 @@ pub fn load(path: &Path) -> Result<Vec<Netz>, String> {
     load_json(path)
 }
 
-/// Same rules as `load` for any JSON file of netz (e.g. `data_path()?.with_file_name("x.json")`).
+/// Same rules as `load` for any JSON file of Netzinfo (e.g. `data_path()?.with_file_name("x.json")`).
 /// A missing file gives `T::default()`.
 pub fn load_json<T: DeserializeOwned + Default>(path: &Path) -> Result<T, String> {
     let text = match std::fs::read_to_string(path) {
@@ -155,14 +155,14 @@ pub fn remember(
 ) -> Result<(), String> {
     let name = name.trim();
     if name.is_empty() {
-        return Err("Der Name ist leer. Beispiel: `netz merken WG`.".into());
+        return Err("Der Name ist leer. Beispiel: `netzinfo merken WG`.".into());
     }
     let known = find(list, &fp);
     if let Some(other) = list.iter().position(|n| n.name == name)
         && Some(other) != known
     {
         return Err(format!(
-            "Der Name „{name}“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netz vergessen {name}`."
+            "Der Name „{name}“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netzinfo vergessen {name}`."
         ));
     }
     match known {
@@ -271,7 +271,7 @@ fn erkennen(info: NetInfo, path: Result<PathBuf, String>) -> Aktuell {
     a
 }
 
-/// First line of `netz hier`.
+/// First line of `netzinfo hier`.
 pub fn hier_hinweis(a: &Aktuell, explain_on: bool) {
     if let Some(e) = &a.erkennung_fehler {
         println!("Netz nicht wiedererkennbar: {e}");
@@ -285,7 +285,7 @@ pub fn hier_hinweis(a: &Aktuell, explain_on: bool) {
         ),
         // store unreadable: only the note, no explanation
         None if a.hinweis.is_some() => {}
-        None => println!("Neues Netz. Mit `netz merken <Name>` merkst du es dir."),
+        None => println!("Neues Netz. Mit `netzinfo merken <Name>` merkst du es dir."),
     }
     if let Some(h) = &a.hinweis {
         println!("Hinweis: {h}");
@@ -345,7 +345,7 @@ pub fn liste() -> Result<Vec<Netz>, String> {
 
 fn by_name(list: &[Netz], name: &str) -> Result<usize, String> {
     list.iter().position(|n| n.name == name).ok_or_else(|| {
-        format!("Ein Netz „{name}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
+        format!("Ein Netz „{name}“ ist nicht gemerkt. `netzinfo netze` zeigt die Liste.")
     })
 }
 
@@ -374,11 +374,11 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
     let meins = args.iter().any(|a| a == "--meins");
     let mut names = args.iter().filter(|a| *a != "--meins");
     let (Some(name), None) = (names.next(), names.next()) else {
-        return Err("Es passt genau ein Name, z. B. `netz merken WG --meins`.".into());
+        return Err("Es passt genau ein Name, z. B. `netzinfo merken WG --meins`.".into());
     };
     if name.starts_with("--") {
         return Err(format!(
-            "Unbekannte Option „{name}“. `netz hilfe` zeigt alle Optionen."
+            "Unbekannte Option „{name}“. `netzinfo hilfe` zeigt alle Optionen."
         ));
     }
     explain(
@@ -393,7 +393,7 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     explain(
         explain_on,
-        "„meins“ erlaubt `netz ports` in diesem Netz, ohne dass du jedes Mal `--meins` tippst. Markiere nur Netze, die dir gehören.",
+        "„meins“ erlaubt `netzinfo ports` in diesem Netz, ohne dass du jedes Mal `--meins` tippst. Markiere nur Netze, die dir gehören.",
     );
     Ok(())
 }
@@ -401,7 +401,7 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
 pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
     let list = liste()?;
     if list.is_empty() {
-        println!("Noch kein Netz gemerkt. Mit `netz merken <Name>` fängst du an.");
+        println!("Noch kein Netz gemerkt. Mit `netzinfo merken <Name>` fängst du an.");
         return Ok(());
     }
     for n in &list {
@@ -423,7 +423,7 @@ pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
 
 pub fn run_vergessen(args: &[String], explain_on: bool) -> Result<(), String> {
     let [name] = args else {
-        return Err("Es passt genau ein Name, z. B. `netz vergessen WG`.".into());
+        return Err("Es passt genau ein Name, z. B. `netzinfo vergessen WG`.".into());
     };
     vergessen(name)?;
     println!("Netz „{name}“ vergessen.");

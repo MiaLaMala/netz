@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>netz Vorschau</title>
+  <title>Netzinfo Vorschau</title>
   <!-- Nur zum Entwickeln, die App lädt diese Datei nicht. Ersetzt Tauri durch erfundene Daten und lädt dann
        die echte Oberfläche aus ui/. Aufruf: vorschau.html#bekannt  oder  #unbekannt,formular  oder
        #netze  #pruefung  #vpn  #fehler, dazu optional ,erklaeren  und  ,vergessen. -->
@@ -38,8 +38,8 @@
       },
       gemerkte_netze: async () => (marken.includes('leerliste') ? [] : netze),
       netz_merken: async ({ name }) => {
-        if (name.trim() === '') throw 'Der Name ist leer. Beispiel: `netz merken WG`.';
-        if (name.trim() === 'WG') throw 'Der Name „WG“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netz vergessen WG`.';
+        if (name.trim() === '') throw 'Der Name ist leer. Beispiel: `netzinfo merken WG`.';
+        if (name.trim() === 'WG') throw 'Der Name „WG“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen oder `netzinfo vergessen WG`.';
       },
       netz_vergessen: async ({ name }) => { netze = netze.filter((n) => n.name !== name); },
     };

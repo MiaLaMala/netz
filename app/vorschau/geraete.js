@@ -12,7 +12,7 @@
   const handy = d('192.168.178.10', null, [], 3 * TAG, 0);
   const neu = d('192.168.178.42', 'wohnzimmer-tv.fritz.box', [8009, 7000, 9999], 0, 0);
   const weg = d('192.168.178.31', 'alter-laptop.fritz.box', [22], 40 * TAG, 5 * TAG);
-  const nichtMeins = '`netz geraete` läuft nur in einem Netz, das du mit `netz merken <Name> --meins` als „meins“ markiert hast. Es gibt dafür bewusst keine Option: Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger. Es wurde nichts gesendet.';
+  const nichtMeins = '`netzinfo geraete` läuft nur in einem Netz, das du mit `netzinfo merken <Name> --meins` als „meins“ markiert hast. Es gibt dafür bewusst keine Option: Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger. Es wurde nichts gesendet.';
   const warte = (ms) => new Promise((r) => setTimeout(r, ms));
 
   VORSCHAU.geraete_suchen = async () => {

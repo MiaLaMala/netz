@@ -1,8 +1,8 @@
 [package]
-name = "netz-app"
+name = "netzinfo-app"
 version = "0.1.0"
 edition = "2024"
-description = "Die Mac-App zu netz."
+description = "Die Mac-App zu Netzinfo."
 license = "MIT"
 publish = false
 
@@ -10,6 +10,6 @@ publish = false
 tauri-build = "2"
 
 [dependencies]
-netz = { path = ".." }
+netzinfo = { path = ".." }
 # macos-private-api: needed for the transparent window with the native sidebar material.
 tauri = { version = "2.12", features = ["macos-private-api"] }
