@@ -308,7 +308,8 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
         erg.unterschiede.extend(zufalls_befund(&list));
     }
     // Every rule above may append findings; the verdict is the first entry, so sort once here.
-    erg.unterschiede.sort_by_key(|u| std::cmp::Reverse(u.klasse));
+    erg.unterschiede
+        .sort_by_key(|u| std::cmp::Reverse(u.klasse));
     netze::save(&store_path, &store)?;
     Ok(erg)
 }
