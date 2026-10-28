@@ -1,1 +1,8 @@
 /* Styles for the view „geraete“ only. */
+/* The shared empty state is tall for whole views; here it sits below the button. */
+.ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
+.geraet-status { margin: 0; }
+.fortschritt:not(:empty) { margin: 10px 0 0; }
+/* The how-it-works rows only make sense in explain mode. */
+.erklaer-gruppe { display: none; }
+.erklaeren .erklaer-gruppe { display: block; }
