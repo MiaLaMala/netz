@@ -44,3 +44,7 @@ Sie liest dieselbe Liste wie die Kommandozeile (`NETZ_DATEN` gilt auch hier). Di
 ## Nur im eigenen Netz scannen
 
 `netz ports` und später `netz geraete` laufen nur gegen private Adressen und nur, wenn das Netz als deins markiert ist (`netz merken <Name> --meins`) oder du `--meins` angibst. Auf dem eigenen Rechner (Loopback) geht es immer. In fremden Netzen (Schule, Arbeit, Hotspot) macht `netz` nur, was jeder Laptop beim Verbinden ohnehin tut.
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE).

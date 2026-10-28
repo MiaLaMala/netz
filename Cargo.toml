@@ -3,6 +3,8 @@ name = "netz"
 version = "0.1.0"
 edition = "2024"
 description = "Kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist."
+license = "MIT"
+repository = "https://github.com/MiaLaMala/netz"
 
 [workspace]
 members = ["app"]

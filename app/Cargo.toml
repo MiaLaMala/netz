@@ -3,6 +3,7 @@ name = "netz-app"
 version = "0.1.0"
 edition = "2024"
 description = "Die Mac-App zu netz."
+license = "MIT"
 publish = false
 
 [build-dependencies]
