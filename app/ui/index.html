@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>netz</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+  <script defer src="ansichten/dieses-netz.js"></script>
+  <script defer src="ansichten/gemerkte-netze.js"></script>
+  <script defer src="ansichten/pruefung.js"></script>
+  <script defer src="ansichten/qualitaet.js"></script>
+  <script defer src="ansichten/geraete.js"></script>
+</head>
+<body>
+  <nav class="seite" aria-label="Bereiche">
+    <div class="ziehen" data-tauri-drag-region></div>
+    <div class="menue" id="menue" role="tablist" aria-orientation="vertical"></div>
+  </nav>
+  <div class="inhalt">
+    <header class="leiste">
+      <div class="ziehen" data-tauri-drag-region></div>
+      <h1 id="titel" data-tauri-drag-region></h1>
+      <button class="erklaeren-schalter" id="erklaeren" role="switch" aria-checked="false">
+        <span class="spur"></span><span>Erklären</span>
+      </button>
+      <button class="knopf" id="aktualisieren" title="Aktualisieren (⌘R)">Aktualisieren <span class="kbd" aria-hidden="true">⌘R</span></button>
+    </header>
+    <main class="scroll" id="scroll" role="tabpanel" tabindex="-1"></main>
+  </div>
+</body>
+</html>
