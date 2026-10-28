@@ -2,7 +2,7 @@
 
 use std::net::Ipv4Addr;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Subnet {
     pub ip: Ipv4Addr,
     pub prefix: u8,

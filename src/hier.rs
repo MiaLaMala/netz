@@ -6,7 +6,7 @@ use std::net::Ipv4Addr;
 use std::process::Command;
 
 /// What we know about the current network. Fields are None when macOS has no answer.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, serde::Serialize)]
 pub struct NetInfo {
     pub interface: String,
     pub ip: Option<Ipv4Addr>,
