@@ -172,8 +172,9 @@ fn list<T: std::fmt::Display>(v: &[T]) -> String {
 }
 
 pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
-    let n = collect()?;
-    crate::netze::hier_hinweis(&n, explain_on);
+    let a = crate::netze::aktuell()?;
+    crate::netze::hier_hinweis(&a, explain_on);
+    let n = a.info;
     let vpn = n.interface.starts_with("utun");
     println!("Schnittstelle: {}", n.interface);
     explain(

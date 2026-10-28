@@ -1,5 +1,6 @@
 //! `netz ports`: TCP connect scan of an own device (issue #4).
 
+use serde::Serialize;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::Mutex;
@@ -90,71 +91,141 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     let target = target.ok_or("Es fehlt das Ziel, z. B. `netz ports 192.168.178.20 --meins`.")?;
 
-    let (meins, grund) = if meins {
-        (true, "du hast mit `--meins` bestätigt, dass es dir gehört")
-    } else if crate::netze::current_is_meins() {
-        (
-            true,
-            "dieses Netz ist mit `netz merken` als „meins“ markiert",
-        )
-    } else {
-        (false, "")
-    };
-    // Refuse before resolving, so a hostname causes no DNS traffic without --meins.
-    // Loopback literals are always fine.
-    if !meins && !target.parse::<IpAddr>().is_ok_and(|a| a.is_loopback()) {
-        return Err(refusal_text(target));
-    }
     crate::explain(
         explain_on,
         "Ich löse das Ziel in IP-Adressen auf (bei einer IP-Adresse passiert dabei nichts im Netz).",
     );
-    let addrs: Vec<IpAddr> = (target, 0)
+    let r = scannen(target, meins, ports, timeout_ms)?;
+    crate::explain(
+        explain_on,
+        &if let Some(grund) = grund(meins) {
+            format!("Alle Adressen des Ziels sind privat, und {grund}. Der Scan darf starten.")
+        } else {
+            "Das Ziel ist die eigene Maschine (Loopback). Der Scan darf starten.".to_string()
+        },
+    );
+    explain_handshake(explain_on);
+    println!(
+        "Scanne {} ({} Ports, Timeout {timeout_ms} ms)",
+        r.ip,
+        r.ports.len()
+    );
+    for p in r.ports.iter().filter(|p| p.zustand == Zustand::Offen) {
+        println!("  {:>5}  offen        {}", p.port, p.dienst);
+    }
+    println!(
+        "{} offen, {} geschlossen, {} gefiltert",
+        r.offen, r.geschlossen, r.gefiltert
+    );
+    if r.gefiltert > 0 && r.gefiltert == r.ports.len() {
+        println!("Alles gefiltert: Eine Firewall verwirft die Pakete, oder das Gerät ist aus.");
+    }
+    Ok(())
+}
+
+/// Why a scan of a non-loopback target is allowed; None: only loopback is.
+fn grund(flag: bool) -> Option<&'static str> {
+    if flag {
+        Some("du hast mit `--meins` bestätigt, dass es dir gehört")
+    } else if crate::netze::current_is_meins() {
+        Some("dieses Netz ist mit `netz merken` als „meins“ markiert")
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub enum Zustand {
+    Offen,
+    Geschlossen,
+    Gefiltert,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PortStatus {
+    pub port: u16,
+    /// Well-known service, empty if not in the list.
+    pub dienst: String,
+    pub zustand: Zustand,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PortErgebnis {
+    pub ip: IpAddr,
+    /// In scan order (as given, else the common list).
+    pub ports: Vec<PortStatus>,
+    pub offen: usize,
+    pub geschlossen: usize,
+    pub gefiltert: usize,
+}
+
+/// Scans `ziel` (IP or name). `meins`: the caller confirms the device is theirs; a network
+/// marked „meins“ counts too. Without that only loopback is scanned; with it only private
+/// addresses. `ports`: `None` = common ports. Nothing is sent, and no name resolved, before
+/// the checks pass.
+pub fn scannen(
+    ziel: &str,
+    meins: bool,
+    ports: Option<Vec<u16>>,
+    timeout_ms: u64,
+) -> Result<PortErgebnis, String> {
+    let meins = meins || crate::netze::current_is_meins();
+    scannen_mit(ziel, meins, ports, timeout_ms)
+}
+
+fn scannen_mit(
+    ziel: &str,
+    meins: bool,
+    ports: Option<Vec<u16>>,
+    timeout_ms: u64,
+) -> Result<PortErgebnis, String> {
+    // Refuse before resolving, so a hostname causes no DNS traffic without --meins.
+    // Loopback literals are always fine.
+    if !meins && !ziel.parse::<IpAddr>().is_ok_and(|a| a.is_loopback()) {
+        return Err(refusal_text(ziel));
+    }
+    let addrs: Vec<IpAddr> = (ziel, 0)
         .to_socket_addrs()
         .map_err(|_| {
             format!(
-                "„{target}“ lässt sich nicht auflösen. Prüfe die Schreibweise und deine Verbindung."
+                "„{ziel}“ lässt sich nicht auflösen. Prüfe die Schreibweise und deine Verbindung."
             )
         })?
         .map(|s| s.ip())
         .collect();
     check_target(&addrs, meins)?;
     let ip = addrs[0];
-    crate::explain(
-        explain_on,
-        &if meins {
-            format!("Alle Adressen des Ziels sind privat, und {grund}. Der Scan darf starten.")
-        } else {
-            "Das Ziel ist die eigene Maschine (Loopback). Der Scan darf starten.".to_string()
-        },
-    );
-
     let list: Vec<(u16, String)> = match ports {
         Some(p) => p.into_iter().map(|p| (p, service_name(p))).collect(),
         None => COMMON.iter().map(|&(p, n)| (p, n.to_string())).collect(),
     };
-    explain_handshake(explain_on);
-    println!(
-        "Scanne {ip} ({} Ports, Timeout {timeout_ms} ms)",
-        list.len()
-    );
     let nums: Vec<u16> = list.iter().map(|(p, _)| *p).collect();
-    let results = scan(ip, &nums, Duration::from_millis(timeout_ms));
-
-    let (mut closed, mut filtered) = (0, 0);
-    for ((port, name), state) in list.iter().zip(&results) {
-        match state {
-            State::Open => println!("  {port:>5}  offen        {name}"),
-            State::Closed => closed += 1,
-            State::Filtered => filtered += 1,
-        }
-    }
-    let open = results.iter().filter(|s| **s == State::Open).count();
-    println!("{open} offen, {closed} geschlossen, {filtered} gefiltert");
-    if filtered > 0 && filtered == results.len() {
-        println!("Alles gefiltert: Eine Firewall verwirft die Pakete, oder das Gerät ist aus.");
-    }
-    Ok(())
+    let results = scan(ip, &nums, Duration::from_millis(timeout_ms.max(1)));
+    let count = |s: State| results.iter().filter(|r| **r == s).count();
+    let (offen, geschlossen, gefiltert) = (
+        count(State::Open),
+        count(State::Closed),
+        count(State::Filtered),
+    );
+    Ok(PortErgebnis {
+        ip,
+        ports: list
+            .into_iter()
+            .zip(results)
+            .map(|((port, dienst), s)| PortStatus {
+                port,
+                dienst,
+                zustand: match s {
+                    State::Open => Zustand::Offen,
+                    State::Closed => Zustand::Geschlossen,
+                    State::Filtered => Zustand::Gefiltert,
+                },
+            })
+            .collect(),
+        offen,
+        geschlossen,
+        gefiltert,
+    })
 }
 
 fn explain_handshake(on: bool) {
@@ -293,6 +364,20 @@ mod tests {
 
     fn ip(s: &str) -> IpAddr {
         s.parse().unwrap()
+    }
+
+    #[test]
+    fn scannen_gate_and_loopback_result() {
+        // refused before anything is resolved or sent
+        assert!(scannen_mit("192.168.178.20", false, None, 100).is_err());
+        assert!(scannen_mit("localhost", false, None, 100).is_err());
+        assert!(scannen_mit("8.8.8.8", true, None, 100).is_err());
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let open = l.local_addr().unwrap().port();
+        let r = scannen_mit("127.0.0.1", false, Some(vec![open]), 500).unwrap();
+        assert_eq!((r.offen, r.geschlossen, r.gefiltert), (1, 0, 0));
+        assert_eq!(r.ports[0].zustand, Zustand::Offen);
+        assert!(serde_json::to_string(&r).unwrap().contains("Offen"));
     }
 
     #[test]

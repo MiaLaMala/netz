@@ -47,7 +47,7 @@ pub struct Messung {
     pub public_ip: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum Klasse {
     Harmlos,
     Auffaellig,
@@ -67,23 +67,15 @@ fn list(v: &[Ipv4Addr]) -> String {
         .join(", ")
 }
 
-fn measure(fp: &Fingerprint, dhcp_dns: Vec<Ipv4Addr>, explain_on: bool) -> Messung {
+fn measure(fp: &Fingerprint, dhcp_dns: Vec<Ipv4Addr>) -> Messung {
     let local = dns::system_resolver();
     let ask = |server: Result<IpAddr, String>, name: &str| {
         server
             .and_then(|s| dns::query(s, name, dns::A, dns::IN))
             .ok()
     };
-    explain(
-        explain_on,
-        "Ich frage github.com (A) beim DNS-Server deines Netzes und bei 1.1.1.1. Sagt nur dein Netz „gibt es nicht“ oder 0.0.0.0, blockiert es den Namen (Werbefilter, Jugendschutz oder Zensur).",
-    );
     let l = ask(local.clone(), "github.com");
     let p = ask(Ok(PUBLIC_DNS), "github.com");
-    explain(
-        explain_on,
-        "Dann frage ich nach einem Namen, den es sicher nicht gibt (eine Zufallskette unter example.com). Ehrlich ist die Antwort „NXDOMAIN“. Erfindet dein Netz trotzdem eine Adresse, während 1.1.1.1 NXDOMAIN sagt, leitet es falsche Namen um. Das tun Captive Portals und manche Provider, es kann aber auch DNS-Hijacking sein.",
-    );
     let fake = format!("{}.example.com", random_label());
     let hijack = match (ask(local, &fake), ask(Ok(PUBLIC_DNS), &fake)) {
         (Some(l), Some(p)) => {
@@ -91,10 +83,6 @@ fn measure(fp: &Fingerprint, dhcp_dns: Vec<Ipv4Addr>, explain_on: bool) -> Messu
         }
         _ => None,
     };
-    explain(
-        explain_on,
-        "Bei github.com und apple.com baue ich eine TLS-Verbindung auf und prüfe, ob das Zertifikat von einer öffentlich bekannten Stelle stammt. Sonst liest vielleicht jemand mit (SSL-Inspection, wie in Firmennetzen oder bei einem Angreifer). Zusätzlich merke ich mir den Fingerabdruck der ausstellenden Stelle.",
-    );
     let tls = TLS_HOSTS
         .iter()
         .map(|h| {
@@ -115,10 +103,6 @@ fn measure(fp: &Fingerprint, dhcp_dns: Vec<Ipv4Addr>, explain_on: bool) -> Messu
             }
         })
         .collect();
-    explain(
-        explain_on,
-        "Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.",
-    );
     let public_ip = dns::query(PUBLIC_DNS, "whoami.cloudflare", dns::TXT, dns::CH)
         .ok()
         .and_then(|a| a.records.into_iter().find(|r| r.rtype == dns::TXT))
@@ -275,12 +259,29 @@ fn show(m: &Messung) {
     );
 }
 
-pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    if let Some(a) = args.first() {
-        return Err(format!(
-            "`netz pruefen` kennt „{a}“ nicht. Es braucht keine Angaben, `--erklaer` erklärt die Schritte."
-        ));
-    }
+/// One difference between two visits.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Unterschied {
+    pub klasse: Klasse,
+    pub text: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PruefErgebnis {
+    /// Name of the stored network.
+    pub netz: String,
+    pub messung: Messung,
+    /// The measurement of the last visit (`time` says when). `None` on the first visit.
+    pub vorher: Option<Messung>,
+    /// Worst first. Empty on the first visit.
+    pub unterschiede: Vec<Unterschied>,
+    pub erster_besuch: bool,
+    /// Checks that could not be measured; they do not count as changes.
+    pub nicht_messbar: usize,
+}
+
+/// Measures the current (stored) network, compares with the last visit and stores the result.
+pub fn pruefen() -> Result<PruefErgebnis, String> {
     let info = hier::collect()?;
     let fp = netze::fingerprint(&info)?;
     let path = netze::data_path()?;
@@ -290,50 +291,95 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     };
     let store_path = path.with_file_name("pruefungen.json");
     let mut store: Store = netze::load_json(&store_path)?;
-    println!("Netz „{}“", known[i].name);
-    let new = measure(&fp, info.dhcp_dns.clone(), explain_on);
-    show(&new);
-    let key = fp.key();
-    let stored = match store.get(&key) {
-        None => {
-            println!("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
-            explain(
-                explain_on,
-                "Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.",
-            );
-            new
-        }
-        Some(old) => {
-            let diffs = compare(old, &new);
-            let when = netze::format_utc(old.time);
-            if diffs.is_empty() {
-                println!("Nichts Auffälliges, alles wie beim letzten Besuch am {when}.");
-            } else {
-                println!("Seit dem letzten Besuch am {when} ist anders:");
-                for (k, text) in &diffs {
-                    let label = match k {
-                        Klasse::Harmlos => "Harmlos",
-                        Klasse::Auffaellig => "Auffällig",
-                        Klasse::Alarm => "Alarm",
-                    };
-                    println!("{label}: {text}");
-                }
-            }
-            let n = failed(&new);
-            if n > 0 {
-                println!(
-                    "{n} Prüfung(en) ließen sich nicht messen (Internet? Zeitüberschreitung?). Sie zählen nicht als Änderung."
-                );
-            }
-            explain(
-                explain_on,
-                "Harmlos heißt: kommt im Alltag vor. Auffällig: schau nach, ob das so gewollt ist. Alarm: nutze das Netz nicht für Passwörter oder Bankgeschäfte, bis du es geklärt hast. Die neue Messung ersetzt jetzt die alte; fehlgeschlagene Prüfungen behalten den alten Wert.",
-            );
-            fill(new, old)
-        }
-    };
+    let new = measure(&fp, info.dhcp_dns);
+    let mut erg = auswerten(&mut store, fp.key(), new);
+    erg.netz = known[i].name.clone();
+    netze::save(&store_path, &store)?;
+    Ok(erg)
+}
+
+/// Compares `new` with the stored measurement of `key` and puts the merged one into the store.
+fn auswerten(store: &mut Store, key: String, new: Messung) -> PruefErgebnis {
+    let nicht_messbar = failed(&new);
+    let vorher = store.get(&key).cloned();
+    let unterschiede = vorher.as_ref().map_or(vec![], |old| {
+        compare(old, &new)
+            .into_iter()
+            .map(|(klasse, text)| Unterschied { klasse, text })
+            .collect()
+    });
+    let stored = vorher
+        .as_ref()
+        .map_or(new.clone(), |old| fill(new.clone(), old));
     store.insert(key, stored);
-    netze::save(&store_path, &store)
+    PruefErgebnis {
+        netz: String::new(),
+        messung: new,
+        erster_besuch: vorher.is_none(),
+        vorher,
+        unterschiede,
+        nicht_messbar,
+    }
+}
+
+pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    if let Some(a) = args.first() {
+        return Err(format!(
+            "`netz pruefen` kennt „{a}“ nicht. Es braucht keine Angaben, `--erklaer` erklärt die Schritte."
+        ));
+    }
+    let r = pruefen()?;
+    println!("Netz „{}“", r.netz);
+    explain(
+        explain_on,
+        "Ich frage github.com (A) beim DNS-Server deines Netzes und bei 1.1.1.1. Sagt nur dein Netz „gibt es nicht“ oder 0.0.0.0, blockiert es den Namen (Werbefilter, Jugendschutz oder Zensur).",
+    );
+    explain(
+        explain_on,
+        "Dann frage ich nach einem Namen, den es sicher nicht gibt (eine Zufallskette unter example.com). Ehrlich ist die Antwort „NXDOMAIN“. Erfindet dein Netz trotzdem eine Adresse, während 1.1.1.1 NXDOMAIN sagt, leitet es falsche Namen um. Das tun Captive Portals und manche Provider, es kann aber auch DNS-Hijacking sein.",
+    );
+    explain(
+        explain_on,
+        "Bei github.com und apple.com baue ich eine TLS-Verbindung auf und prüfe, ob das Zertifikat von einer öffentlich bekannten Stelle stammt. Sonst liest vielleicht jemand mit (SSL-Inspection, wie in Firmennetzen oder bei einem Angreifer). Zusätzlich merke ich mir den Fingerabdruck der ausstellenden Stelle.",
+    );
+    explain(
+        explain_on,
+        "Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.",
+    );
+    show(&r.messung);
+    let Some(old) = &r.vorher else {
+        println!("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
+        explain(
+            explain_on,
+            "Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.",
+        );
+        return Ok(());
+    };
+    let when = netze::format_utc(old.time);
+    if r.unterschiede.is_empty() {
+        println!("Nichts Auffälliges, alles wie beim letzten Besuch am {when}.");
+    } else {
+        println!("Seit dem letzten Besuch am {when} ist anders:");
+        for u in &r.unterschiede {
+            let label = match u.klasse {
+                Klasse::Harmlos => "Harmlos",
+                Klasse::Auffaellig => "Auffällig",
+                Klasse::Alarm => "Alarm",
+            };
+            println!("{label}: {}", u.text);
+        }
+    }
+    if r.nicht_messbar > 0 {
+        println!(
+            "{} Prüfung(en) ließen sich nicht messen (Internet? Zeitüberschreitung?). Sie zählen nicht als Änderung.",
+            r.nicht_messbar
+        );
+    }
+    explain(
+        explain_on,
+        "Harmlos heißt: kommt im Alltag vor. Auffällig: schau nach, ob das so gewollt ist. Alarm: nutze das Netz nicht für Passwörter oder Bankgeschäfte, bis du es geklärt hast. Die neue Messung ersetzt jetzt die alte; fehlgeschlagene Prüfungen behalten den alten Wert.",
+    );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -434,6 +480,31 @@ mod tests {
         assert_eq!(failed(&n), 5);
         // old good values survive in the store
         assert_eq!(fill(n, &base()).tls, base().tls);
+    }
+
+    #[test]
+    fn auswerten_first_visit_then_compare_and_fill() {
+        let mut store = Store::new();
+        let first = auswerten(&mut store, "k".into(), base());
+        assert!(first.erster_besuch && first.vorher.is_none() && first.unterschiede.is_empty());
+        let mut n = base();
+        n.time += 60;
+        n.public_ip = None;
+        n.dhcp_dns = vec![ip("10.0.0.9")];
+        let second = auswerten(&mut store, "k".into(), n);
+        assert!(!second.erster_besuch);
+        assert_eq!(second.vorher.as_ref().map(|m| m.time), Some(base().time));
+        assert_eq!(second.nicht_messbar, 1);
+        assert_eq!(second.unterschiede.len(), 1);
+        assert_eq!(second.unterschiede[0].klasse, Klasse::Auffaellig);
+        // shown value stays None, stored value keeps the old IP
+        assert_eq!(second.messung.public_ip, None);
+        assert_eq!(store["k"].public_ip.as_deref(), Some("203.0.113.7"));
+        assert!(
+            serde_json::to_string(&second)
+                .unwrap()
+                .contains("Auffaellig")
+        );
     }
 
     #[test]

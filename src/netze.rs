@@ -184,9 +184,7 @@ pub fn remember(
 }
 
 pub fn forget(list: &mut Vec<Netz>, name: &str) -> Result<(), String> {
-    let i = list.iter().position(|n| n.name == name).ok_or_else(|| {
-        format!("Ein Netz „{name}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
-    })?;
+    let i = by_name(list, name)?;
     list.remove(i);
     Ok(())
 }
@@ -224,41 +222,152 @@ pub fn format_utc(secs: u64) -> String {
     )
 }
 
-/// First line of `netz hier`. Never fails: store problems become a note.
-pub fn hier_hinweis(n: &NetInfo, explain_on: bool) {
-    let fp = match fingerprint(n) {
+/// The current network and whether it is known.
+#[derive(Debug, Serialize)]
+pub struct Aktuell {
+    pub info: NetInfo,
+    /// The stored network as it was before this visit (`last_seen` is the previous visit, the
+    /// file is already updated). `None`: new network, or recognition not possible.
+    pub netz: Option<Netz>,
+    /// Why there is no fingerprint (no DHCP, e.g. VPN tunnel).
+    pub erkennung_fehler: Option<String>,
+    /// A problem with the store file. Never fatal.
+    pub hinweis: Option<String>,
+}
+
+/// Reads the current network, recognises it and updates `last_seen` of a known one.
+pub fn aktuell() -> Result<Aktuell, String> {
+    Ok(erkennen(hier::collect()?, data_path()))
+}
+
+fn erkennen(info: NetInfo, path: Result<PathBuf, String>) -> Aktuell {
+    let mut a = Aktuell {
+        info,
+        netz: None,
+        erkennung_fehler: None,
+        hinweis: None,
+    };
+    let fp = match fingerprint(&a.info) {
         Ok(fp) => fp,
         Err(e) => {
-            println!("Netz nicht wiedererkennbar: {e}");
+            a.erkennung_fehler = Some(e);
+            return a;
+        }
+    };
+    let (path, mut list) = match path.and_then(|p| Ok((p.clone(), load(&p)?))) {
+        Ok(x) => x,
+        Err(e) => {
+            a.hinweis = Some(e);
+            return a;
+        }
+    };
+    if let Some(i) = find(&list, &fp) {
+        a.netz = Some(list[i].clone());
+        list[i].last_seen = now();
+        if let Err(e) = save(&path, &list) {
+            a.hinweis = Some(e);
+        }
+    }
+    a
+}
+
+/// First line of `netz hier`.
+pub fn hier_hinweis(a: &Aktuell, explain_on: bool) {
+    if let Some(e) = &a.erkennung_fehler {
+        println!("Netz nicht wiedererkennbar: {e}");
+        return;
+    }
+    match &a.netz {
+        Some(n) => println!(
+            "Bekanntes Netz: {}, zuletzt am {}",
+            n.name,
+            format_utc(n.last_seen)
+        ),
+        // store unreadable: only the note, no explanation
+        None if a.hinweis.is_some() => {}
+        None => println!("Neues Netz. Mit `netz merken <Name>` merkst du es dir."),
+    }
+    if let Some(h) = &a.hinweis {
+        println!("Hinweis: {h}");
+        if a.netz.is_none() {
             return;
         }
-    };
-    let path = match data_path() {
-        Ok(p) => p,
-        Err(e) => return println!("Hinweis: {e}"),
-    };
-    let mut list = match load(&path) {
-        Ok(l) => l,
-        Err(e) => return println!("Hinweis: {e}"),
-    };
-    match find(&list, &fp) {
-        Some(i) => {
-            println!(
-                "Bekanntes Netz: {}, zuletzt am {}",
-                list[i].name,
-                format_utc(list[i].last_seen)
-            );
-            list[i].last_seen = now();
-            if let Err(e) = save(&path, &list) {
-                println!("Hinweis: {e}");
-            }
-        }
-        None => println!("Neues Netz. Mit `netz merken <Name>` merkst du es dir."),
     }
     explain(
         explain_on,
         "Ein Fingerabdruck besteht aus Router-IP, DHCP-Server, Domain und Subnetz. Diese Werte hat der DHCP-Server des Netzes vergeben, sie bleiben bei jedem Besuch gleich und unterscheiden sich meist von Netz zu Netz. So erkenne ich ein Netz wieder, ohne WLAN-Name oder MAC-Adresse zu brauchen.",
     );
+}
+
+/// Loads the list, lets `f` change it, saves it, returns what `f` returned.
+fn aendern<T>(
+    path: &Path,
+    f: impl FnOnce(&mut Vec<Netz>) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut list = load(path)?;
+    let out = f(&mut list)?;
+    save(path, &list)?;
+    Ok(out)
+}
+
+/// Remembers the current network. Like `remember`: `meins` replaces the old marking.
+pub fn merken(name: &str, meins: bool) -> Result<Netz, String> {
+    let fp = fingerprint(&hier::collect()?)?;
+    merken_in(&data_path()?, name, fp, meins)
+}
+
+fn merken_in(path: &Path, name: &str, fp: Fingerprint, meins: bool) -> Result<Netz, String> {
+    aendern(path, |list| {
+        remember(list, name, fp.clone(), meins, now())?;
+        find(list, &fp)
+            .map(|i| list[i].clone())
+            .ok_or_else(|| "Das Netz ließ sich nicht speichern.".into())
+    })
+}
+
+/// Gives the network `alt` the name `neu`; `meins` and all measurements stay.
+pub fn umbenennen(alt: &str, neu: &str) -> Result<Netz, String> {
+    aendern(&data_path()?, |list| rename(list, alt, neu))
+}
+
+/// Marks the network `name` as „meins“ or takes the mark back.
+pub fn markieren(name: &str, meins: bool) -> Result<Netz, String> {
+    aendern(&data_path()?, |list| mark(list, name, meins))
+}
+
+pub fn vergessen(name: &str) -> Result<(), String> {
+    aendern(&data_path()?, |list| forget(list, name))
+}
+
+pub fn liste() -> Result<Vec<Netz>, String> {
+    load(&data_path()?)
+}
+
+fn by_name(list: &[Netz], name: &str) -> Result<usize, String> {
+    list.iter().position(|n| n.name == name).ok_or_else(|| {
+        format!("Ein Netz „{name}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
+    })
+}
+
+fn rename(list: &mut [Netz], alt: &str, neu: &str) -> Result<Netz, String> {
+    let i = by_name(list, alt)?;
+    let neu = neu.trim();
+    if neu.is_empty() {
+        return Err("Der neue Name ist leer. Nimm einen Namen wie „WG“.".into());
+    }
+    if neu != alt && list.iter().any(|n| n.name == neu) {
+        return Err(format!(
+            "Der Name „{neu}“ ist schon für ein anderes Netz vergeben. Nimm einen anderen Namen."
+        ));
+    }
+    list[i].name = neu.to_string();
+    Ok(list[i].clone())
+}
+
+fn mark(list: &mut [Netz], name: &str, meins: bool) -> Result<Netz, String> {
+    let i = by_name(list, name)?;
+    list[i].meins = meins;
+    Ok(list[i].clone())
 }
 
 pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
@@ -272,18 +381,14 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
             "Unbekannte Option „{name}“. `netz hilfe` zeigt alle Optionen."
         ));
     }
-    let fp = fingerprint(&hier::collect()?)?;
     explain(
         explain_on,
         "Ich lese Router, DHCP-Server, Domain und Subnetz des aktuellen Netzes. Zusammen sind sie der Fingerabdruck, unter dem das Netz gespeichert wird.",
     );
-    let path = data_path()?;
-    let mut list = load(&path)?;
-    remember(&mut list, name, fp, meins, now())?;
-    save(&path, &list)?;
+    let netz = merken(name, meins)?;
     println!(
         "Netz „{}“ gemerkt{}.",
-        name.trim(),
+        netz.name,
         if meins { " (meins)" } else { "" }
     );
     explain(
@@ -294,7 +399,7 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
 }
 
 pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
-    let list = load(&data_path()?)?;
+    let list = liste()?;
     if list.is_empty() {
         println!("Noch kein Netz gemerkt. Mit `netz merken <Name>` fängst du an.");
         return Ok(());
@@ -320,10 +425,7 @@ pub fn run_vergessen(args: &[String], explain_on: bool) -> Result<(), String> {
     let [name] = args else {
         return Err("Es passt genau ein Name, z. B. `netz vergessen WG`.".into());
     };
-    let path = data_path()?;
-    let mut list = load(&path)?;
-    forget(&mut list, name)?;
-    save(&path, &list)?;
+    vergessen(name)?;
     println!("Netz „{name}“ vergessen.");
     explain(
         explain_on,
@@ -354,6 +456,80 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn rename_and_mark_rules() {
+        let fp = fingerprint(&info()).unwrap();
+        let mut other = fp.clone();
+        other.subnet = "10.0.0.0/24".into();
+        let mut list = vec![];
+        remember(&mut list, "WG", fp, true, 1).unwrap();
+        remember(&mut list, "Büro", other, false, 2).unwrap();
+        // taken, empty, unknown
+        assert!(
+            rename(&mut list, "WG", "Büro")
+                .unwrap_err()
+                .contains("vergeben")
+        );
+        assert!(rename(&mut list, "WG", "  ").is_err());
+        assert!(
+            rename(&mut list, "Nix", "X")
+                .unwrap_err()
+                .contains("nicht gemerkt")
+        );
+        // same name is fine; renaming keeps meins and fingerprint
+        let n = rename(&mut list, "WG", "Zuhause").unwrap();
+        assert!(n.meins && n.name == "Zuhause");
+        assert_eq!(list[0].fingerprint.subnet, "192.168.178.0/24");
+        assert!(rename(&mut list, "Zuhause", "Zuhause").is_ok());
+        assert!(!mark(&mut list, "Zuhause", false).unwrap().meins);
+        assert!(mark(&mut list, "Büro", true).unwrap().meins);
+        assert!(mark(&mut list, "Nix", true).is_err());
+    }
+
+    #[test]
+    fn merken_in_stores_and_aendern_does_not_save_on_error() {
+        let dir = tmp_dir("merken-in");
+        let path = dir.join("netze.json");
+        let fp = fingerprint(&info()).unwrap();
+        let n = merken_in(&path, "WG", fp.clone(), true).unwrap();
+        assert!(n.meins);
+        // a failing change leaves the file as it was
+        let before = std::fs::read_to_string(&path).unwrap();
+        assert!(aendern(&path, |l| rename(l, "Nix", "X")).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
+        aendern(&path, |l| forget(l, "WG")).unwrap();
+        assert!(load(&path).unwrap().is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn erkennen_known_unknown_and_no_dhcp() {
+        let dir = tmp_dir("erkennen");
+        let path = dir.join("netze.json");
+        let new = erkennen(info(), Ok(path.clone()));
+        assert!(new.netz.is_none() && new.erkennung_fehler.is_none() && new.hinweis.is_none());
+        let fp = fingerprint(&info()).unwrap();
+        merken_in(&path, "WG", fp, false).unwrap();
+        let mut list = load(&path).unwrap();
+        list[0].last_seen = 5;
+        save(&path, &list).unwrap();
+        let known = erkennen(info(), Ok(path.clone()));
+        // reports the previous visit, the file gets the new time
+        assert_eq!(
+            known.netz.as_ref().map(|n| (n.name.as_str(), n.last_seen)),
+            Some(("WG", 5))
+        );
+        assert!(load(&path).unwrap()[0].last_seen > 5);
+        let vpn = NetInfo {
+            interface: "utun4".into(),
+            ..NetInfo::default()
+        };
+        assert!(erkennen(vpn, Ok(path)).erkennung_fehler.is_some());
+        // a store problem becomes a note, not an error
+        assert!(erkennen(info(), Err("x".into())).hinweis.is_some());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
