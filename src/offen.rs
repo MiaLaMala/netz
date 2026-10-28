@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use std::net::IpAddr;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -90,46 +91,112 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
 
 /// Listening TCP and bound UDP sockets of the current user, network-reachable first.
 pub fn offen() -> Result<Vec<Lauscher>, String> {
+    let mut v = lauscher(sockets()?);
+    v.sort_by_key(|l| (l.reichweite != Reichweite::Netz, l.port, l.pid));
+    Ok(v)
+}
+
+/// One TCP or UDP socket of the current user as `lsof` lists it. Shared by `offen` (#38) and
+/// `verbindungen` (#39).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Socket {
+    /// "TCP" or "UDP".
+    pub protokoll: String,
+    /// Local address ("*" for all) and port.
+    pub lokal: (String, u16),
+    /// Remote address and port of a connected socket.
+    pub ziel: Option<(String, u16)>,
+    /// TCP state like "LISTEN" or "ESTABLISHED"; empty if lsof gave none (UDP).
+    pub zustand: String,
+    pub pid: u32,
+    pub programm: String,
+    pub nutzer: String,
+}
+
+/// All TCP and UDP sockets of the current user (all states), via `lsof`.
+// ponytail: lsof spawns a process per call; libproc instead is issue #74.
+#[cfg(target_os = "macos")]
+pub(crate) fn sockets() -> Result<Vec<Socket>, String> {
     let out = Command::new("/usr/sbin/lsof")
-        .args(["-nP", "-iTCP", "-sTCP:LISTEN", "-iUDP", "-F", "pcLfPtn"])
+        .args(["-nP", "-iTCP", "-iUDP", "-F", "pcLfPtnT"])
         .output()
         .map_err(|_| {
             "`lsof` ließ sich nicht starten. Es liegt unter macOS in /usr/sbin/lsof, prüfe, ob es fehlt."
                 .to_string()
         })?;
     // lsof exits 1 when it finds nothing, so only the text counts.
-    let mut v = parse_lsof(&String::from_utf8_lossy(&out.stdout));
-    v.sort_by_key(|l| (l.reichweite != Reichweite::Netz, l.port, l.pid));
-    Ok(v)
+    Ok(parse_sockets(&String::from_utf8_lossy(&out.stdout)))
 }
 
-/// Parses `lsof -F pcLfPtn` output (one field per line, first char = field id).
-/// Unknown or missing fields and unusable records are skipped.
-pub(crate) fn parse_lsof(text: &str) -> Vec<Lauscher> {
-    let (mut pid, mut prog, mut user) = (None, String::new(), String::new());
-    let (mut proto, mut name) = (String::new(), String::new());
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn sockets() -> Result<Vec<Socket>, String> {
+    Err("Die Liste der Sockets gibt es bisher nur unter macOS (über `lsof`).".into())
+}
+
+/// Listening or bound sockets, i.e. everything that is not a connection.
+fn lauscher(socks: Vec<Socket>) -> Vec<Lauscher> {
     let mut out: Vec<Lauscher> = Vec::new();
-    let flush = |out: &mut Vec<Lauscher>,
+    for s in socks {
+        if s.ziel.is_some() || !(s.zustand.is_empty() || s.zustand == "LISTEN") {
+            continue;
+        }
+        let l = Lauscher {
+            protokoll: s.protokoll,
+            reichweite: reichweite(&s.lokal.0),
+            adresse: s.lokal.0,
+            port: s.lokal.1,
+            pid: s.pid,
+            programm: s.programm,
+            nutzer: s.nutzer,
+            dienst: crate::ports::service_name(s.lokal.1),
+        };
+        if !out.contains(&l) {
+            out.push(l);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+fn parse_lsof(text: &str) -> Vec<Lauscher> {
+    lauscher(parse_sockets(text))
+}
+
+/// Parses `lsof -F pcLfPtnT` output (one field per line, first char = field id).
+/// Unknown or missing fields and unusable records are skipped.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))] // lsof parser, tested; Linux will need it too
+pub(crate) fn parse_sockets(text: &str) -> Vec<Socket> {
+    let (mut pid, mut prog, mut user) = (None, String::new(), String::new());
+    let (mut proto, mut name, mut state) = (String::new(), String::new(), String::new());
+    let mut out: Vec<Socket> = Vec::new();
+    let flush = |out: &mut Vec<Socket>,
                  pid: Option<u32>,
                  prog: &str,
                  user: &str,
                  proto: &str,
-                 name: &str| {
-        let (Some(pid), Some((host, port))) = (pid, split_addr(name)) else {
+                 name: &str,
+                 state: &str| {
+        let (local, remote) = match name.split_once("->") {
+            Some((l, r)) => (l, split_addr(r)),
+            None => (name, None),
+        };
+        let (Some(pid), Some(lokal)) = (pid, split_addr(local)) else {
             return;
         };
-        let l = Lauscher {
+        if name.contains("->") && remote.is_none() {
+            return;
+        }
+        let s = Socket {
             protokoll: proto.to_string(),
-            reichweite: reichweite(&host),
-            adresse: host,
-            port,
+            lokal,
+            ziel: remote,
+            zustand: state.to_string(),
             pid,
             programm: prog.to_string(),
             nutzer: user.to_string(),
-            dienst: crate::ports::service_name(port),
         };
-        if (proto == "TCP" || proto == "UDP") && !out.contains(&l) {
-            out.push(l);
+        if (proto == "TCP" || proto == "UDP") && !out.contains(&s) {
+            out.push(s);
         }
     };
     for line in text.lines() {
@@ -138,30 +205,33 @@ pub(crate) fn parse_lsof(text: &str) -> Vec<Lauscher> {
         let val = c.as_str();
         match id {
             'p' => {
-                flush(&mut out, pid, &prog, &user, &proto, &name);
+                flush(&mut out, pid, &prog, &user, &proto, &name, &state);
                 (pid, prog, user) = (val.parse().ok(), String::new(), String::new());
-                (proto, name) = (String::new(), String::new());
+                (proto, name, state) = (String::new(), String::new(), String::new());
             }
             'f' => {
-                flush(&mut out, pid, &prog, &user, &proto, &name);
-                (proto, name) = (String::new(), String::new());
+                flush(&mut out, pid, &prog, &user, &proto, &name, &state);
+                (proto, name, state) = (String::new(), String::new(), String::new());
             }
             'c' => prog = val.to_string(),
             'L' => user = val.to_string(),
             'P' => proto = val.to_string(),
             'n' => name = val.to_string(),
+            'T' => {
+                if let Some(st) = val.strip_prefix("ST=") {
+                    state = st.to_string();
+                }
+            }
             _ => {}
         }
     }
-    flush(&mut out, pid, &prog, &user, &proto, &name);
+    flush(&mut out, pid, &prog, &user, &proto, &name, &state);
     out
 }
 
-/// "*:80", "127.0.0.1:631", "[::1]:8080" to (host, port); None for "*:*" and connected "a->b".
+/// "*:80", "127.0.0.1:631", "[::1]:8080" to (host, port); None for "*:*".
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn split_addr(s: &str) -> Option<(String, u16)> {
-    if s.contains("->") {
-        return None;
-    }
     let (host, port) = s.rsplit_once(':')?;
     let host = host.trim_start_matches('[').trim_end_matches(']');
     Some((host.to_string(), port.parse().ok()?))
