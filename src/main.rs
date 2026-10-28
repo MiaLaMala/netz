@@ -3,6 +3,7 @@
 mod dns;
 mod hier;
 mod ports;
+mod subnetz;
 mod tls;
 
 use std::process::ExitCode;
