@@ -23,7 +23,6 @@ Optionen:
 ";
 
 /// Prints a German explanation line when `--erklaer` is on.
-#[allow(dead_code)] // used by the command modules once they are built
 pub fn explain(on: bool, text: &str) {
     if on {
         println!("  ↳ {text}");
