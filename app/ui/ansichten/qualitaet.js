@@ -1,4 +1,4 @@
-// „Qualität“: leer, bis sie mit Issue #19 gefüllt wird. Nur diese Datei anfassen.
+// „Qualität“: empty until a later issue fills it. Touch only this file.
 Netz.registriere({
   id: 'qualitaet',
   titel: 'Qualität',
