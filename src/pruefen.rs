@@ -6,7 +6,7 @@
 use crate::explain;
 use crate::netze::{self, Fingerprint};
 use crate::tls::{self, Verdict};
-use crate::{dns, hier};
+use crate::{dns, hier, portal};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::hash_map::RandomState;
@@ -123,8 +123,15 @@ fn measure(fp: &Fingerprint, dhcp_dns: Vec<Ipv4Addr>) -> Messung {
 /// Differences between the last and the current measurement, worst first.
 /// Failed checks (`None`) on either side are skipped.
 pub fn compare(old: &Messung, new: &Messung) -> Vec<(Klasse, String)> {
+    compare_in(old, new, false)
+}
+
+/// Like `compare`; behind a captive portal (`portal`) TLS and NXDOMAIN findings are only
+/// `Auffaellig`, because the portal causes them.
+fn compare_in(old: &Messung, new: &Messung, portal: bool) -> Vec<(Klasse, String)> {
     use Klasse::*;
     let mut out = Vec::new();
+    let intercept = if portal { Auffaellig } else { Alarm };
     if old.dhcp_server == old.router && new.dhcp_server != new.router {
         out.push((Alarm, format!("Der DHCP-Server ({}) ist nicht mehr der Router ({}). Vorher waren beide dasselbe Gerät: Vielleicht verteilt jetzt ein fremdes Gerät Adressen.", new.dhcp_server, new.router)));
     }
@@ -159,7 +166,7 @@ pub fn compare(old: &Messung, new: &Messung) -> Vec<(Klasse, String)> {
         ));
     }
     if old.hijack == Some(false) && new.hijack == Some(true) {
-        out.push((Alarm, "Dein Netz erfindet jetzt Antworten für Namen, die es nicht gibt (NXDOMAIN-Umleitung), vorher nicht. Das kann ein Captive Portal oder DNS-Hijacking sein.".into()));
+        out.push((intercept, "Dein Netz erfindet jetzt Antworten für Namen, die es nicht gibt (NXDOMAIN-Umleitung), vorher nicht. Das kann ein Captive Portal oder DNS-Hijacking sein.".into()));
     }
     for n in &new.tls {
         let Some(o) = old.tls.iter().find(|o| o.host == n.host) else {
@@ -169,7 +176,7 @@ pub fn compare(old: &Messung, new: &Messung) -> Vec<(Klasse, String)> {
             continue;
         };
         if ov == Tv::Normal && nv == Tv::Aufgebrochen {
-            out.push((Alarm, format!("Das Zertifikat von {} stammt jetzt von einer unbekannten Stelle, vorher war es normal. Jemand im Netz liest vielleicht verschlüsselten Verkehr mit.", n.host)));
+            out.push((intercept, format!("Das Zertifikat von {} stammt jetzt von einer unbekannten Stelle, vorher war es normal. Jemand im Netz liest vielleicht verschlüsselten Verkehr mit.", n.host)));
         } else if ov == Tv::Normal
             && nv == Tv::Normal
             && o.issuer.is_some()
@@ -292,22 +299,29 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     let store_path = path.with_file_name("pruefungen.json");
     let mut store: Store = netze::load_json(&store_path)?;
     let new = measure(&fp, info.dhcp_dns);
-    let mut erg = auswerten(&mut store, fp.key(), new);
+    let portal = portal::check().status == portal::Status::PortalVermutet;
+    let mut erg = auswerten(&mut store, fp.key(), new, portal);
     erg.netz = known[i].name.clone();
     netze::save(&store_path, &store)?;
     Ok(erg)
 }
 
 /// Compares `new` with the stored measurement of `key` and puts the merged one into the store.
-fn auswerten(store: &mut Store, key: String, new: Messung) -> PruefErgebnis {
+fn auswerten(store: &mut Store, key: String, new: Messung, portal: bool) -> PruefErgebnis {
     let nicht_messbar = failed(&new);
     let vorher = store.get(&key).cloned();
-    let unterschiede = vorher.as_ref().map_or(vec![], |old| {
-        compare(old, &new)
+    let mut unterschiede: Vec<Unterschied> = vorher.as_ref().map_or(vec![], |old| {
+        compare_in(old, &new, portal)
             .into_iter()
             .map(|(klasse, text)| Unterschied { klasse, text })
             .collect()
     });
+    if portal {
+        unterschiede.push(Unterschied {
+            klasse: Klasse::Harmlos,
+            text: "Anmeldung nötig: Dein Netz hängt hinter einem Captive Portal (`netz portal`). Bis zur Anmeldung sind DNS- und Zertifikatsergebnisse nur auffällig, nicht Alarm. Melde dich an und prüfe dann noch mal.".into(),
+        });
+    }
     let stored = vorher
         .as_ref()
         .map_or(new.clone(), |old| fill(new.clone(), old));
@@ -456,6 +470,37 @@ mod tests {
     }
 
     #[test]
+    fn portal_downgrades_tls_and_hijack_to_auffaellig() {
+        let mut n = base();
+        n.tls[0].verdict = Some(Tv::Aufgebrochen);
+        n.hijack = Some(true);
+        n.dhcp_server = ip("192.168.178.77");
+        let k = |p| -> Vec<Klasse> {
+            compare_in(&base(), &n, p)
+                .into_iter()
+                .map(|d| d.0)
+                .collect()
+        };
+        assert_eq!(k(false), vec![Klasse::Alarm; 3]);
+        // the DHCP alarm stays
+        assert_eq!(
+            k(true),
+            vec![Klasse::Alarm, Klasse::Auffaellig, Klasse::Auffaellig]
+        );
+        let r = auswerten(
+            &mut Store::from([("k".into(), base())]),
+            "k".into(),
+            n,
+            true,
+        );
+        assert!(
+            r.unterschiede
+                .iter()
+                .any(|u| u.text.starts_with("Anmeldung nötig"))
+        );
+    }
+
+    #[test]
     fn dhcp_server_already_different_is_no_alarm() {
         let mut o = base();
         o.dhcp_server = ip("192.168.178.2");
@@ -485,13 +530,13 @@ mod tests {
     #[test]
     fn auswerten_first_visit_then_compare_and_fill() {
         let mut store = Store::new();
-        let first = auswerten(&mut store, "k".into(), base());
+        let first = auswerten(&mut store, "k".into(), base(), false);
         assert!(first.erster_besuch && first.vorher.is_none() && first.unterschiede.is_empty());
         let mut n = base();
         n.time += 60;
         n.public_ip = None;
         n.dhcp_dns = vec![ip("10.0.0.9")];
-        let second = auswerten(&mut store, "k".into(), n);
+        let second = auswerten(&mut store, "k".into(), n, false);
         assert!(!second.erster_besuch);
         assert_eq!(second.vorher.as_ref().map(|m| m.time), Some(base().time));
         assert_eq!(second.nicht_messbar, 1);
