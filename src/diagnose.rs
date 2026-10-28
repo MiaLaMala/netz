@@ -289,7 +289,7 @@ fn bewerte(i: usize, m: &Messung, basis: &Basis) -> Ziel {
             (Some(b), Some(mm), Some(pp)) if pp > FACTOR * b => {
                 let sonst = basis.median[i].map_or(String::new(), |bm| {
                     format!(
-                        " Normalerweise antwortet {name} hier in {} ms, jetzt in {} ms.",
+                        " Im Mittel (Median) antwortet {name} hier sonst in {} ms, jetzt in {} ms.",
                         zahl(bm),
                         zahl(mm)
                     )
@@ -623,10 +623,9 @@ mod tests {
             "{:?}",
             z.gruende
         );
-        assert!(
-            z.gruende[0]
-                .contains("Normalerweise antwortet Router hier in 3,0 ms, jetzt in 30,5 ms")
-        );
+        assert!(z.gruende[0].contains(
+            "Im Mittel (Median) antwortet Router hier sonst in 3,0 ms, jetzt in 30,5 ms"
+        ));
         // 150 ms is fine for the fixed limit but 3 times above a stored 10 ms
         assert_eq!(
             bewerte(2, &gleich(20, 150.0), &Basis::default()).status,
