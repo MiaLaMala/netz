@@ -11,6 +11,7 @@
     umleitung: 'Dann frage ich nach einem Namen, den es sicher nicht gibt (eine Zufallskette unter example.com). Ehrlich ist die Antwort „NXDOMAIN“. Erfindet dein Netz trotzdem eine Adresse, während 1.1.1.1 NXDOMAIN sagt, leitet es falsche Namen um. Das tun Captive Portals und manche Provider, es kann aber auch DNS-Hijacking sein.',
     tls: 'Bei github.com und apple.com baue ich eine TLS-Verbindung auf und prüfe, ob das Zertifikat von einer öffentlich bekannten Stelle stammt. Sonst liest vielleicht jemand mit (SSL-Inspection, wie in Firmennetzen oder bei einem Angreifer). Zusätzlich merke ich mir den Fingerabdruck der ausstellenden Stelle.',
     ip: 'Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.',
+    portal: 'Ein Captive Portal ist die Anmeldeseite in Hotel-, Café- oder Gäste-WLAN. Ich rufe dazu feste Testseiten von Apple, Google und Firefox auf, die immer dieselbe Antwort geben. Kommt etwas anderes zurück, fängt das Netz die Anfrage ab. Die App lädt die Portalseite nie selbst: Der Browser öffnet sie.',
     erst: 'Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.',
   };
   const KLASSE = {
@@ -24,7 +25,7 @@
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
-  const z = { laeuft: false, erg: null, fehler: null };
+  const z = { laeuft: false, erg: null, fehler: null, portal: null };
   let ui = null;
 
   // One row: current value right, the old one below it when it differs.
@@ -78,6 +79,13 @@
     ];
   }
 
+  // Shown above everything else when the login-page check (`netzinfo portal`) suspects a captive portal.
+  const portalHinweis = () => z.portal?.status === 'PortalVermutet' && el('section', { class: 'portal-hinweis', role: 'alert' },
+    el('h3', { text: 'Anmeldung nötig' }),
+    el('p', { text: `Dieses Netz leitet vermutlich auf eine Anmeldeseite um${z.portal.ziel_host ? ` (${z.portal.ziel_host})` : ''}. Solange du dich nicht angemeldet hast, sind die übrigen Ergebnisse unzuverlässig.` }),
+    el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', onclick: (ev) => Netz.invoke('portal_im_browser_oeffnen').catch((f) => ev.target.after(meldung(Netz.text(f)))) }),
+    el('p', { class: 'erklaerung', text: E.portal }));
+
   function zeichne() {
     if (!ui) return;
     const { kopf, rest, knopf } = ui;
@@ -87,6 +95,7 @@
     knopf.replaceChildren(z.laeuft ? 'Prüfe …' : 'Jetzt prüfen', ...(z.laeuft ? [] : [el('span', { class: 'kbd', 'aria-hidden': 'true', text: '⌘R' })]));
     const fuell = (ort, ...k) => ort.replaceChildren(...k.flat().filter((x) => x != null && x !== false));
     fuell(kopf,
+      portalHinweis(),
       el('h2', { text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
       z.laeuft ? status('grau', 'Prüfe …')
         : erg ? (erg.erster_besuch ? status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis') : urteil(erg))
@@ -109,12 +118,14 @@
     z.laeuft = true;
     z.fehler = null;
     zeichne();
+    const portal = Netz.invoke('portal_pruefen').catch(() => null); // runs alongside, a failed check just shows no hint
     try {
       z.erg = await Netz.invoke('pruefen');
     } catch (e) {
       z.erg = null;
       z.fehler = Netz.text(e);
     }
+    z.portal = await portal;
     z.laeuft = false;
     zeichne();
   }

@@ -1,6 +1,7 @@
 // Fake answers for the view „qualitaet“ in vorschau.html.
 // Marks: #qualitaet (curve with some losses), ,qualitaet-luecken (20 min pause), ,qualitaet-leer,
-// ,qualitaet-fehler, ,qualitaet-unbekannt, optional ,qualitaet-6h and ,erklaeren.
+// ,qualitaet-fehler, ,qualitaet-unbekannt, Karte „Weg zum Ziel“: ,pfad-laeuft ,pfad-verlust ,pfad-nicht-erreicht ,pfad-ok
+// (misst sofort), optional ,qualitaet-6h and ,erklaeren.
 (() => {
   const NAMEN = ['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)'];
   const jetzt = () => Math.floor(Date.now() / 1000);
@@ -50,8 +51,28 @@
   });
 
   addEventListener('DOMContentLoaded', () => {
-    if (marken.some((m) => m.startsWith('qualitaet'))) setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+    if (marken.some((m) => m.startsWith('qualitaet') || m.startsWith('pfad-'))) setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
     if (marken.includes('qualitaet-6h')) setTimeout(() => { const s = document.querySelector('.werkzeuge select'); if (s) { s.value = '6'; s.dispatchEvent(new Event('change')); } }, 400);
+  });
+
+  // Weg zum Ziel: invented hops, addresses only from 192.0.2.x and 203.0.113.x.
+  const hop = (ttl, adresse, median, verlust, extra = {}) => ({
+    ttl, adressen: adresse ? [adresse] : [], name: null, gesendet: 10, beantwortet: Math.round(10 - verlust / 10), verlust_prozent: verlust,
+    min_ms: median && median - 1, median_ms: median, p95_ms: median && median + 3, jitter_ms: median && 0.8,
+    lokal: ttl < 3, erster_oeffentlicher: ttl === 3, ziel: false, ...extra,
+  });
+  const stationen = [hop(1, '192.0.2.1', 1.2, 0), hop(2, '192.0.2.129', 8.4, 0), hop(3, '203.0.113.9', 11.9, 0), hop(4, '203.0.113.33', 13.5, 10), hop(5, '203.0.113.200', 14.8, 0)];
+  VORSCHAU.pfad_messen = async ({ ziel }) => {
+    if (marken.includes('pfad-laeuft')) return new Promise(() => {});
+    const base = { ziel, ziel_ip: '203.0.113.200', zeitpunkt: 1793050200, erreicht: true };
+    if (marken.includes('pfad-nicht-erreicht')) {
+      return { ...base, erreicht: false, hops: [...stationen.slice(0, 3), hop(4, null, null, 100), hop(5, null, null, 100)] };
+    }
+    const letzter = marken.includes('pfad-verlust') ? hop(5, '203.0.113.200', 15.2, 30, { ziel: true }) : hop(5, '203.0.113.200', 14.8, 0, { ziel: true });
+    return { ...base, hops: [...stationen.slice(0, 4), letzter] };
+  };
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('pfad-'))) setTimeout(() => { document.querySelector('.weg-karte .haupt')?.click(); document.querySelector('.weg-karte')?.scrollIntoView(); }, 500);
   });
 })();
 

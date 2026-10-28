@@ -130,6 +130,78 @@
     return el('section', { class: 'karte diagnose', 'aria-label': 'Wo hakt es?' }, knopf, ort);
   }
 
+  // ---- Karte „Weg zum Ziel“ (`netzinfo pfad`, src/pfad.rs) ----
+  const EW = {
+    karte: 'Jedes Paket hat eine Lebensdauer (TTL), die an jedem Router um eins sinkt. Ich schicke Pakete mit TTL 1, 2, 3 …: Der Router, bei dem sie ablaufen, meldet sich. So sehe ich Station für Station, wo die Zeit vergeht.',
+    balken: 'Der Balken zeigt den Median der Antwortzeit an dieser Station, relativ zur langsamsten.',
+    verlust: 'Verlust nur an einer Station mitten im Weg ist meist harmlos: Viele Router beantworten diese Anfragen absichtlich nur selten. Verlust am Ende des Wegs (rot) ist ein echtes Zeichen, dass Pakete das Ziel nicht erreichen.',
+  };
+  // Running measurement and last answer live outside the view: ⌘R or a tab change must neither
+  // start a second run nor lose the answer. The backend cannot be cancelled, a late answer is only stored.
+  let wegLaeuft = null; // { ziel, p: Promise }
+  let wegLetzt = null; // { erg } | { fehler }
+
+  function hopZeile(h, max, ende) {
+    const adr = h.adressen.length ? (h.name ?? h.adressen[0]) + (h.adressen.length > 1 ? ` (+${h.adressen.length - 1})` : '') : 'keine Antwort';
+    const rot = ende && h.verlust_prozent > 0;
+    const breite = h.median_ms != null && max > 0 ? Math.max(2, (h.median_ms / max) * 100) : 0;
+    return el('li', { class: `hop${rot ? ' ende-verlust' : ''}${h.adressen.length ? '' : ' stumm'}` },
+      el('span', { class: 'ttl', text: h.ttl }),
+      el('span', { class: 'adresse', text: adr + (h.ziel ? ' (Ziel)' : '') }),
+      el('span', { class: 'balken', 'aria-hidden': 'true' }, el('span', { style: `width:${breite}%` })),
+      el('span', { class: 'zahl', text: ms(h.median_ms) }),
+      el('span', { class: 'zahl verlust', text: `${fmt(h.verlust_prozent, 0)} % Verlust` }));
+  }
+
+  function wegKarte() {
+    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: wegLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
+    const router = el('button', { class: 'knopf', type: 'button', text: 'Router', onclick: async () => {
+      try { const r = (await Netz.invoke('dieses_netz')).info.router; if (r) eingabe.value = r; } catch { /* the field keeps its value */ }
+    } });
+    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Pfad messen', onclick: messe });
+    const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
+    const ort = el('div', { 'aria-live': 'polite' });
+    const k = el('section', { class: 'gruppe weg-karte', 'aria-labelledby': 'g-weg' },
+      el('h3', { id: 'g-weg', text: 'Weg zum Ziel' }),
+      el('div', { class: 'karte weg' },
+        el('div', { class: 'werkzeuge' }, eingabe, router, knopf), lauf, ort,
+        el('p', { class: 'erklaerung', text: EW.karte })));
+
+    function zeichneWeg() {
+      const laeuft = wegLaeuft != null;
+      knopf.disabled = laeuft;
+      eingabe.disabled = router.disabled = laeuft;
+      lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe den Weg zu ${wegLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
+      if (laeuft) return ort.replaceChildren();
+      if (!wegLetzt) return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch nicht gemessen. „Pfad messen“ zeigt jede Station zwischen dir und dem Ziel.'));
+      if (wegLetzt.fehler) return ort.replaceChildren(meldung(wegLetzt.fehler));
+      const e = wegLetzt.erg;
+      const max = Math.max(0, ...e.hops.map((h) => h.median_ms ?? 0));
+      ort.replaceChildren(...[
+        status(e.erreicht ? 'gruen' : 'orange', `${e.ziel} (${e.ziel_ip}) · ${e.hops.length} Stationen · ${zeit(e.zeitpunkt)}`),
+        !e.erreicht && meldung('Das Ziel hat nicht geantwortet. Der Weg endet dort, wo die Antworten aufhören. Das Ziel kann Anfragen auch absichtlich ignorieren.', 'orange'),
+        el('ol', { class: 'hops' }, e.hops.map((h, i) => hopZeile(h, max, i === e.hops.length - 1))),
+        el('p', { class: 'erklaerung', text: EW.balken }),
+        el('p', { class: 'erklaerung', text: EW.verlust })].filter(Boolean));
+    }
+
+    async function messe() {
+      if (wegLaeuft) return;
+      const ziel = eingabe.value.trim() || '1.1.1.1';
+      const p = Netz.invoke('pfad_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
+      wegLaeuft = { ziel, p };
+      zeichneWeg();
+      wegLetzt = await p;
+      wegLaeuft = null;
+      if (k.isConnected) { zeichneWeg(); knopf.focus(); }
+    }
+
+    zeichneWeg();
+    // Re-render during a run: wait for the same run, then draw.
+    if (wegLaeuft) wegLaeuft.p.then(() => k.isConnected && zeichneWeg());
+    return k;
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -225,6 +297,7 @@
         el('div', { class: 'werkzeuge' }, schalter, zeitraum, kopieren), fehler, kurvenOrt, zahlen);
       wurzel.append(diagnoseKarte());
       zeichne();
+      wurzel.append(wegKarte());
       if (weiter) schalte(true);
     },
   });

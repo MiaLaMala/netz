@@ -1,6 +1,6 @@
 // Fake answers for the view „pruefung“ in vorschau.html.
 // Marks: pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
-// pruefung-unbekannt, pruefung-fehler, pruefung-laeuft.
+// pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“).
 (() => {
   const vorher = {
     time: 1793050200 - 86400 * 3,
@@ -52,4 +52,11 @@
     const key = ['ok', 'nm', 'erst', 'alarm'].find((k) => marken.includes(`pruefung-${k}`));
     return fall[key ?? 'auffaellig'];
   };
+
+  VORSCHAU.portal_pruefen = async () => ({
+    status: marken.includes('portal') ? 'PortalVermutet' : 'Frei',
+    ziel_host: marken.includes('portal') ? 'login.gast.example' : null,
+    quellen: [], dns_verdaechtig: null,
+  });
+  VORSCHAU.portal_im_browser_oeffnen = async () => {};
 })();
