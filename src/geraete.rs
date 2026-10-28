@@ -227,7 +227,7 @@ fn merge(
 fn check_permission(table: &[Nachbar], router: Ipv4Addr, target: &Subnet) -> Result<(), String> {
     let in_range = (target.first..=target.last).contains(&router);
     if in_range && !table.iter().any(|n| n.ipv4.contains(&router)) {
-        return Err("Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Vermutlich fehlt die Erlaubnis für „Lokales Netzwerk“: Öffne Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk und erlaube dort dein Terminal (oder die App). Dann probiere es noch einmal.".into());
+        return Err("Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Mögliche Ursachen: Die Freigabe „Lokales Netzwerk“ fehlt (Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk, dort Terminal oder die App erlauben), oder dein Mac ist über einen VPN- oder Netzwerkfilter angebunden, der die Pakete ohne ARP weitergibt. Zur Kontrolle: Zeigt `arp -an` im Terminal Einträge, liegt es an der Freigabe der App oder des Programms, das Netzinfo startet.".into());
     }
     Ok(())
 }
@@ -335,7 +335,33 @@ fn suchen_in(
     let hosts: Vec<Ipv4Addr> = (u32::from(target.first)..=u32::from(target.last))
         .map(Ipv4Addr::from)
         .collect();
-    let present = discover(&hosts, PORTS);
+    // With the neighbour table the ping comes first: only devices in it (and we ourselves) can
+    // answer on a TCP port, so the slow port probe skips the empty addresses.
+    let table = match link {
+        Some(link) => {
+            nachbarn::anstossen(&hosts, link)?;
+            let table = nachbarn::lesen(link)?;
+            check_permission(&table, fp.router, &target)?;
+            Some(table)
+        }
+        None => None,
+    };
+    let seen: Vec<Ipv4Addr> = table
+        .iter()
+        .flatten()
+        .flat_map(|n| n.ipv4.iter().copied())
+        .filter(|a| hosts.contains(a))
+        .collect();
+    let probe: Vec<Ipv4Addr> = if seen.is_empty() {
+        hosts.clone()
+    } else {
+        hosts
+            .iter()
+            .copied()
+            .filter(|h| seen.contains(h) || *h == current.ip)
+            .collect()
+    };
+    let present = discover(&probe, PORTS);
     let resolver = crate::dns::system_resolver().ok();
     let t = netze::now();
     let mut found: Vec<Device> = present
@@ -355,11 +381,8 @@ fn suchen_in(
             mdns_name: None,
         })
         .collect();
-    if let Some(link) = link {
-        nachbarn::anstossen(&hosts, link)?;
-        let table = nachbarn::lesen(link)?;
-        check_permission(&table, fp.router, &target)?;
-        add_neighbours(&mut found, &table, &target, t);
+    if let Some(table) = &table {
+        add_neighbours(&mut found, table, &target, t);
     }
     let names = par(found.len(), |i| {
         let ip = found[i].ip;
