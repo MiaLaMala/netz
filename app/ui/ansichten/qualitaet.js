@@ -91,7 +91,8 @@
     }));
   }
 
-  const kennzahlen = (b) => b.ziele.map((z) => gruppe(z.ziel, [
+  // the chart shows the chosen range, these numbers cover every stored probe
+  const kennzahlen = (b) => b.ziele.map((z) => gruppe(`${z.ziel}, alle Messungen`, [
     zeile('Median', ms(z.median_ms), E.median),
     zeile('95. Perzentil', ms(z.p95_ms), E.p95),
     zeile('Maximum', ms(z.max_ms), E.max),
