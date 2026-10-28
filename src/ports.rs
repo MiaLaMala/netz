@@ -317,7 +317,7 @@ fn scan(ip: IpAddr, ports: &[u16], timeout: Duration) -> Vec<State> {
     v.into_iter().map(|(_, s)| s).collect()
 }
 
-fn service_name(port: u16) -> String {
+pub(crate) fn service_name(port: u16) -> String {
     COMMON
         .iter()
         .find(|(p, _)| *p == port)
