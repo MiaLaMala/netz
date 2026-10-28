@@ -14,6 +14,7 @@
   const E = {
     abgelehnt: 'Wenn du an einen Port klopfst und die Verbindung aktiv abgelehnt wird, hat ein laufendes Gerät geantwortet: Nur ein Gerät kann diese Ablehnung (ein RST-Paket) schicken. Auch ohne offenen Port beweist sie also, dass dort jemand ist.',
     ptr: 'PTR ist die Rückwärtsauflösung im DNS: von der IP zum Namen, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.',
+    mac: 'Die MAC-Adresse ist die Hardware-Nummer der Netzkarte und bleibt gleich, auch wenn der Router dem Gerät eine andere IP gibt. Der Mac kennt sie aus seiner Nachbartabelle (ARP): Er fragt „Wer hat diese IP?“ und merkt sich die Antwort. Darum erkenne ich ein Gerät wieder und zeige seine früheren IPs.',
     fehlen: 'Ohne Root-Rechte kann der Mac weder pingen noch ARP lesen. Ein Gerät, das jedes Paket verwirft (Firewall im Tarnmodus, Handy im Standby), antwortet auf nichts und bleibt unsichtbar. „Verschwunden“ heißt deshalb nur: diesmal nicht gefunden.',
   };
 
@@ -33,6 +34,8 @@
         el('div', {}, el('span', { class: 'netz-name num', text: d.ip }),
           el('span', { class: 'marke', text: d.name ? ` · ${d.name}` : ' · kein Name' })),
         el('div', { class: 'fein', text: ports }),
+        d.mac && el('div', { class: 'fein num', text: `MAC ${d.mac}` }),
+        d.ip_verlauf && d.ip_verlauf.length > 0 && el('div', { class: 'fein', text: `Früher unter ${d.ip_verlauf.join(', ')}` }),
         el('div', { class: 'fein', text: `Zuerst gesehen ${zeit(d.first_seen)}, zuletzt gesehen ${zeit(d.last_seen)}` })),
       wort && el('span', { class: 'status geraet-status' }, el('span', { class: `punkt ${wort[0]}` }), el('span', { text: wort[1] })));
   }
@@ -99,6 +102,7 @@
         Object.assign(gruppe('So funktioniert die Suche', [
           zeile('Abgelehnter Port', 'zeigt ein Gerät', E.abgelehnt),
           zeile('Name (PTR)', 'Rückwärts-DNS', E.ptr),
+          zeile('MAC-Adresse', 'bleibt gleich', E.mac),
           zeile('Fehlende Geräte', 'können sich verstecken', E.fehlen),
         ]), { className: 'gruppe erklaer-gruppe' }));
       if (letztes) ort.replaceChildren(...ergebnis(letztes).filter(Boolean));

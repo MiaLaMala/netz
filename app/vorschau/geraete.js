@@ -5,13 +5,13 @@
   const m = (s) => marken.includes(s);
   const T = 1793050200;
   const TAG = 86400;
-  const d = (ip, name, ports, erst, zuletzt) => ({ ip, name, ports, first_seen: T - erst, last_seen: T - zuletzt });
-  const router = d('192.168.178.1', 'fritz.box', [53, 80, 443], 90 * TAG, 0);
-  const mac = d('192.168.178.20', 'mias-macbook.fritz.box', [22, 445, 7000], 90 * TAG, 0);
-  const drucker = d('192.168.178.9', 'drucker.fritz.box', [80, 631, 9100], 60 * TAG, 0);
-  const handy = d('192.168.178.10', null, [], 3 * TAG, 0);
-  const neu = d('192.168.178.42', 'wohnzimmer-tv.fritz.box', [8009, 7000, 9999], 0, 0);
-  const weg = d('192.168.178.31', 'alter-laptop.fritz.box', [22], 40 * TAG, 5 * TAG);
+  const d = (ip, name, ports, erst, zuletzt, mac, ip_verlauf = []) => ({ ip, name, ports, first_seen: T - erst, last_seen: T - zuletzt, mac, ip_verlauf });
+  const router = d('192.168.178.1', 'fritz.box', [53, 80, 443], 90 * TAG, 0, '00:00:5e:00:53:01');
+  const mac = d('192.168.178.20', 'mias-macbook.fritz.box', [22, 445, 7000], 90 * TAG, 0, '00:00:5e:00:53:20', ['192.168.178.25', '192.168.178.23']);
+  const drucker = d('192.168.178.9', 'drucker.fritz.box', [80, 631, 9100], 60 * TAG, 0, '00:00:5e:00:53:09');
+  const handy = d('192.168.178.10', null, [], 3 * TAG, 0, '00:00:5e:00:53:10', ['192.168.178.44']);
+  const neu = d('192.168.178.42', 'wohnzimmer-tv.fritz.box', [8009, 7000, 9999], 0, 0, '00:00:5e:00:53:42');
+  const weg = d('192.168.178.31', 'alter-laptop.fritz.box', [22], 40 * TAG, 5 * TAG, '00:00:5e:00:53:31');
   const nichtMeins = '`netzinfo geraete` läuft nur in einem Netz, das du mit `netzinfo merken <Name> --meins` als „meins“ markiert hast. Es gibt dafür bewusst keine Option: Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger. Es wurde nichts gesendet.';
   const warte = (ms) => new Promise((r) => setTimeout(r, ms));
 

@@ -50,7 +50,7 @@ fn geraete_suchen(
     cidr: Option<String>,
     gross: bool,
 ) -> Result<netzinfo::geraete::GeraeteErgebnis, String> {
-    netzinfo::geraete::suchen(cidr.as_deref(), gross)
+    netzinfo::geraete::suchen_mit(cidr.as_deref(), gross, true)
 }
 
 /// Hops to `ziel` (default 1.1.1.1), see issue #73.
