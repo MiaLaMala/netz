@@ -298,6 +298,7 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     };
     let store_path = path.with_file_name("pruefungen.json");
     let mut store: Store = netze::load_json(&store_path)?;
+    let dns_server = info.dhcp_dns.first().copied();
     let new = measure(&fp, info.dhcp_dns);
     let portal = portal::check().status == portal::Status::PortalVermutet;
     let mut erg = auswerten(&mut store, fp.key(), new, portal);
@@ -306,6 +307,16 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
         let list =
             geraete::neue_zufaellige(&path.with_file_name("geraete.json"), &fp.key(), old.time)?;
         erg.unterschiede.extend(zufalls_befund(&list));
+    }
+    // Verschlüsseltes DNS (#33): eigener Speicher, Änderungen kommen zu den Unterschieden dazu.
+    {
+        let dns_path = path.with_file_name("dnsverschl.json");
+        let dns_u = crate::dnsverschl::fuer_pruefen(&dns_path, &fp.key(), dns_server, portal);
+        erg.unterschiede.extend(
+            dns_u
+                .into_iter()
+                .map(|(klasse, text)| Unterschied { klasse, text }),
+        );
     }
     // Every rule above may append findings; the verdict is the first entry, so sort once here.
     erg.unterschiede

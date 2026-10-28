@@ -25,6 +25,14 @@
         ? '100.100.100.100 ist der DNS-Dienst von Tailscale (MagicDNS). Er sitzt vor dem DNS aus dem DHCP und reicht normale Fragen weiter.'
         : 'Das ist, was der Mac wirklich fragt. Meist stimmt es mit dem DNS vom DHCP überein.',
     domain: 'Die Domain vom DHCP-Server wird an unvollständige Namen angehängt (Suchdomain).',
+    verschl: 'Normales DNS ist im Klartext lesbar. Ich prüfe, ob dein Netz verschlüsseltes DNS durchlässt.',
+    dot: {
+      Erreichbar: 'DNS über TLS ist erreichbar. Deine Namensanfragen können in diesem Netz nicht mitgelesen werden, wenn du es einschaltest.',
+      Blockiert: 'Port 853 ist gesperrt. Das ist in vielen Firmennetzen normal und kein Zeichen für einen Angriff.',
+      Abgefangen: 'Der Resolver zeigt ein Zertifikat, das nicht zu ihm gehört: Das Netz lenkt die Verbindung um oder jemand fängt sie ab. Hinter einem Captive Portal ist das normal.',
+    },
+    doh: 'DNS über HTTPS läuft auf Port 443 wie normales Websurfen und ist deshalb schwerer zu sperren als DNS über TLS.',
+    ddr: 'Fragt der Mac den DNS-Server des Netzes nach _dns.resolver.arpa, kann dieser einen verschlüsselten Zugang nennen. Die Antwort ist nicht beglaubigt, ich zeige sie nur an.',
   };
 
   const liste = (a) => (a && a.length ? a.join(', ') : null);
@@ -127,6 +135,22 @@
         zeile('DNS des Systems', liste(i.system_dns), E.systemDns(magic)),
         ...(dhcp ? [zeile('Domain', i.domain || 'keine', E.domain)] : []),
       ], dhcp ? null : 'In diesem Netz hat kein DHCP-Server geantwortet. Deshalb fehlen DHCP-Server, DNS vom DHCP und Domain.'));
+
+      // Verschlüsseltes DNS (#33): dauert einige Sekunden, die Ansicht wartet nicht darauf.
+      const dnsGruppe = (zeilen, fuss) => gruppe('Verschlüsseltes DNS', zeilen, fuss);
+      let dnsOrt = dnsGruppe([zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
+      wurzel.append(dnsOrt);
+      Netz.invoke('dns_verschluesselt').then((r) => {
+        const m = r.messung;
+        const w = { Erreichbar: 'erreichbar', Blockiert: 'gesperrt', Abgefangen: 'abgefangen' };
+        const neu = dnsGruppe([
+          zeile('DNS über TLS (Port 853)', w[m.dot], E.dot[m.dot]),
+          zeile('DNS über HTTPS (Port 443)', w[m.doh], E.doh),
+          zeile('Resolver vom Netz (DDR)', m.ddr ? m.ddr.join('; ') : 'keiner angeboten', E.ddr),
+        ], r.netz ? null : 'Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert.');
+        dnsOrt.replaceWith(neu);
+        dnsOrt = neu;
+      }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
     },
   });
 })();
