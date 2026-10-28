@@ -307,6 +307,8 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
             geraete::neue_zufaellige(&path.with_file_name("geraete.json"), &fp.key(), old.time)?;
         erg.unterschiede.extend(zufalls_befund(&list));
     }
+    // Every rule above may append findings; the verdict is the first entry, so sort once here.
+    erg.unterschiede.sort_by_key(|u| std::cmp::Reverse(u.klasse));
     netze::save(&store_path, &store)?;
     Ok(erg)
 }
