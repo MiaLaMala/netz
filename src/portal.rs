@@ -1,4 +1,4 @@
-//! `netz portal`: is a captive portal (login page) in the way? Issue #32.
+//! `netzinfo portal`: is a captive portal (login page) in the way? Issue #32.
 //!
 //! Three plain HTTP check URLs of Apple, Google and Mozilla (state: October 2026, they belong to
 //! third parties and may change). A portal answers them with a redirect or its own page.
@@ -157,7 +157,7 @@ fn fetch(addr: impl ToSocketAddrs, host: &str, path: &str) -> Result<Vec<u8>, St
     s.set_write_timeout(Some(left()))
         .map_err(|e| e.to_string())?;
     let req = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: netz\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: netzinfo\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     );
     s.write_all(req.as_bytes()).map_err(|e| e.to_string())?;
     let mut buf = Vec::new();
@@ -241,7 +241,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "--json" => json = true,
             _ => {
                 return Err(format!(
-                    "`netz portal` kennt „{a}“ nicht. Erlaubt ist nur `--json`, `--erklaer` erklärt die Schritte."
+                    "`netzinfo portal` kennt „{a}“ nicht. Erlaubt ist nur `--json`, `--erklaer` erklärt die Schritte."
                 ));
             }
         }

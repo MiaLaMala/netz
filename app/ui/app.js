@@ -132,10 +132,10 @@
     const setze = (an) => {
       document.body.classList.toggle('erklaeren', an);
       knopf.setAttribute('aria-checked', an);
-      try { localStorage.setItem('netz.erklaeren', an ? '1' : '0'); } catch { /* ohne Speicher bleibt er pro Start */ }
+      try { localStorage.setItem('netzinfo.erklaeren', an ? '1' : '0'); } catch { /* ohne Speicher bleibt er pro Start */ }
     };
     let an = false;
-    try { an = localStorage.getItem('netz.erklaeren') === '1'; } catch { /* s. o. */ }
+    try { an = localStorage.getItem('netzinfo.erklaeren') === '1'; } catch { /* s. o. */ }
     setze(an);
     knopf.addEventListener('click', () => setze(knopf.getAttribute('aria-checked') !== 'true'));
   }

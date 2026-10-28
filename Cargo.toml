@@ -1,10 +1,10 @@
 [package]
-name = "netz"
+name = "netzinfo"
 version = "0.1.0"
 edition = "2024"
 description = "Kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist."
 license = "MIT"
-repository = "https://github.com/MiaLaMala/netz"
+repository = "https://github.com/MiaLaMala/netzinfo"
 
 [workspace]
 members = ["app"]

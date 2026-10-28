@@ -1,5 +1,5 @@
 // „Qualität“: misst alle 5 s, solange die Ansicht offen ist, und zeigt Kurve und Kennzahlen.
-// Die Kennzahlen folgen `netz bericht` (src/messen.rs).
+// Die Kennzahlen folgen `netzinfo bericht` (src/messen.rs).
 (() => {
   const { el, zeit, gruppe, zeile, status, meldung, leerZustand } = Netz;
   const NS = 'http://www.w3.org/2000/svg';
@@ -33,12 +33,12 @@
   };
   const stunde = (w) => (w ? `${zeit(w.stunde)}, Verlust ${fmt(w.verlust_prozent)} %, Ø ${ms(w.durchschnitt_ms)}` : null);
 
-  // Same text as `netz bericht --markdown`, times in local time.
+  // Same text as `netzinfo bericht --markdown`, times in local time.
   function markdown(b) {
     const kopf = '| Ziel | Messungen | Verlust | Median | 95. Perzentil | Maximum | Längster Aussetzer |\n|---|---|---|---|---|---|---|\n';
     const zeilen = b.ziele.map((z) => `| ${z.ziel} | ${z.messungen} | ${fmt(z.verlust_prozent)} % | ${ms(z.median_ms)} | ${ms(z.p95_ms)} | ${ms(z.max_ms)} | ${dauer(z.laengster_aussetzer_s)} |\n`).join('');
     const schlecht = b.ziele.map((z) => `- ${z.ziel}: ${stunde(z.schlechteste_stunde) ?? '-'}\n`).join('');
-    return `# Netzqualität: ${b.netz}\n\nZeitraum: ${zeit(b.von)} bis ${zeit(b.bis)}\n\nGemessen mit \`netz messen\` (DNS-Anfragen und TCP-Verbindungen, kein Root). Ein Verlust ist eine Anfrage ohne Antwort innerhalb von 2 Sekunden.\n\n${kopf}${zeilen}\n## Schlechteste Stunde je Ziel\n\n${schlecht}`;
+    return `# Netzqualität: ${b.netz}\n\nZeitraum: ${zeit(b.von)} bis ${zeit(b.bis)}\n\nGemessen mit \`netzinfo messen\` (DNS-Anfragen und TCP-Verbindungen, kein Root). Ein Verlust ist eine Anfrage ohne Antwort innerhalb von 2 Sekunden.\n\n${kopf}${zeilen}\n## Schlechteste Stunde je Ziel\n\n${schlecht}`;
   }
 
   // Chart of the last `std` hours. Lines break at losses and pauses; losses sit on a strip below.

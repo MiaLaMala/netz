@@ -1,4 +1,4 @@
-//! `netz messen` and `netz bericht` (issue #7): latency and loss over time, stored per network.
+//! `netzinfo messen` and `netzinfo bericht` (issue #7): latency and loss over time, stored per network.
 
 use crate::explain;
 use crate::hier;
@@ -422,7 +422,7 @@ fn report_text(r: &Bericht) -> String {
 
 fn report_markdown(r: &Bericht) -> String {
     let mut out = format!(
-        "# Netzqualität: {}\n\nZeitraum: {} bis {}\n\nGemessen mit `netz messen` (DNS-Anfragen und TCP-Verbindungen, kein Root). Ein Verlust ist eine Anfrage ohne Antwort innerhalb von 2 Sekunden.\n\n| Ziel | Messungen | Verlust | Median | 95. Perzentil | Maximum | Längster Aussetzer |\n|---|---|---|---|---|---|---|\n",
+        "# Netzqualität: {}\n\nZeitraum: {} bis {}\n\nGemessen mit `netzinfo messen` (DNS-Anfragen und TCP-Verbindungen, kein Root). Ein Verlust ist eine Anfrage ohne Antwort innerhalb von 2 Sekunden.\n\n| Ziel | Messungen | Verlust | Median | 95. Perzentil | Maximum | Längster Aussetzer |\n|---|---|---|---|---|---|---|\n",
         r.netz,
         netze::format_utc(r.von),
         netze::format_utc(r.bis)
@@ -452,7 +452,7 @@ fn current_net() -> Result<(Netz, hier::NetInfo), String> {
     let fp = netze::fingerprint(&info)?;
     let list = netze::load(&netze::data_path()?)?;
     let i = netze::find(&list, &fp).ok_or(
-        "Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netz merken <Name>`, dann kann ich Messungen darunter speichern.",
+        "Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.",
     )?;
     Ok((list[i].clone(), info))
 }
@@ -531,7 +531,7 @@ pub fn bericht_daten(name: Option<&str>) -> Result<Bericht, String> {
         Some(n) => {
             let list = netze::load(&netze::data_path()?)?;
             let net = list.iter().find(|x| x.name == n).ok_or_else(|| {
-                format!("Ein Netz „{n}“ ist nicht gemerkt. `netz netze` zeigt die Liste.")
+                format!("Ein Netz „{n}“ ist nicht gemerkt. `netzinfo netze` zeigt die Liste.")
             })?;
             (net.name.clone(), net.fingerprint.key())
         }
@@ -624,7 +624,7 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     explain(
         explain_on,
-        "Eine Messung sagt wenig, viele Messungen über Tage sagen viel. Starte `netz messen --minuten 1440` im Problemnetz und lies danach `netz bericht`.",
+        "Eine Messung sagt wenig, viele Messungen über Tage sagen viel. Starte `netzinfo messen --minuten 1440` im Problemnetz und lies danach `netzinfo bericht`.",
     );
     explain_numbers(explain_on);
     Ok(())
@@ -652,11 +652,11 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     while let Some(a) = it.next() {
         if a == "--markdown" {
             md = Some(it.next().ok_or(
-                "Nach `--markdown` fehlt der Dateiname, z. B. `netz bericht --markdown bericht.md`.",
+                "Nach `--markdown` fehlt der Dateiname, z. B. `netzinfo bericht --markdown bericht.md`.",
             )?);
         } else if a.starts_with("--") || name.is_some() {
             return Err(format!(
-                "„{a}“ passt hier nicht. Aufruf: `netz bericht [Name] [--markdown <Datei>]`."
+                "„{a}“ passt hier nicht. Aufruf: `netzinfo bericht [Name] [--markdown <Datei>]`."
             ));
         } else {
             name = Some(a.as_str());
@@ -665,7 +665,7 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     let r = bericht_daten(name)?;
     if r.ziele.is_empty() {
         println!(
-            "Für „{}“ gibt es noch keine Messungen. Starte `netz messen`, am besten für mehrere Stunden mit `--minuten 240`.",
+            "Für „{}“ gibt es noch keine Messungen. Starte `netzinfo messen`, am besten für mehrere Stunden mit `--minuten 240`.",
             r.netz
         );
         return Ok(());

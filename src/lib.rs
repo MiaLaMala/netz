@@ -1,4 +1,4 @@
-//! netz: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
+//! Netzinfo: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.
 //!
 //! Library used by the command line tool (src/main.rs) and the app (app/).
 

@@ -1,4 +1,4 @@
-//! `netz offen`: which programs of this Mac accept connections, and from where (issue #38).
+//! `netzinfo offen`: which programs of this Mac accept connections, and from where (issue #38).
 
 use serde::Serialize;
 use std::net::IpAddr;
@@ -34,7 +34,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         Some("--json") if args.len() == 1 => true,
         Some(a) => {
             return Err(format!(
-                "Unbekannte Option „{a}“. `netz offen` kennt nur `--json`."
+                "Unbekannte Option „{a}“. `netzinfo offen` kennt nur `--json`."
             ));
         }
     };

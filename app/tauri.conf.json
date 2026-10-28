@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "netz",
+  "productName": "Netzinfo",
   "version": "0.1.0",
-  "identifier": "dev.mia-gruenwald.netz",
+  "identifier": "dev.mia-gruenwald.netzinfo",
   "build": { "frontendDist": "ui" },
   "app": {
     "withGlobalTauri": true,
@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "netz",
+        "title": "Netzinfo",
         "width": 1000,
         "height": 680,
         "minWidth": 760,

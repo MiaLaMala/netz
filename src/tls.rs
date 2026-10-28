@@ -1,4 +1,4 @@
-//! `netz tls`: prüft, wer das HTTPS-Zertifikat einer Seite unterschrieben hat.
+//! `netzinfo tls`: prüft, wer das HTTPS-Zertifikat einer Seite unterschrieben hat.
 //! Geprüft wird gegen die Mozilla-Wurzeln (webpki-roots), nicht gegen den macOS-Schlüsselbund,
 //! weil dort per MDM verteilte Firmenzertifikate eine Inspection verstecken würden.
 
@@ -250,14 +250,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     explain(
         explain_on,
-        "Dein Mac vertraut einer festen Liste solcher Stellen (Wurzelzertifikate). netz nimmt hier die Liste von Mozilla und nicht den Schlüsselbund deines Macs, denn in den kann eine Firma per MDM eigene Wurzeln einschleusen.",
+        "Dein Mac vertraut einer festen Liste solcher Stellen (Wurzelzertifikate). Netzinfo nimmt hier die Liste von Mozilla und nicht den Schlüsselbund deines Macs, denn in den kann eine Firma per MDM eigene Wurzeln einschleusen.",
     );
     for host in &hosts {
         println!("{host}");
         explain(
             explain_on,
             &format!(
-                "netz verbindet sich mit {host}:443 und lässt sich die Zertifikatskette zeigen."
+                "Netzinfo verbindet sich mit {host}:443 und lässt sich die Zertifikatskette zeigen."
             ),
         );
         let r = check_host(host)?;

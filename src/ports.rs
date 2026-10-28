@@ -1,4 +1,4 @@
-//! `netz ports`: TCP connect scan of an own device (issue #4).
+//! `netzinfo ports`: TCP connect scan of an own device (issue #4).
 
 use serde::Serialize;
 use std::io::ErrorKind;
@@ -78,18 +78,19 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             }
             s if s.starts_with("--") => {
                 return Err(format!(
-                    "Unbekannte Option „{s}“. `netz hilfe` zeigt alle Optionen."
+                    "Unbekannte Option „{s}“. `netzinfo hilfe` zeigt alle Optionen."
                 ));
             }
             _ if target.is_none() => target = Some(a.as_str()),
             _ => {
                 return Err(
-                    "Es passt nur ein Ziel, z. B. `netz ports 192.168.178.20 --meins`.".into(),
+                    "Es passt nur ein Ziel, z. B. `netzinfo ports 192.168.178.20 --meins`.".into(),
                 );
             }
         }
     }
-    let target = target.ok_or("Es fehlt das Ziel, z. B. `netz ports 192.168.178.20 --meins`.")?;
+    let target =
+        target.ok_or("Es fehlt das Ziel, z. B. `netzinfo ports 192.168.178.20 --meins`.")?;
 
     crate::explain(
         explain_on,
@@ -128,7 +129,7 @@ fn grund(flag: bool) -> Option<&'static str> {
     if flag {
         Some("du hast mit `--meins` bestätigt, dass es dir gehört")
     } else if crate::netze::current_is_meins() {
-        Some("dieses Netz ist mit `netz merken` als „meins“ markiert")
+        Some("dieses Netz ist mit `netzinfo merken` als „meins“ markiert")
     } else {
         None
     }
@@ -259,7 +260,7 @@ fn check_target(addrs: &[IpAddr], meins: bool) -> Result<(), String> {
     }
     if let Some(bad) = addrs.iter().find(|a| !is_private(**a)) {
         return Err(format!(
-            "{bad} ist keine private Adresse. `netz ports` scannt nur eigene Geräte in privaten Netzen (10.x, 172.16 bis 172.31, 192.168.x, 100.64 bis 100.127, Loopback, IPv6 fc00::/7 und fe80::/10). Ein Portscan auf fremde Rechner gibt Ärger."
+            "{bad} ist keine private Adresse. `netzinfo ports` scannt nur eigene Geräte in privaten Netzen (10.x, 172.16 bis 172.31, 192.168.x, 100.64 bis 100.127, Loopback, IPv6 fc00::/7 und fe80::/10). Ein Portscan auf fremde Rechner gibt Ärger."
         ));
     }
     Ok(())
@@ -267,7 +268,7 @@ fn check_target(addrs: &[IpAddr], meins: bool) -> Result<(), String> {
 
 fn refusal_text(target: &str) -> String {
     format!(
-        "Ohne `--meins` scanne ich {target} nicht. In Netzen, die dir nicht gehören (Schule, Arbeit, Hotspot), gibt ein Portscan ohne Erlaubnis Ärger. Wenn Gerät und Netz dir gehören: `netz ports {target} --meins`, oder einmalig `netz merken <Name> --meins` im richtigen Netz."
+        "Ohne `--meins` scanne ich {target} nicht. In Netzen, die dir nicht gehören (Schule, Arbeit, Hotspot), gibt ein Portscan ohne Erlaubnis Ärger. Wenn Gerät und Netz dir gehören: `netzinfo ports {target} --meins`, oder einmalig `netzinfo merken <Name> --meins` im richtigen Netz."
     )
 }
 

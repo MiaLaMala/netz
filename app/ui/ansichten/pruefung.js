@@ -1,4 +1,4 @@
-// „Prüfung“: was in diesem Netz anders ist als beim letzten Besuch (wie `netz pruefen`).
+// „Prüfung“: was in diesem Netz anders ist als beim letzten Besuch (wie `netzinfo pruefen`).
 // Die Erklärsätze sind die `explain`-Zeilen aus src/pruefen.rs.
 (() => {
   const { el, zeit, status, meldung, gruppe } = Netz;

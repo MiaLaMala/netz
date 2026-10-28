@@ -1,9 +1,9 @@
-//! The Mac app: a thin Tauri shell around the `netz` library.
+//! The Mac app: a thin Tauri shell around the `netzinfo` library.
 //!
 //! Every command returns data or a German sentence; the UI (app/ui) shows the sentence where it
 //! happened.
 
-use netz::netze::{self, Aktuell, Netz};
+use netzinfo::netze::{self, Aktuell, Netz};
 
 #[tauri::command(async)]
 fn dieses_netz() -> Result<Aktuell, String> {
@@ -31,26 +31,26 @@ fn netz_markieren(name: String, meins: bool) -> Result<Netz, String> {
 }
 
 #[tauri::command(async)]
-fn pruefen() -> Result<netz::pruefen::PruefErgebnis, String> {
-    netz::pruefen::pruefen()
+fn pruefen() -> Result<netzinfo::pruefen::PruefErgebnis, String> {
+    netzinfo::pruefen::pruefen()
 }
 
 #[tauri::command(async)]
-fn messen_einmal() -> Result<netz::messen::Probe, String> {
-    netz::messen::messen_einmal()
+fn messen_einmal() -> Result<netzinfo::messen::Probe, String> {
+    netzinfo::messen::messen_einmal()
 }
 
 #[tauri::command(async)]
-fn bericht(name: Option<String>) -> Result<netz::messen::Bericht, String> {
-    netz::messen::bericht_daten(name.as_deref())
+fn bericht(name: Option<String>) -> Result<netzinfo::messen::Bericht, String> {
+    netzinfo::messen::bericht_daten(name.as_deref())
 }
 
 #[tauri::command(async)]
 fn geraete_suchen(
     cidr: Option<String>,
     gross: bool,
-) -> Result<netz::geraete::GeraeteErgebnis, String> {
-    netz::geraete::suchen(cidr.as_deref(), gross)
+) -> Result<netzinfo::geraete::GeraeteErgebnis, String> {
+    netzinfo::geraete::suchen(cidr.as_deref(), gross)
 }
 
 #[tauri::command(async)]

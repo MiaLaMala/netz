@@ -59,7 +59,8 @@ pub fn calc(ip: Ipv4Addr, prefix: u8) -> Result<Subnet, String> {
 
 /// Accepts `["172.16.0.0/16"]` or `["192.168.178.20", "255.255.255.0"]`.
 pub fn parse_args(args: &[String]) -> Result<(Ipv4Addr, u8), String> {
-    let usage = "Aufruf: netz subnetz 172.16.0.0/16 oder netz subnetz 192.168.178.20 255.255.255.0";
+    let usage =
+        "Aufruf: netzinfo subnetz 172.16.0.0/16 oder netzinfo subnetz 192.168.178.20 255.255.255.0";
     let ip_of = |s: &str| {
         s.parse::<Ipv4Addr>()
             .map_err(|_| format!("„{s}“ ist keine gültige IPv4-Adresse. {usage}"))
