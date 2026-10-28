@@ -18,6 +18,7 @@
   };
 
   let letztes = null; // last result, so a tab change does not lose it
+  let laufend = null; // running search; a re-render (⌘R) waits for it instead of starting a second scan
 
   // The kernel refuses with one fixed sentence; this is the only part of it the view looks at.
   const abgelehnt = (f) => typeof f === 'string' && f.includes('als „meins“ markiert');
@@ -73,7 +74,8 @@
         } catch { /* the sentence stays general, the search itself reports real problems */ }
         fortschritt.textContent = `Suche in ${bereich} …`;
         try {
-          letztes = await Netz.invoke('geraete_suchen', { cidr: null, gross: false });
+          laufend ??= Netz.invoke('geraete_suchen', { cidr: null, gross: false }).finally(() => { laufend = null; });
+          letztes = await laufend;
           ort.replaceChildren(...ergebnis(letztes).filter(Boolean));
         } catch (f) {
           const nein = abgelehnt(f);
@@ -101,6 +103,7 @@
         ]), { className: 'gruppe erklaer-gruppe' }));
       if (letztes) ort.replaceChildren(...ergebnis(letztes).filter(Boolean));
       else ort.append(leerZustand(Netz.icons.geraete, 'Noch nicht gesucht. „Suchen“ probiert ein paar gängige Ports an jeder Adresse deines Netzes.'));
+      if (laufend) suche(); // reattach to the running search
     },
   });
 })();
