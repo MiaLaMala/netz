@@ -28,9 +28,9 @@
     const antworten = {
       dieses_netz: async () => {
         if (marken.includes('fehler')) throw kein;
-        if (marken.includes('vpn')) return { info: vpn, netz: null, nicht_wiedererkennbar: 'Dieses Netz lässt sich nicht wiedererkennen: Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) gibt es keinen Fingerabdruck. Verbinde dich direkt mit dem WLAN oder Kabel und versuche es noch mal.', hinweis: null };
+        if (marken.includes('vpn')) return { info: vpn, netz: null, erkennung_fehler: 'Dieses Netz lässt sich nicht wiedererkennen: Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) gibt es keinen Fingerabdruck. Verbinde dich direkt mit dem WLAN oder Kabel und versuche es noch mal.', hinweis: null };
         const bekannt = marken.includes('bekannt');
-        return { info: wlan, netz: bekannt ? { ...netze[0], last_seen: t - 3600 * 20 } : null, nicht_wiedererkennbar: null, hinweis: null };
+        return { info: wlan, netz: bekannt ? { ...netze[0], last_seen: t - 3600 * 20 } : null, erkennung_fehler: null, hinweis: null };
       },
       gemerkte_netze: async () => (marken.includes('leerliste') ? [] : netze),
       netz_merken: async ({ name }) => {

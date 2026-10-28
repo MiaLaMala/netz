@@ -10,6 +10,5 @@ tauri-build = "2"
 
 [dependencies]
 netz = { path = ".." }
-serde = { version = "1", features = ["derive"] }
 # macos-private-api: needed for the transparent window with the native sidebar material.
 tauri = { version = "2.12", features = ["macos-private-api"] }

@@ -1902,7 +1902,6 @@ name = "netz-app"
 version = "0.1.0"
 dependencies = [
  "netz",
- "serde",
  "tauri",
  "tauri-build",
 ]

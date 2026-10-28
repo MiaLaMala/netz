@@ -38,7 +38,7 @@
     }
     return el('div', { class: 'kopf' },
       el('h2', { text: 'Unbekanntes Netz' }),
-      d.nicht_wiedererkennbar
+      d.erkennung_fehler
         ? status('grau', 'Ohne DHCP, nicht wiedererkennbar')
         : status('orange', 'Noch nicht gemerkt'));
   }
@@ -103,8 +103,8 @@
 
       wurzel.append(kopf(d));
       if (d.hinweis) wurzel.append(meldung(d.hinweis, 'orange'));
-      if (!d.netz && !d.nicht_wiedererkennbar) wurzel.append(el('div', { class: 'aktion' }, offenKnopf()));
-      if (d.nicht_wiedererkennbar) wurzel.append(el('p', { class: 'fuss', text: d.nicht_wiedererkennbar }));
+      if (!d.netz && !d.erkennung_fehler) wurzel.append(el('div', { class: 'aktion' }, offenKnopf()));
+      if (d.erkennung_fehler) wurzel.append(el('p', { class: 'fuss', text: d.erkennung_fehler }));
 
       wurzel.append(gruppe('Adresse', [
         zeile('Schnittstelle', i.interface, E.schnittstelle(vpn)),
