@@ -18,9 +18,13 @@
 
   const zustand = { nurNetz: false, aussen: false };
   let liste = null;
+  // Nach dem Neuzeichnen der ganzen Ansicht („Von außen prüfen“) steht der Fokus sonst im Nichts.
+  let fokusNach = false;
+  // Eine Ansage für VoiceOver, einmal pro Änderung. Die Tabelle selbst ist keine Live-Region.
+  const ansage = el('p', { class: 'nur-vorlesen', 'aria-live': 'polite' });
 
   const schalter = (text, key, aenderung) => {
-    const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(zustand[key]) },
+    const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(zustand[key]), 'aria-describedby': 'beschr-nurnetz' },
       el('span', { class: 'spur' }), el('span', { text }));
     s.addEventListener('click', () => {
       zustand[key] = !zustand[key];
@@ -77,7 +81,7 @@
     // Ohne Rückmeldung wüsste man nach „Von außen prüfen“ nicht, ob die Prüfung lief.
     const tcp = netz.filter((l) => l.protokoll === 'TCP');
     const geprueft = zustand.aussen && tcp.length ? el('p', { class: 'fuss', text: `Von außen geprüft: ${tcp.filter((l) => l.von_aussen).length} von ${tcp.length} TCP-Ports im Netz sind auch von außen offen.` }) : null;
-    ort.replaceChildren(geprueft ?? '', el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
+    ort.replaceChildren(geprueft ?? '', el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle', 'aria-label': 'Lauschende Programme' },
       el('thead', {}, el('tr', {}, ['Reichweite', 'Programm', 'Port', 'Adresse'].map((t) => el('th', { scope: 'col', text: t })))),
       el('tbody', {}, gezeigt.map(zelle)))));
   }
@@ -87,24 +91,31 @@
     titel: 'Offen',
     icon: Netz.icons.offen,
     async render(wurzel) {
-      const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' });
+      ansage.textContent = '';
+      const ort = el('div', { class: 'ergebnis' });
       const titel = el('h2', { text: 'Wird gelesen …' });
       const unter = el('p', { class: 'status' });
-      const pruefen = el('button', { class: 'knopf', type: 'button', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
+      const pruefen = el('button', { class: 'knopf', type: 'button', 'aria-describedby': 'beschr-pruefen', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
       pruefen.addEventListener('click', () => {
         zustand.aussen = true;
         pruefen.disabled = true;
         pruefen.textContent = 'Prüfe …';
+        fokusNach = true;
         Netz.neuLaden();
       });
       wurzel.append(
         el('div', { class: 'kopf' }, titel, unter),
         el('div', { class: 'werkzeuge' },
-          el('div', { class: 'werkzeug' }, schalter('Nur Netz', 'nurNetz', () => liste && zeichne(ort, titel, unter)),
-            el('p', { class: 'fein', text: 'Blendet Programme aus, die nur dieser Mac erreicht. Ändert nur die Liste.' })),
+          el('div', { class: 'werkzeug' }, schalter('Nur Netz', 'nurNetz', () => {
+            if (!liste) return;
+            zeichne(ort, titel, unter);
+            ansage.textContent = `${titel.textContent}. ${ort.querySelectorAll('tbody tr').length} Zeilen in der Liste.`;
+          }),
+            el('p', { class: 'fein', id: 'beschr-nurnetz', text: 'Blendet Programme aus, die nur dieser Mac erreicht. Ändert nur die Liste.' })),
           el('div', { class: 'werkzeug' }, pruefen,
-            el('p', { class: 'fein', text: 'Verbindet sich von diesem Mac aus mit den TCP-Ports der Netz-Zeilen und zeigt, welche auch von außen offen sind. Nur in einem „meins“-Netz.' }))),
+            el('p', { class: 'fein', id: 'beschr-pruefen', text: 'Verbindet sich von diesem Mac aus mit den TCP-Ports der Netz-Zeilen und zeigt, welche auch von außen offen sind. Nur in einem „meins“-Netz.' }))),
         ort,
+        ansage,
         Object.assign(gruppe('So entsteht die Liste', [
           zeile('Netz', 'erreichbar für andere', E.netz),
           zeile('Lokal', 'nur dieser Mac', E.lokal),
@@ -132,6 +143,11 @@
           titel.textContent = 'Offen';
           ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
         }
+      }
+      if (fokusNach) {
+        fokusNach = false;
+        // Die Ansicht hängt erst nach render() im Dokument: einen Takt später fokussieren.
+        setTimeout(() => { if (pruefen.isConnected && !pruefen.disabled) pruefen.focus(); });
       }
     },
   });
