@@ -3,6 +3,7 @@
 use crate::explain;
 use crate::hier;
 use crate::netze::{self, Netz};
+use crate::statistik;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::{IpAddr, SocketAddr, TcpStream};
@@ -119,19 +120,15 @@ fn compact(d: &mut NetData, now: u64) {
     d.hours.sort_by_key(|x| x.h);
 }
 
-/// Sorted values: middle element, or the mean of the two middle ones.
-fn median(v: &[u32]) -> Option<u32> {
-    let n = v.len();
-    match n {
-        0 => None,
-        _ if n % 2 == 1 => Some(v[n / 2]),
-        _ => Some(((u64::from(v[n / 2 - 1]) + u64::from(v[n / 2])) / 2) as u32),
-    }
-}
-
-/// Nearest-rank percentile of sorted values.
-fn percentile(v: &[u32], p: usize) -> Option<u32> {
-    (!v.is_empty()).then(|| v[(v.len() * p).div_ceil(100).max(1) - 1])
+/// Median and nearest-rank percentile of microsecond values via `statistik` (f64 inside).
+/// Even count: mean of the two middle values, rounded to whole microseconds.
+fn mitte_und_p95(v: &[u32]) -> (Option<u32>, Option<u32>) {
+    let f: Vec<f64> = v.iter().copied().map(f64::from).collect();
+    let rund = |x: f64| x.round() as u32;
+    (
+        statistik::median(&f).map(rund),
+        statistik::perzentil(&f, 95).map(rund),
+    )
 }
 
 /// Longest run of lost samples in seconds: first loss until the next success.
@@ -207,7 +204,7 @@ fn stats(d: &NetData, k: usize) -> Option<Stats> {
     if n == 0 {
         return None;
     }
-    vals.sort_unstable();
+    let (median, p95) = mitte_und_p95(&vals);
     let worst = hours
         .values()
         .filter(|h| h.n[k] > 0)
@@ -227,8 +224,8 @@ fn stats(d: &NetData, k: usize) -> Option<Stats> {
     Some(Stats {
         n,
         lost,
-        median: median(&vals),
-        p95: percentile(&vals, 95),
+        median,
+        p95,
         max: (max > 0).then_some(max),
         outage: longest_outage(&d.samples, k),
         worst,
@@ -708,15 +705,13 @@ mod tests {
 
     #[test]
     fn median_and_percentile() {
-        assert_eq!(median(&[]), None);
-        assert_eq!(median(&[5]), Some(5));
-        assert_eq!(median(&[1, 2, 100]), Some(2));
-        assert_eq!(median(&[1, 2, 3, 100]), Some(2));
+        assert_eq!(mitte_und_p95(&[]), (None, None));
+        assert_eq!(mitte_und_p95(&[5]), (Some(5), Some(5)));
+        assert_eq!(mitte_und_p95(&[100, 1, 2]).0, Some(2));
+        // even count: mean 2.5 is shown rounded (3), the old integer code cut it to 2
+        assert_eq!(mitte_und_p95(&[1, 2, 3, 100]).0, Some(3));
         let v: Vec<u32> = (1..=100).collect();
-        assert_eq!(percentile(&v, 95), Some(95));
-        assert_eq!(percentile(&v, 100), Some(100));
-        assert_eq!(percentile(&[7], 95), Some(7));
-        assert_eq!(percentile(&[], 95), None);
+        assert_eq!(mitte_und_p95(&v).1, Some(95));
     }
 
     #[test]

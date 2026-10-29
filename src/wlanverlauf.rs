@@ -5,7 +5,7 @@
 //! Netze (`wlanverlauf.json` neben `netze.json`). Ohne Standortfreigabe fehlt der BSSID-Hash:
 //! Roaming ist dann nicht erkennbar, Abbrüche schon.
 
-use crate::{explain, hier, netze, ort, wlan};
+use crate::{explain, hier, netze, ort, statistik, wlan};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
@@ -107,22 +107,12 @@ pub fn erkennen(proben: &[Probe]) -> Vec<Ereignis> {
         .collect()
 }
 
-fn median(mut v: Vec<f64>) -> Option<f64> {
-    v.sort_by(f64::total_cmp);
-    let n = v.len();
-    match n {
-        0 => None,
-        _ if n % 2 == 1 => Some(v[n / 2]),
-        _ => Some((v[n / 2 - 1] + v[n / 2]) / 2.0),
-    }
-}
-
 fn spanne(v: Vec<f64>) -> Option<Spanne> {
     let min = v.iter().copied().min_by(f64::total_cmp)?;
     let max = v.iter().copied().max_by(f64::total_cmp)?;
     Some(Spanne {
         min,
-        median: median(v)?,
+        median: statistik::median(&v)?,
         max,
     })
 }
@@ -227,7 +217,7 @@ pub fn vergleich(besuche: &[Besuch], jetzt: &Besuch) -> Option<String> {
         .filter_map(|b| Some(b.signal?.median))
         .collect();
     let n = sonst.len();
-    let d = (mein - median(sonst)?).round() as i32;
+    let d = (mein - statistik::median(&sonst)?).round() as i32;
     Some(match d {
         0 => format!("Dieses Mal im Median so stark wie sonst hier ({n} frühere Besuche)."),
         d if d < 0 => format!(
