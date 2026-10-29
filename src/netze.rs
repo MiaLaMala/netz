@@ -500,12 +500,15 @@ pub fn run_netze(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     for n in &list {
         println!(
-            "{}: meins {}, zuletzt am {}, Router {}, Domain {}",
+            "{}: meins {}, zuletzt am {}, Router {}, {}",
             n.name,
             if n.meins { "ja" } else { "nein" },
             format_utc(n.last_seen),
             n.fingerprint.router,
-            n.fingerprint.domain.as_deref().unwrap_or("unbekannt"),
+            n.fingerprint
+                .domain
+                .as_deref()
+                .map_or("ohne Domain".into(), |d| format!("Domain {d}")),
         );
     }
     explain(
