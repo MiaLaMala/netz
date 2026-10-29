@@ -29,5 +29,3 @@
 [data-ansicht='live'] .ergebnis { margin-top: 8px; }
 [data-ansicht='live'] .ziel-feld:disabled { color: var(--fg2); -webkit-text-fill-color: var(--fg2); opacity: 1; }
 [data-ansicht='live'] [hidden] { display: none !important; }
-[data-ansicht='live'] .nur-vorlesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-[data-ansicht='live'] :focus-visible { outline-color: var(--accent-lesbar); }

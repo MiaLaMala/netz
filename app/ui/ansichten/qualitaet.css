@@ -125,7 +125,6 @@
 [data-ansicht='qualitaet'] .kennzahlen tbody tr:not(.erkl-zeile) > * { border-top: 0.5px solid var(--linie); }
 [data-ansicht='qualitaet'] .kennzahlen td > span { display: block; }
 [data-ansicht='qualitaet'] .kennzahlen .klein { color: var(--fg2); font-size: 12px; }
-[data-ansicht='qualitaet'] .nur-lesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: none; }
 .erklaeren [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: table-row; }
 [data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 8px; text-align: left; }

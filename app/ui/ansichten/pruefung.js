@@ -277,7 +277,7 @@
       const nochmal = ui?.wurzel.isConnected;
       const knopf = el('button', { class: 'knopf haupt', type: 'button', onclick: lauf });
       const kopf = el('div', { class: 'kopf' });
-      const ansage = el('p', { class: 'nur-vo', role: 'status', 'aria-live': 'polite' });
+      const ansage = el('p', { class: 'nur-vorlesen', role: 'status', 'aria-live': 'polite' });
       const rest = el('div');
       ui = { wurzel, kopf, rest, knopf, ansage };
       wurzel.append(ansage, kopf, el('div', { class: 'aktion' }, knopf), rest);

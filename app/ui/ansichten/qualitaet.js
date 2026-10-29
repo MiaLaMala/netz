@@ -126,7 +126,7 @@
     ];
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-kennzahlen' }, el('h3', { id: 'g-kennzahlen', text: 'Kennzahlen aller gespeicherten Messungen' }),
       el('div', { class: 'karte' }, el('table', { class: 'kennzahlen' },
-        el('thead', {}, el('tr', {}, el('th', { scope: 'col', class: 'leer' }, el('span', { class: 'nur-lesen', text: 'Kennzahl' })), b.ziele.map((z) => el('th', { scope: 'col', text: z.ziel.replace(/ (\d)/g, '\u00a0$1') })))),
+        el('thead', {}, el('tr', {}, el('th', { scope: 'col', class: 'leer' }, el('span', { class: 'nur-vorlesen', text: 'Kennzahl' })), b.ziele.map((z) => el('th', { scope: 'col', text: z.ziel.replace(/ (\d)/g, '\u00a0$1') })))),
         el('tbody', {}, zeilen.map(([name, erkl, wert]) => [
           el('tr', {}, el('th', { scope: 'row', text: name }), b.ziele.map((z) => el('td', {}, wert(z)))),
           el('tr', { class: 'erkl-zeile' }, el('td', { colspan: b.ziele.length + 1, class: 'erklaerung', text: erkl })),
@@ -192,7 +192,7 @@
     const rot = ende && h.verlust_prozent > 0;
     const breite = h.median_ms != null && max > 0 ? Math.max(2, (h.median_ms / max) * 100) : 0;
     return el('li', { class: `hop${rot ? ' ende-verlust' : ''}${h.adressen.length ? '' : ' stumm'}` },
-      el('span', { class: 'ttl' }, el('span', { class: 'nur-lesen', text: 'Station ' }), String(h.ttl)),
+      el('span', { class: 'ttl' }, el('span', { class: 'nur-vorlesen', text: 'Station ' }), String(h.ttl)),
       el('span', { class: 'adresse', text: adr + (h.ziel ? ' (Ziel)' : '') }),
       el('span', { class: 'balken', 'aria-hidden': 'true' }, el('span', { style: `width:${breite}%` })),
       el('span', { class: 'zahl', text: ms(h.median_ms) }),
@@ -761,7 +761,7 @@
         }
         const jetzt = Math.floor(Date.now() / 1000);
         const leerer = !b.reihen.some((r) => r.punkte.some((p) => p.zeit >= jetzt - std * 3600));
-        kurvenOrt.replaceChildren(el('h3', { class: 'nur-lesen', text: 'Antwortzeit' }), kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
+        kurvenOrt.replaceChildren(el('h3', { class: 'nur-vorlesen', text: 'Antwortzeit' }), kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
           leerer ? el('p', { class: 'fuss', text: `Im gewählten Zeitraum gibt es keine Messung.${std === 1 ? ' Wähle 6 Stunden oder schalte' : ' Schalte'} „Messen“ ein, dann wächst die Kurve.` }) : '');
         if (gezeigt !== b) { zahlen.replaceChildren(kennzahlen(b)); gezeigt = b; } // the table changes only with a new report: VoiceOver is not thrown out of it every 5 s
       }
