@@ -170,11 +170,17 @@
     aktualisieren: false, // Die Ansicht misst von selbst, ⌘R hätte nichts zu tun.
     titel: 'Live',
     icon: Netz.icons.live,
-    async render(wurzel) {
+    render: (wurzel) => bauen(wurzel),
+  });
+  Netz.live = { bauen };
+
+  // `kompakt` (aus tempo.js): ohne Kopf und Erklärgruppe, pro Ziel nur Kennzahlen und Kurve; Eignung und die Liste der letzten 60 s fehlen.
+  async function bauen(wurzel, kompakt) {
+      if (kompakt) wurzel.classList.add('kompakt');
       const HINWEIS = 'Name oder Adresse, mehrere mit Leerzeichen getrennt, bis zu vier.';
       let laeuft = false, nr = 0, t0Lauf = 0, messungen = 0;
       const feld = el('input', { type: 'text', id: 'live-ziel', class: 'ziel-feld', value: '1.1.1.1', placeholder: '1.1.1.1 9.9.9.9', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'live-lauf' });
-      const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Start', 'aria-label': 'Start: Messung beginnen' });
+      const knopf = el('button', { class: kompakt ? 'knopf' : 'knopf haupt', type: 'button', text: 'Start', 'aria-label': 'Start: Messung beginnen' });
       const ort = el('div', { class: 'ergebnis' }, leereFlaeche());
       // Einzige Ansage-Region: nur Wechsel der Eignung oder „antwortet nicht“, einmal, nie die Sekundenwerte.
       const ansage = el('p', { class: 'nur-vorlesen', role: 'status', 'aria-live': 'polite' });
@@ -233,15 +239,14 @@
       wurzel.addEventListener('keydown', (e) => { if (e.key === 'Escape' && laeuft) { stopp(); knopf.focus(); } });
 
       wurzel.append(
-        el('div', { class: 'kopf' }, el('h2', { text: 'Live' }),
+        kompakt ? '' : el('div', { class: 'kopf' }, el('h2', { text: 'Live' }),
           el('p', { class: 'status' }, el('span', { text: 'Antwortzeit, Jitter und Verlust zu bis zu vier Zielen, jede Sekunde.' }))),
         el('section', { class: 'gruppe steuerung' }, el('div', { class: 'liste werkzeuge' }, el('label', { class: 'label', for: 'live-ziel', text: 'Ziele' }), feld, knopf), laufText),
         ort, ansage,
-        Object.assign(gruppe('So wird gemessen', [
+        kompakt ? '' : Object.assign(gruppe('So wird gemessen', [
           zeile('Messung', 'Ping (ICMP Echo), jede Sekunde', E.ping),
           zeile('Eignung', 'Faustwerte, keine Norm', E.ampel),
         ]), { className: 'gruppe erklaer-gruppe' }));
       // Beim Verlassen stoppt der Takt von selbst: die Wurzel hängt dann nicht mehr im Dokument.
-    },
-  });
+  }
 })();
