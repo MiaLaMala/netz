@@ -1,6 +1,6 @@
 // Gerüst der App: Seitenleiste, Werkzeugleiste, Erklärmodus und die kleinen Bausteine,
 // die alle Ansichten teilen. Jede Ansicht liegt in ansichten/<name>.js und meldet sich mit
-// Netz.registriere({ id, titel, icon, render(wurzel) }) an. Die Reihenfolge der Script-Tags
+// Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren? }) an. Die Reihenfolge der Script-Tags
 // in index.html ist die Reihenfolge in der Seitenleiste.
 (() => {
   const ansichten = [];
@@ -109,6 +109,8 @@
       if (an && fokus) b.focus();
     }
     document.getElementById('titel').textContent = a.titel;
+    // A view that owns ⌘R itself (aktualisieren: false) hides the shared button.
+    document.getElementById('aktualisieren').hidden = a.aktualisieren === false;
     const feld = document.getElementById('scroll');
     feld.setAttribute('aria-labelledby', `tab-${id}`);
     const nr = ++zaehler;
