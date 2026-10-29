@@ -619,6 +619,7 @@ mod tests {
             ipv6: vec![],
             hersteller: None,
             mac_zufaellig: true,
+            ..Default::default()
         };
         let u = zufalls_befund(&[d]);
         assert_eq!(u.len(), 1);

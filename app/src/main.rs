@@ -53,6 +53,22 @@ fn geraete_suchen(
     netzinfo::geraete::suchen_mit(cidr.as_deref(), gross, true)
 }
 
+/// Cards of the devices stored for this network, see issue #29. Sends nothing.
+#[tauri::command(async)]
+fn geraete_karten() -> Result<Vec<netzinfo::geraetekarte::Karte>, String> {
+    netzinfo::geraetekarte::karten_jetzt()
+}
+
+/// Name and/or type given by the user; no scan overwrites it, see issue #29.
+#[tauri::command(async)]
+fn geraet_setzen(
+    schluessel: String,
+    name: Option<String>,
+    typ: Option<String>,
+) -> Result<(), String> {
+    netzinfo::geraetekarte::setzen_jetzt(&schluessel, name.as_deref(), typ.as_deref())
+}
+
 /// Hops to `ziel` (default 1.1.1.1), see issue #73.
 #[tauri::command(async)]
 fn pfad_messen(ziel: Option<String>) -> Result<netzinfo::pfad::PfadErgebnis, String> {
@@ -133,7 +149,9 @@ fn main() {
             dns_verschluesselt,
             wlan_lesen,
             verbindungen_zeigen,
-            verbindungen_loeschen
+            verbindungen_loeschen,
+            geraete_karten,
+            geraet_setzen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

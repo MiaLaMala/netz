@@ -566,6 +566,7 @@ mod tests {
             mac_zufaellig: false,
             dienste: vec![],
             mdns_name: None,
+            ..Default::default()
         };
         let svc = |ip: &str| Dienst {
             typ: "_ipp._tcp".into(),
