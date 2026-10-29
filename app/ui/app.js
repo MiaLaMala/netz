@@ -1,13 +1,11 @@
 // Gerüst der App: Seitenleiste, Werkzeugleiste, Erklärmodus und die kleinen Bausteine,
 // die alle Ansichten teilen. Jede Ansicht liegt in ansichten/<name>.js und meldet sich mit
-// Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren? }) an. Welche Ansicht in welchem
+// Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren?, teil? }) an. Welche Ansicht in welchem
 // Abschnitt der Seitenleiste steht, sagt die Tabelle `abschnitte`; was dort fehlt, landet unten ohne Titel.
+// `teil: true` hält eine Ansicht aus der Seitenleiste: Sie lebt eingebettet (Netz.einbetten) in einer anderen.
 (() => {
-  const abschnitte = [
-    ['Netz', ['dieses-netz', 'gemerkte-netze', 'pruefung']],
-    ['Messen', ['qualitaet', 'live']],
-    ['Geräte und Mac', ['geraete', 'verbindungen', 'offen']],
-  ];
+  // Vier Ansichten, jede beantwortet oben eine Frage (#208). „Offen“ geht in „Verbindungen“ auf.
+  const abschnitte = [[null, ['uebersicht', 'tempo', 'geraete', 'verbindungen', 'offen']]];
   const ansichten = [];
   let aktuell = null;
   let reihe = [];
@@ -155,9 +153,9 @@
       onclick: () => zeige(a.id, { fokus: true }),
       title: `${a.titel} (⌘${reihe.indexOf(a) + 1})`, 'aria-keyshortcuts': `Meta+${reihe.indexOf(a) + 1}`,
     }, el('span', { html: a.icon }), el('span', { text: a.titel }));
-    const rest = new Set(ansichten);
+    const rest = new Set(ansichten.filter((a) => !a.teil));
     const bloecke = abschnitte.map(([titel, ids]) => {
-      const mit = ids.map((id) => ansichten.find((a) => a.id === id)).filter(Boolean);
+      const mit = ids.map((id) => ansichten.find((a) => a.id === id)).filter((a) => a && !a.teil);
       mit.forEach((a) => rest.delete(a));
       return [titel, mit];
     });
@@ -237,6 +235,15 @@
 
   const neuLaden = () => zeige(aktuell, { neuLaden: true });
 
+  // Eine Teilansicht in eine andere einbetten: eigene Wurzel mit data-ansicht, damit ihr CSS greift.
+  // Ihre Schleifen enden wie bisher über isConnected, sobald die äußere Ansicht ersetzt wird.
+  async function einbetten(id) {
+    const a = ansichten.find((x) => x.id === id);
+    const w = el('div', { class: 'eingebettet', 'data-ansicht': id });
+    try { await a.render(w); } catch (e) { console.error(e); w.replaceChildren(fehlerKarte(text(e))); }
+    return w;
+  }
+
   // ---- Erklärmodus ----
   function erklaermodus() {
     const knopf = document.getElementById('erklaeren');
@@ -262,12 +269,15 @@
       // ⌘1 bis ⌘8: Ansichten in der Reihenfolge der Seitenleiste.
       if (/^[1-8]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement.closest('#menue') }); }
       else if (e.key.toLowerCase() === 'r') { e.preventDefault(); neuLaden(); }
+      // ⌘, wie in jeder Mac-App: Einstellungen (dort stehen die gemerkten Netze).
+      else if (e.key === ',') { e.preventDefault(); zeige('gemerkte-netze', { fokus: false }); }
     });
     zeige(reihe[0].id);
   }
 
   window.Netz = {
     invoke, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, zumKopf, woher, bestaetigung,
+    einbetten, zeige,
     registriere: (a) => ansichten.push(a),
   };
   document.addEventListener('DOMContentLoaded', start);

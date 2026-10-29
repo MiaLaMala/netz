@@ -245,6 +245,7 @@
 
   Netz.registriere({
     id: 'dieses-netz',
+    teil: true,
     titel: 'Dieses Netz',
     icon: Netz.icons.wlan,
     async render(wurzel) {

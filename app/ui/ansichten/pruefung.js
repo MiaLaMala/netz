@@ -269,6 +269,7 @@
 
   Netz.registriere({
     id: 'pruefung',
+    teil: true,
     aktualisieren: false, // ⌘R is „Jetzt prüfen“ here
     titel: 'Prüfung',
     icon: Netz.icons.pruefung,

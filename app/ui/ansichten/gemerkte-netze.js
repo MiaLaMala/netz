@@ -160,6 +160,7 @@
 
   Netz.registriere({
     id: 'gemerkte-netze',
+    teil: true,
     titel: 'Gemerkte Netze',
     icon: Netz.icons.merken,
     async render(wurzel) {
