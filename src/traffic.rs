@@ -100,7 +100,7 @@ fn nettop(sekunden: u64) -> Result<String, String> {
             "bytes_in,bytes_out",
         ])
         .output()
-        .map_err(|e| format!("nettop ließ sich nicht starten ({e}). Es gehört zu macOS, prüfe, ob /usr/bin/nettop existiert."))?;
+        .map_err(|e| format!("nettop ließ sich nicht starten ({}). Es gehört zu macOS, prüfe, ob /usr/bin/nettop existiert.", crate::io_satz(&e)))?;
     if !out.status.success() {
         return Err("nettop meldete einen Fehler. Versuche es noch einmal.".into());
     }

@@ -199,15 +199,23 @@ fn handshake(config: ClientConfig, host: &str) -> Result<(), String> {
         .map_err(|_| format!("„{host}“ ließ sich nicht auflösen. Prüfe Name und Netz."))?
         .next()
         .ok_or_else(|| format!("„{host}“ hat keine Adresse."))?;
-    let mut sock = TcpStream::connect_timeout(&addr, timeout)
-        .map_err(|e| format!("Verbindung zu {host}:443 nicht möglich ({e})."))?;
+    let mut sock = TcpStream::connect_timeout(&addr, timeout).map_err(|e| {
+        format!(
+            "Verbindung zu {host}:443 nicht möglich ({}).",
+            crate::io_satz(&e)
+        )
+    })?;
     let _ = sock.set_read_timeout(Some(timeout));
     let _ = sock.set_write_timeout(Some(timeout));
     let mut conn = ClientConnection::new(Arc::new(config), name)
         .map_err(|e| format!("TLS ließ sich nicht starten ({e})."))?;
     while conn.is_handshaking() {
-        conn.complete_io(&mut sock)
-            .map_err(|e| format!("TLS-Handshake mit {host} gescheitert ({e})."))?;
+        conn.complete_io(&mut sock).map_err(|e| {
+            format!(
+                "TLS-Handshake mit {host} gescheitert ({}).",
+                crate::io_satz(&e)
+            )
+        })?;
     }
     Ok(())
 }

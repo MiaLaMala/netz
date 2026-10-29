@@ -285,18 +285,19 @@ pub fn autostart_setzen(an: bool) -> Result<bool, String> {
     let pfad = autostart_pfad()?;
     if an {
         let exe = std::env::current_exe()
-            .map_err(|e| format!("Der Pfad der App ließ sich nicht lesen ({e}). Starte die App aus dem Programme-Ordner."))?;
+            .map_err(|e| format!("Der Pfad der App ließ sich nicht lesen ({}). Starte die App aus dem Programme-Ordner.", netzinfo::io_satz(&e)))?;
         let ordner = pfad
             .parent()
             .ok_or("Der Ordner für Anmeldeobjekte fehlt.")?;
         std::fs::create_dir_all(ordner)
             .and_then(|()| std::fs::write(&pfad, plist(&exe.to_string_lossy())))
-            .map_err(|e| format!("Der Start mit der Anmeldung ließ sich nicht einrichten ({e}). Prüfe die Rechte auf {}.", ordner.display()))?;
+            .map_err(|e| format!("Der Start mit der Anmeldung ließ sich nicht einrichten ({}). Prüfe die Rechte auf {}.", netzinfo::io_satz(&e), ordner.display()))?;
     } else if let Err(e) = std::fs::remove_file(&pfad)
         && e.kind() != std::io::ErrorKind::NotFound
     {
         return Err(format!(
-            "Der Start mit der Anmeldung ließ sich nicht abschalten ({e}). Lösche {} von Hand.",
+            "Der Start mit der Anmeldung ließ sich nicht abschalten ({}). Lösche {} von Hand.",
+            netzinfo::io_satz(&e),
             pfad.display()
         ));
     }

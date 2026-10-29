@@ -281,18 +281,18 @@ pub fn query_raw(
     } else {
         "[::]:0"
     };
-    let sock = UdpSocket::bind(bind).map_err(|e| fail(&e.to_string()))?;
+    let sock = UdpSocket::bind(bind).map_err(|e| fail(&crate::io_satz(&e)))?;
     // connect() makes the OS drop packets from any other source
     sock.connect(SocketAddr::new(server, 53))
-        .map_err(|e| fail(&e.to_string()))?;
+        .map_err(|e| fail(&crate::io_satz(&e)))?;
     let mut last = "keine Antwort in 2 s".to_string();
     for _ in 0..2 {
-        sock.send(&q).map_err(|e| fail(&e.to_string()))?;
+        sock.send(&q).map_err(|e| fail(&crate::io_satz(&e)))?;
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut buf = [0u8; 4096];
         while let Some(left) = deadline.checked_duration_since(Instant::now()) {
             sock.set_read_timeout(Some(left.max(Duration::from_millis(1))))
-                .map_err(|e| fail(&e.to_string()))?;
+                .map_err(|e| fail(&crate::io_satz(&e)))?;
             let Ok(n) = sock.recv(&mut buf) else { break };
             match parse_response(&buf[..n], id, name, qtype, qclass) {
                 Ok(a) => return Ok((q, buf[..n].to_vec(), a)),

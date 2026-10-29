@@ -135,9 +135,9 @@ fn seed() -> u64 {
 pub fn pruefen(ziel: &str) -> Result<EgressErgebnis, String> {
     let adressen: Vec<SocketAddr> = (ziel, 0)
         .to_socket_addrs()
-        .map_err(|e| {
+        .map_err(|_| {
             format!(
-                "Das Ziel „{ziel}“ ließ sich nicht auflösen ({e}). Prüfe den Namen und die Verbindung."
+                "Das Ziel „{ziel}“ ließ sich nicht auflösen. Prüfe den Namen und die Verbindung."
             )
         })?
         .collect();

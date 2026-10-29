@@ -124,7 +124,12 @@ fn aufruf(programm: &str, args: &[&str]) -> Result<String, String> {
     let out = std::process::Command::new(programm)
         .args(args)
         .output()
-        .map_err(|e| format!("`{programm}` ließ sich nicht starten ({e}). Ist es installiert?"))?;
+        .map_err(|e| {
+            format!(
+                "`{programm}` ließ sich nicht starten ({}). Ist es installiert?",
+                crate::io_satz(&e)
+            )
+        })?;
     if !out.status.success() {
         return Err(format!("`{programm}` meldete einen Fehler."));
     }

@@ -92,13 +92,13 @@ fn auswerten(antwort: &[u8], gesendet: &[u8; 48], t4: f64) -> Result<i64, String
 }
 
 fn sntp(ziel: SocketAddr) -> Result<i64, String> {
-    let sock =
-        UdpSocket::bind("0.0.0.0:0").map_err(|e| format!("UDP-Socket nicht möglich ({e})."))?;
+    let sock = UdpSocket::bind("0.0.0.0:0")
+        .map_err(|e| format!("UDP-Socket nicht möglich ({}).", crate::io_satz(&e)))?;
     let _ = sock.set_read_timeout(Some(FRIST));
     let _ = sock.set_write_timeout(Some(FRIST));
     let p = anfrage(jetzt());
     sock.send_to(&p, ziel)
-        .map_err(|e| format!("Senden nicht möglich ({e})."))?;
+        .map_err(|e| format!("Senden nicht möglich ({}).", crate::io_satz(&e)))?;
     let mut buf = [0u8; 128];
     let n = sock
         .recv(&mut buf)
@@ -161,14 +161,24 @@ fn https_date(host: &str) -> Result<i64, String> {
         .map_err(|_| format!("{host} ließ sich nicht auflösen"))?
         .next()
         .ok_or_else(|| format!("{host} hat keine Adresse"))?;
-    let mut tcp = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(4))
-        .map_err(|e| format!("Verbindung zu {host} nicht möglich ({e})"))?;
+    let mut tcp =
+        std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(4)).map_err(|e| {
+            format!(
+                "Verbindung zu {host} nicht möglich ({})",
+                crate::io_satz(&e)
+            )
+        })?;
     let _ = tcp.set_read_timeout(Some(Duration::from_secs(4)));
     let conn = rustls::ClientConnection::new(Arc::new(config), name)
         .map_err(|e| format!("TLS ließ sich nicht starten ({e})"))?;
     let mut s = rustls::StreamOwned::new(conn, &mut tcp);
     s.write_all(format!("HEAD / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n").as_bytes())
-        .map_err(|e| format!("TLS-Verbindung zu {host} gescheitert ({e})"))?;
+        .map_err(|e| {
+            format!(
+                "TLS-Verbindung zu {host} gescheitert ({})",
+                crate::io_satz(&e)
+            )
+        })?;
     let mut kopf = Vec::new();
     let mut buf = [0u8; 1024];
     // Ein Server, der ohne close_notify schließt, gibt einen Fehler; der Kopf steht dann schon da.

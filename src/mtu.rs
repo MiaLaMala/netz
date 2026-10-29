@@ -228,7 +228,7 @@ mod echt {
     impl Echt {
         pub(super) fn open(target: Ipv4Addr) -> Result<Self, String> {
             let s = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).map_err(|e| {
-                format!("Kann keinen ICMP-Socket öffnen ({e}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt. Unter Linux muss `net.ipv4.ping_group_range` deine Gruppe enthalten.")
+                format!("Kann keinen ICMP-Socket öffnen ({}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt. Unter Linux muss `net.ipv4.ping_group_range` deine Gruppe enthalten.", crate::io_satz(&e))
             })?;
             // macOS: IP_DONTFRAG on; Linux: IP_MTU_DISCOVER = IP_PMTUDISC_DO
             #[cfg(target_os = "macos")]
@@ -270,7 +270,7 @@ mod echt {
                 if e.raw_os_error() == Some(libc::EMSGSIZE) {
                     return Antwort::ZuGross(None);
                 }
-                self.fehler = Some(format!("Senden schlug fehl ({e})."));
+                self.fehler = Some(format!("Senden schlug fehl ({}).", crate::io_satz(&e)));
                 return Antwort::Stille;
             }
             let ende = Instant::now() + WARTEN;

@@ -238,6 +238,10 @@ fn gate(meins: bool, lauschen: bool) -> Result<(), String> {
     Err("`netzinfo bonjour` fragt nur in einem Netz, das du mit `netzinfo merken <Name> --meins` als „meins“ markiert hast. Zum bloßen Mithören gibt es `netzinfo bonjour --lauschen 30`. Es wurde nichts gesendet.".into())
 }
 
+fn net_io(e: std::io::Error) -> String {
+    net_err(crate::io_satz(&e))
+}
+
 fn net_err(e: impl std::fmt::Display) -> String {
     format!(
         "Der Bonjour-Socket ließ sich nicht öffnen ({e}). Prüfe die Netzverbindung und die Rechte für das lokale Netzwerk."
@@ -301,17 +305,17 @@ fn schnittstellen() -> Vec<Schnittstelle> {
 
 /// Port 5353 is shared with the system, hence address and port reuse.
 fn mdns_socket(domain: Domain) -> Result<Socket, String> {
-    let s = Socket::new(domain, Type::DGRAM, None).map_err(net_err)?;
-    s.set_reuse_address(true).map_err(net_err)?;
+    let s = Socket::new(domain, Type::DGRAM, None).map_err(net_io)?;
+    s.set_reuse_address(true).map_err(net_io)?;
     #[cfg(unix)]
-    s.set_reuse_port(true).map_err(net_err)?;
+    s.set_reuse_port(true).map_err(net_io)?;
     Ok(s)
 }
 
 fn kurz(s: Socket) -> Result<UdpSocket, String> {
     let u = UdpSocket::from(s);
     u.set_read_timeout(Some(Duration::from_millis(25)))
-        .map_err(net_err)?;
+        .map_err(net_io)?;
     Ok(u)
 }
 
@@ -319,7 +323,7 @@ fn kurz(s: Socket) -> Result<UdpSocket, String> {
 fn hoerer4(ifs: &[Schnittstelle]) -> Result<UdpSocket, String> {
     let s = mdns_socket(Domain::IPV4)?;
     s.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, PORT).into())
-        .map_err(net_err)?;
+        .map_err(net_io)?;
     let mut ok = false;
     for a in ifs.iter().filter_map(|i| i.v4) {
         ok |= s.join_multicast_v4(&GROUP, &a).is_ok();
@@ -333,9 +337,9 @@ fn hoerer4(ifs: &[Schnittstelle]) -> Result<UdpSocket, String> {
 /// Joins ff02::fb on every interface that has an IPv6 address.
 fn hoerer6(ifs: &[Schnittstelle]) -> Result<UdpSocket, String> {
     let s = mdns_socket(Domain::IPV6)?;
-    s.set_only_v6(true).map_err(net_err)?;
+    s.set_only_v6(true).map_err(net_io)?;
     s.bind(&SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, PORT, 0, 0).into())
-        .map_err(net_err)?;
+        .map_err(net_io)?;
     let mut ok = false;
     for i in ifs.iter().filter(|i| i.v6) {
         ok |= s.join_multicast_v6(&GROUP6, i.index).is_ok();
@@ -358,10 +362,10 @@ impl Frager {
         let offen = |d: Domain, a: &str| -> Result<UdpSocket, String> {
             kurz(
                 Socket::new(d, Type::DGRAM, None)
-                    .map_err(net_err)
+                    .map_err(net_io)
                     .and_then(|s| {
                         s.bind(&a.parse::<std::net::SocketAddr>().map_err(net_err)?.into())
-                            .map_err(net_err)?;
+                            .map_err(net_io)?;
                         Ok(s)
                     })?,
             )
@@ -384,10 +388,10 @@ impl Frager {
     /// Sends one question out of every interface; fails only if no interface could send.
     fn fragen(&self, name: &str, qtype: u16) -> Result<(), String> {
         let q = frage_bytes(name, qtype)?;
-        let (mut ok, mut letzter) = (false, "Netzwerkfehler");
+        let (mut ok, mut letzter) = (false, "Netzwerkfehler".to_string());
         let mut zaehlen = |r: std::io::Result<()>| match r {
             Ok(()) => ok = true,
-            Err(e) => letzter = crate::router::io_satz(&e),
+            Err(e) => letzter = crate::io_satz(&e),
         };
         for i in &self.ifs {
             if let (Some(s), Some(a)) = (&self.v4, i.v4) {

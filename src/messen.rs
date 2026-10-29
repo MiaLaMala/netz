@@ -744,8 +744,7 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
                 "Die Datei {file} ließ sich nicht schreiben ({}). Prüfe den Pfad und versuche es noch mal.",
                 match e.kind() {
                     std::io::ErrorKind::NotFound => "der Ordner existiert nicht".into(),
-                    std::io::ErrorKind::PermissionDenied => "keine Berechtigung".into(),
-                    _ => e.to_string(),
+                    _ => crate::io_satz(&e),
                 }
             )
         })?;

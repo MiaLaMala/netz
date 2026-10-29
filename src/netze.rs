@@ -170,7 +170,7 @@ pub fn load_json<T: DeserializeOwned + Default>(path: &Path) -> Result<T, String
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
-        Err(e) => return set_aside(path, &format!("nicht lesbar ({e})")),
+        Err(e) => return set_aside(path, &format!("nicht lesbar ({})", crate::io_satz(&e))),
     };
     match serde_json::from_str(&text) {
         Ok(data) => Ok(data),
@@ -184,8 +184,9 @@ fn set_aside<T: Default>(path: &Path, why: &str) -> Result<T, String> {
     let aside = PathBuf::from(name);
     std::fs::rename(path, &aside).map_err(|e| {
         format!(
-            "Die Datei {} ist {why}, und ich konnte sie nicht beiseitelegen ({e}). Es wurde nichts geschrieben. Prüfe die Rechte oder lege die Datei von Hand weg.",
-            path.display()
+            "Die Datei {} ist {why}, und ich konnte sie nicht beiseitelegen ({}). Es wurde nichts geschrieben. Prüfe die Rechte oder lege die Datei von Hand weg.",
+            path.display(),
+            crate::io_satz(&e)
         )
     })?;
     eprintln!(
@@ -200,8 +201,9 @@ fn set_aside<T: Default>(path: &Path, why: &str) -> Result<T, String> {
 pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> {
     let err = |e: std::io::Error| {
         format!(
-            "Die Datei {} ließ sich nicht speichern ({e}). Prüfe den Ordner und versuche es noch mal.",
-            path.display()
+            "Die Datei {} ließ sich nicht speichern ({}). Prüfe den Ordner und versuche es noch mal.",
+            path.display(),
+            crate::io_satz(&e)
         )
     };
     if let Some(dir) = path.parent() {

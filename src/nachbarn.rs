@@ -155,7 +155,12 @@ fn sysctl_table(family: libc::c_int) -> Result<Vec<u8>, String> {
         libc::NET_RT_FLAGS,
         libc::RTF_LLINFO,
     ];
-    let fail = |e: std::io::Error| format!("Die Nachbartabelle ließ sich nicht lesen: {e}.");
+    let fail = |e: std::io::Error| {
+        format!(
+            "Die Nachbartabelle ließ sich nicht lesen ({}).",
+            crate::io_satz(&e)
+        )
+    };
     // the table can grow between the size query and the read: retry a few times
     for _ in 0..4 {
         let mut len = 0usize;
@@ -244,7 +249,7 @@ fn echo_request(kind: u8) -> [u8; 8] {
 /// Callers must have passed the „meins“ gate.
 pub fn anstossen(hosts: &[Ipv4Addr], schnittstelle: &str) -> Result<(), String> {
     let s = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).map_err(|e| {
-        format!("Ein Ping-Socket ließ sich nicht öffnen: {e}. Ohne ihn kann ich die Nachbartabelle nicht füllen.")
+        format!("Ein Ping-Socket ließ sich nicht öffnen ({}). Ohne ihn kann ich die Nachbartabelle nicht füllen.", crate::io_satz(&e))
     })?;
     let p = echo_request(8);
     for h in hosts {
