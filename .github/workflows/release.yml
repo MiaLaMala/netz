@@ -59,7 +59,7 @@ jobs:
       # Probelauf per workflow_dispatch: dieselben Dateien als Artefakt am Lauf, kein Release.
       - name: Artefakt hochladen (Probelauf)
         if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: netzinfo-${{ env.TAG }}-probelauf
           path: out/
