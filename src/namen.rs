@@ -70,6 +70,10 @@ pub fn kandidaten(d: &Device) -> Vec<Name> {
         d.von_mia.as_ref().and_then(|m| m.name.as_deref()),
     );
     dazu(Quelle::Mdns, d.mdns_name.as_deref());
+    dazu(
+        Quelle::Upnp,
+        d.upnp.as_ref().and_then(|u| u.name.as_deref()),
+    );
     dazu(Quelle::Ptr, d.name.as_deref());
     if let Some(mac) = d.mac.as_deref().and_then(crate::hersteller::parse_mac) {
         let maker = crate::hersteller::hersteller(mac).name;
@@ -278,7 +282,10 @@ mod tests {
             d.mdns_name = Some("mdns-name".into());
         }
         if maske & 4 != 0 {
-            d.namen.push(n(Quelle::Upnp, "upnp-name"));
+            d.upnp = Some(crate::upnp::Upnp {
+                name: Some("upnp-name".into()),
+                ..Default::default()
+            });
         }
         if maske & 8 != 0 {
             d.namen.push(n(Quelle::NetBios, "NB-NAME"));
