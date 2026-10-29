@@ -1,5 +1,5 @@
 // Fake answers for the view „verbindungen“ in vorschau.html.
-// Marks: verbindungen (grouped list), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database); add ,erklaeren.
+// Marks: verbindungen (grouped list), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database), verbindungen-keinnetz (Netz nicht gemerkt), verbindungen-fehler; add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
   const v = (ziel, ziel_port, dienst, art, name, quelle, neu, land = null, anbieter = null) => ({
@@ -22,6 +22,8 @@
     g('Systemeinstellungen', [v('192.0.2.9', 631, 'IPP', 'netz', 'drucker.fritz.box', 'Gerät', false)]),
   ];
   VORSCHAU.verbindungen_zeigen = async () => {
+    if (m('verbindungen-fehler')) throw 'Die Liste der Verbindungen ließ sich nicht lesen, auch `lsof` startet nicht.';
+    if (m('verbindungen-keinnetz')) return { gruppen: gruppen.map((x) => ({ ...x, neu: 0, verbindungen: x.verbindungen.map((y) => ({ ...y, neu: false })) })), netz_name: null, erster_lauf: true, gespeichert: false, datenbank_stand: '2026-06' };
     const stand = m('verbindungen-ohnedb') ? null : '2026-06';
     if (m('verbindungen-leer')) return { gruppen: [], netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: stand };
     if (stand) return { gruppen, netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: stand };
@@ -33,7 +35,7 @@
   if (marken.some((s) => s.startsWith('verbindungen'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-verbindungen')?.click();
-      if (m('verbindungen-neu')) setTimeout(() => document.querySelector('.werkzeuge button')?.click(), 250);
+      if (m('verbindungen-neu') || m('verbindungen-keinnetz-neu')) setTimeout(() => document.querySelector('.werkzeuge button')?.click(), 250);
     }, 150));
   }
 })();

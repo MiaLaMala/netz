@@ -87,8 +87,8 @@ fn einstufen(
 fn vor(sek: u64) -> String {
     let (n, e, m) = match sek {
         0..=89 => return "gerade eben".into(),
-        90..=5399 => ((sek + 30) / 60, "Minute", "Minuten"),
-        5400..=129_599 => ((sek + 1800) / 3600, "Stunde", "Stunden"),
+        90..=3569 => ((sek + 30) / 60, "Minute", "Minuten"),
+        3570..=129_599 => ((sek + 1800) / 3600, "Stunde", "Stunden"),
         _ => ((sek + 43_200) / 86_400, "Tag", "Tagen"),
     };
     format!("vor {n} {}", if n == 1 { e } else { m })
@@ -449,7 +449,8 @@ mod tests {
     #[test]
     fn age_text() {
         assert_eq!(vor(10), "gerade eben");
-        assert_eq!(vor(3600), "vor 60 Minuten");
+        assert_eq!(vor(3599), "vor 1 Stunde");
+        assert_eq!(vor(3000), "vor 50 Minuten");
         assert_eq!(vor(3 * 3600), "vor 3 Stunden");
         assert_eq!(vor(86_400 * 2), "vor 2 Tagen");
     }

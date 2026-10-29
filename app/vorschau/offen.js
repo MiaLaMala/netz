@@ -1,5 +1,5 @@
 // Fake answers for the view „offen“ in vorschau.html.
-// Marks: offen (list), offen-netz (filter „Nur Netz“ on), offen-aussen (nach „Von außen prüfen“), offen-leer; add ,erklaeren.
+// Marks: offen (list), offen-netz (filter „Nur Netz“ on), offen-aussen (nach „Von außen prüfen“), offen-aussenfehler (Prüfung scheitert), offen-leer, offen-unbekannt (Programm ohne Namen), offen-fehler; add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
   const l = (protokoll, port, programm, adresse, reichweite, dienst, extra = {}) => ({
@@ -16,14 +16,18 @@
     l('TCP', 5432, 'Datenbank', '::1', 'Lokal', 'PostgreSQL'),
   ];
   // „auch von außen erreichbar“ kommt nur, wenn der Schalter „Von außen prüfen“ an ist.
-  VORSCHAU.offen_zeigen = async ({ aussen }) =>
-    (m('offen-leer') ? [] : liste.map(({ aussen: a, ...x }) => ({ ...x, von_aussen: !!(a && aussen) })));
+  if (m('offen-unbekannt')) liste.push(l('TCP', 9100, '', '*', 'Netz', 'Druckdienst (RAW)'));
+  VORSCHAU.offen_zeigen = async ({ aussen }) => {
+    if (m('offen-fehler')) throw 'Die Socket-Liste ließ sich nicht lesen, auch `lsof` startet nicht.';
+    if (aussen && m('offen-aussenfehler')) throw 'Das Netz ist nicht als „meins“ gemerkt, deshalb prüfe ich nicht von außen.';
+    return m('offen-leer') ? [] : liste.map(({ aussen: a, ...x }) => ({ ...x, von_aussen: !!(a && aussen) }));
+  };
 
   if (marken.some((s) => s.startsWith('offen'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-offen')?.click();
       if (m('offen-netz')) setTimeout(() => document.querySelector('.werkzeuge button')?.click(), 250);
-      if (m('offen-aussen')) setTimeout(() => document.querySelector('.werkzeug .knopf')?.click(), 250);
+      if (m('offen-aussen') || m('offen-aussenfehler')) setTimeout(() => document.querySelector('.werkzeug .knopf')?.click(), 250);
     }, 150));
   }
 })();

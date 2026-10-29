@@ -459,7 +459,10 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         return Ok(());
     }
     if r.gruppen.is_empty() {
-        println!("Keine aktiven Verbindungen von dir gefunden.");
+        match &prog {
+            Some(p) => println!("Kein Programm mit „{p}“ im Namen hat gerade Verbindungen."),
+            None => println!("Keine aktiven Verbindungen von dir gefunden."),
+        }
     }
     for g in &r.gruppen {
         let n = g.verbindungen.len();
@@ -502,7 +505,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                 v.ziel_port
             );
         }
-        if let Some((ziel, k)) = zaehler.iter().max_by_key(|(_, k)| **k) {
+        if let Some((ziel, k)) = zaehler.iter().max_by_key(|(_, k)| **k).filter(|_| n > 1) {
             e(&format!(
                 "Dieses Programm hat {n} offene Verbindungen, die meisten ({k}) zu {ziel}."
             ));
@@ -537,7 +540,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         ),
     }
     println!(
-        "Programme anderer Nutzer sind ohne Root nicht sichtbar. Die Namen stammen aus PTR und sind oft die des Hosters."
+        "Programme anderer Nutzer sind ohne Root nicht sichtbar. Die Namen stammen aus dem DNS (PTR) und sind oft die des Hosters."
     );
     let mut laender: BTreeMap<&str, usize> = BTreeMap::new();
     for v in r.gruppen.iter().flat_map(|g| &g.verbindungen) {
