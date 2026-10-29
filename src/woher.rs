@@ -285,7 +285,10 @@ fn pids_fuer(
     Ok(v)
 }
 
+pub const OPTIONEN: &[&str] = &["--json", "--pid"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "woher")?;
     let (mut json, mut als_pid, mut ziel) = (false, false, None);
     for a in args {
         match a.as_str() {

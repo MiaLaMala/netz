@@ -234,7 +234,10 @@ pub fn check() -> PortalErgebnis {
     bewerten(quellen, dns_verdaechtig)
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "portal")?;
     let mut json = false;
     for a in args {
         match a.as_str() {

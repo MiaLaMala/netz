@@ -319,7 +319,10 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
     vec![(klasse, e.satz)]
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "zeit")?;
     let json = match args.first().map(String::as_str) {
         None => false,
         Some("--json") if args.len() == 1 => true,

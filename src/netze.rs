@@ -460,7 +460,10 @@ fn mark(list: &mut [Netz], name: &str, meins: bool) -> Result<Netz, String> {
     Ok(list[i].clone())
 }
 
+pub const OPTIONEN_MERKEN: &[&str] = &["--meins"];
+
 pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN_MERKEN, "merken")?;
     let meins = args.iter().any(|a| a == "--meins");
     let mut names = args.iter().filter(|a| *a != "--meins");
     let (Some(name), None) = (names.next(), names.next()) else {
@@ -488,7 +491,8 @@ pub fn run_merken(args: &[String], explain_on: bool) -> Result<(), String> {
     Ok(())
 }
 
-pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
+pub fn run_netze(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "netze")?;
     let list = liste()?;
     if list.is_empty() {
         println!("Noch kein Netz gemerkt. Mit `netzinfo merken <Name>` fängst du an.");
@@ -512,6 +516,7 @@ pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
 }
 
 pub fn run_vergessen(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "vergessen")?;
     let [name] = args else {
         return Err("Es passt genau ein Name, z. B. `netzinfo vergessen WG`.".into());
     };

@@ -365,8 +365,11 @@ fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
     ]
 }
 
+pub const OPTIONEN: &[&str] = &["--sekunden", "--intervall"];
+
 /// `netzinfo live <ziel>... [--sekunden N] [--intervall MS]`
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "live")?;
     let (mut ziele, mut sekunden, mut intervall) = (Vec::new(), 30u64, 1000u64);
     let mut it = args.iter();
     while let Some(a) = it.next() {

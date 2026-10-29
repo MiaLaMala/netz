@@ -572,7 +572,10 @@ fn num(args: &[String], flag: &str, default: u64, max: u64) -> Result<u64, Strin
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--minuten", "--takt"];
+
 pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "messen")?;
     let minutes = num(args, "--minuten", 1, 1440)?;
     let takt = num(args, "--takt", 5, 3600)?;
     let (net, info) = current_net()?;
@@ -641,6 +644,7 @@ fn explain_numbers(on: bool) {
 }
 
 pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &["--markdown"], "bericht")?;
     let mut name = None;
     let mut md = None;
     let mut it = args.iter();

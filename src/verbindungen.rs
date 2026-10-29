@@ -383,7 +383,10 @@ pub fn loeschen() -> Result<bool, String> {
     Ok(da)
 }
 
+pub const OPTIONEN: &[&str] = &["--json", "--merken", "--loeschen", "--programm"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "verbindungen")?;
     let (mut json, mut speichern, mut weg, mut prog) = (false, false, false, None::<String>);
     let mut it = args.iter();
     while let Some(a) = it.next() {

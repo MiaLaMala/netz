@@ -708,7 +708,10 @@ fn schicht_erklaerung(s: Schicht) -> &'static str {
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "diagnose")?;
     let mut json = false;
     for a in args {
         match a.as_str() {
@@ -1209,7 +1212,7 @@ mod tests {
         assert!(
             run(&["--x".into()], false)
                 .unwrap_err()
-                .contains("passt hier nicht")
+                .contains("Unbekannte Option")
         );
         for s in [
             Schicht::Funk,

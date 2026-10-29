@@ -239,6 +239,7 @@ pub fn check_host(host: &str) -> Result<TlsReport, String> {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "tls")?;
     let hosts: Vec<String> = if args.is_empty() {
         DEFAULT_HOSTS.iter().map(|h| h.to_string()).collect()
     } else {

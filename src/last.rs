@@ -310,7 +310,10 @@ fn ausgeben(e: &LastErgebnis, explain_on: bool) {
     );
 }
 
+pub const OPTIONEN: &[&str] = &["--start", "--trotzdem"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "last")?;
     let usage = "Aufruf: netzinfo last --start [--trotzdem]";
     let (mut start, mut trotzdem) = (false, false);
     for a in args {

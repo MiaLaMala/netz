@@ -435,8 +435,11 @@ fn minuten_lesen(args: &[String]) -> Result<u64, String> {
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--minuten"];
+
 /// `netzinfo wlan --verlauf [--minuten N]`
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "wlan --verlauf")?;
     let minuten = minuten_lesen(args)?;
     explain(
         explain_on,

@@ -522,6 +522,8 @@ fn show(a: &Reply) -> String {
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--tempo", "--verschluesselt", "--meine-ip", "--typ"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     if args.iter().any(|a| a == "--tempo") {
         let rest: Vec<String> = args.iter().filter(|a| *a != "--tempo").cloned().collect();
@@ -535,6 +537,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             .collect();
         return crate::dnsverschl::run(&rest, explain_on);
     }
+    crate::optionen::nur(args, OPTIONEN, "dns")?;
     let usage = "Aufruf: netzinfo dns <Name> [--typ A|AAAA|MX|TXT] oder netzinfo dns --meine-ip";
     let (mut name, mut qtype, mut my_ip) = (None, A, false);
     let mut it = args.iter();

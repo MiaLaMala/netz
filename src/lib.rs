@@ -24,6 +24,7 @@ pub mod nachbarn;
 pub mod namen;
 pub mod netze;
 pub mod offen;
+pub mod optionen;
 pub mod ort;
 pub mod pfad;
 pub mod pfadspur;

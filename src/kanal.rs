@@ -281,8 +281,11 @@ pub fn scan() -> Result<Scan, String> {
     Err("`netzinfo wlan --umfeld` scannt bisher nur auf dem Mac (CoreWLAN). Unter Linux und Windows gibt es das noch nicht.".into())
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 /// `netzinfo wlan --umfeld [--json]`, aufgerufen aus `wlan::run`.
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "wlan --umfeld")?;
     let json = args == ["--json"];
     if !json && let Some(a) = args.first() {
         return Err(format!(
