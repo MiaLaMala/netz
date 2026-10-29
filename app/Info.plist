@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Tauri merges this file into the bundle's Info.plist. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Netzinfo sucht Geräte und Dienste in deinem eigenen Netz und liest dafür die Nachbartabelle.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Netzinfo liest den Namen und die Kennung deines WLANs. Dein Standort wird nicht gespeichert.</string>
+</dict>
+</plist>
