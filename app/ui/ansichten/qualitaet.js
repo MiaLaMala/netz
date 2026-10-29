@@ -412,6 +412,21 @@
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-ipv6' }, el('h3', { id: 'g-ipv6', text: 'IPv6' }), el('div', { class: 'karte ipv6-karte' }, knopf, ort));
   }
 
+  // ---- Zeile „Uhrzeit“ (`netzinfo zeit`, src/zeit.rs, issue #69) ----
+  function zeitKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const k = el('section', { class: 'zeit-karte' }, ort);
+    const sek = (v) => `${v > 0 ? '+' : ''}${Math.abs(v) < 10000 ? `${v} ms` : `${fmt(v / 1000)} s`}`;
+    ort.replaceChildren(gruppe('Uhrzeit', [zeile('Uhr', 'wird geprüft …')]));
+    Netz.invoke('zeit_pruefen').then((e) => {
+      ort.replaceChildren(gruppe('Uhrzeit', [
+        zeile('Uhr', e.klasse ? { Harmlos: 'stimmt', Auffaellig: 'weicht ab', Alarm: 'Alarm' }[e.klasse] : 'nicht geprüft', 'Abweichung zur Uhr dieses Macs, gemessen per NTP und HTTPS-Date. Ich stelle die Uhr nie.'),
+        ...e.befunde.map((b) => zeile(b.quelle, b.versatz_ms == null ? 'keine Antwort' : sek(b.versatz_ms))),
+      ], e.satz));
+    }, (f) => ort.replaceChildren(meldung(Netz.text(f))));
+    return k;
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -511,6 +526,7 @@
       wurzel.append(wlanKarte());
       wurzel.append(mtuKarte());
       wurzel.append(ipv6Karte());
+      wurzel.append(zeitKarte());
       if (weiter) schalte(true);
     },
   });

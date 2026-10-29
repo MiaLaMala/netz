@@ -46,6 +46,7 @@ Befehle:
   netzinfo woher --pid <PID> Dasselbe für ein Programm ohne offenen Port
   netzinfo live <Ziel>...    Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele
   netzinfo ipv6 [Dienst]     IPv4 und IPv6 im Vergleich, mit Happy Eyeballs
+  netzinfo zeit [--json]     Geht deine Uhr (oder die des Netzes) richtig? NTP und HTTPS-Date
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -83,6 +84,7 @@ fn main() -> ExitCode {
         "woher" => woher::run(rest, explain_on),
         "live" => live::run(rest, explain_on),
         "ipv6" => ipv6::run(rest, explain_on),
+        "zeit" => netzinfo::zeit::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

@@ -104,6 +104,12 @@ fn portal_im_browser_oeffnen() -> Result<(), String> {
     Err("Den Browser öffnet nur die Mac-App. Öffne http://captive.apple.com von Hand.".into())
 }
 
+/// Clock check against NTP and an HTTPS `Date` header, see issue #69.
+#[tauri::command(async)]
+fn zeit_pruefen() -> netzinfo::zeit::ZeitErgebnis {
+    netzinfo::zeit::pruefen()
+}
+
 #[tauri::command(async)]
 fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, Fehler> {
     netzinfo::dnsverschl::dns_daten().map_err(Into::into)
@@ -244,6 +250,7 @@ fn main() {
             mtu_messen,
             sni_pruefen,
             ipv6_messen,
+            zeit_pruefen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

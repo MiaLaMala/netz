@@ -189,3 +189,21 @@
     }
   });
 })();
+
+// Zeile „Uhrzeit“ (issue #69). Marks: ,zeit-ok (default), ,zeit-netz (Router 4 min falsch), ,zeit-mac (Mac-Uhr 3 min falsch),
+// ,zeit-gesperrt (NTP blockiert). Versätze in ms zur Mac-Uhr.
+(() => {
+  const b = (quelle, v, netz = false) => ({ quelle, netz, versatz_ms: v, fehler: v == null ? 'keine Antwort, NTP ist in manchen Netzen gesperrt' : null });
+  VORSCHAU.zeit_pruefen = async () => {
+    if (marken.includes('zeit-netz')) return { befunde: [b('Router (NTP)', 240_300, true), b('time.apple.com (NTP)', 120), b('pool.ntp.org (NTP)', -85), b('www.cloudflare.com (HTTPS Date)', 310)], unterschied_netz_zu_oeffentlich_ms: 240_180, klasse: 'Alarm', satz: 'Die Uhr, die dieses Netz anbietet, geht 4 Minuten vor. Dadurch können sichere Verbindungen fehlschlagen.' };
+    if (marken.includes('zeit-mac')) return { befunde: [b('time.apple.com (NTP)', 180_050), b('pool.ntp.org (NTP)', 180_120), b('www.cloudflare.com (HTTPS Date)', 179_900)], unterschied_netz_zu_oeffentlich_ms: null, klasse: 'Auffaellig', satz: 'Die Uhr deines Macs geht 3 Minuten nach. Dadurch können sichere Verbindungen fehlschlagen.' };
+    if (marken.includes('zeit-gesperrt')) return { befunde: [b('time.apple.com (NTP)', null), b('pool.ntp.org (NTP)', null), b('www.cloudflare.com (HTTPS Date)', null)], unterschied_netz_zu_oeffentlich_ms: null, klasse: null, satz: 'Nicht geprüft: Keine öffentliche Zeitquelle antwortete. NTP ist in manchen Netzen gesperrt.' };
+    return { befunde: [b('Router (NTP)', 35, true), b('time.apple.com (NTP)', 42), b('pool.ntp.org (NTP)', -18), b('www.cloudflare.com (HTTPS Date)', 260)], unterschied_netz_zu_oeffentlich_ms: 0, klasse: 'Harmlos', satz: 'Deine Uhr stimmt mit 4 unabhängigen Quellen überein.' };
+  };
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('zeit-'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => document.querySelector('.zeit-karte')?.scrollIntoView(), 900);
+    }
+  });
+})();
