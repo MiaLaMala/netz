@@ -1,0 +1,32 @@
+# Prüft nur advisories, licenses, bans (siehe .github/workflows/ci.yml).
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+ignore = [
+    # Nur "nicht mehr gepflegt", keine Sicherheitslücke. Kommt über Tauri/GTK3
+    # (glib-macros), also nur auf Linux, nicht in der Mac-App. Entfällt mit GTK4.
+    "RUSTSEC-2024-0370",
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0", # webpki-roots
+    "Zlib",                # foldhash (Tauri), objc2-core-wlan
+    "Unlicense",           # memchr (MIT OR Unlicense)
+    "Apache-2.0 WITH LLVM-exception", # target-lexicon, wasi (Tauri-Build)
+    # Dateiweites Copyleft: cssparser, selectors, dtoa-short, option-ext (Tauri).
+    # Wir ändern diese Crates nicht und verlinken sie nur, das ist erlaubt.
+    "MPL-2.0",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
