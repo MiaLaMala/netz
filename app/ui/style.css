@@ -8,7 +8,7 @@
   --fg2: #626267;
   --linie: rgba(0, 0, 0, 0.1);
   --rand: rgba(0, 0, 0, 0.2);
-  --icon: var(--accent);
+  --accent-lesbar: var(--accent);  /* Akzent für Symbole, Kurven und Linien, im Dunkeln aufgehellt */
   --knopf: #fff;
   --knopf-aktiv: #ececef;
   --seite-solid: #e8e8ea;
@@ -33,7 +33,7 @@
     --fg2: #aeaeb2;
     --linie: rgba(255, 255, 255, 0.12);
     --rand: rgba(255, 255, 255, 0.22);
-    --icon: color-mix(in srgb, var(--accent) 60%, #fff);
+    --accent-lesbar: color-mix(in srgb, var(--accent) 60%, #fff);
     --knopf: #3a3a3c;
     --knopf-aktiv: #4a4a4d;
     --seite-solid: #2c2c2e;
@@ -85,7 +85,7 @@ button, input, select { font: inherit; color: inherit; }
   border: 0; border-radius: 6px; background: none;
   text-align: left; width: 100%;
 }
-.eintrag svg { width: 16px; height: 16px; flex: none; color: var(--icon); }
+.eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent-lesbar); }
 .eintrag:hover:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 7%, transparent); }
 .eintrag:focus-visible { outline-offset: -1px; }
 /* Selection: system accent while the window is active, grey otherwise (html.inaktiv, set in app.js). */
@@ -144,7 +144,7 @@ button, input, select { font: inherit; color: inherit; }
 .knopf .kbd { color: var(--fg2); font-size: 12px; }
 
 .scroll { flex: 1; overflow-y: auto; }
-.ansicht { max-width: 620px; margin: 0 auto; padding: 22px 28px 40px; }
+.ansicht { max-width: 720px; margin: 0 auto; padding: 22px 28px 40px; }
 .ansicht.neu { animation: rein 0.18s ease-out; }
 @keyframes rein { from { opacity: 0; transform: translateY(4px); } }
 

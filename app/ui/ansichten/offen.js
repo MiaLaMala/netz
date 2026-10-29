@@ -50,8 +50,10 @@
 
   // Der Kopf trägt die Aussage; ein UDP-Client lauscht nicht und zählt nicht mit.
   function kopfSatz(alle) {
-    const dienste = alle.filter((l) => l.reichweite !== 'UdpClient').length;
-    const netz = alle.filter((l) => l.reichweite === 'Netz').length;
+    // Gezählt werden Programme, nicht Ports: ein Programm mit zwei Ports ist eins.
+    const programme = (ls) => new Set(ls.map((l) => l.pid)).size;
+    const dienste = programme(alle.filter((l) => l.reichweite !== 'UdpClient'));
+    const netz = programme(alle.filter((l) => l.reichweite === 'Netz'));
     if (!dienste) return 'Kein Programm lauscht';
     if (!netz) return 'Kein Programm ist fürs Netz erreichbar';
     return `${netz} von ${dienste} Programmen ${netz === 1 ? 'ist' : 'sind'} fürs Netz erreichbar`;

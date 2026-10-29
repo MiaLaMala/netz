@@ -67,7 +67,7 @@
         if (marken.includes('erklaeren')) klick('#erklaeren');
         if (marken.includes('formular')) klick('.aktion button');
         if (marken.includes('formular-fehler')) { klick('.aktion button'); document.querySelector('.formular').requestSubmit(); }
-      }, 150);
+      }, 1500);  // „Dieses Netz“ lädt Netz und Funk gemeinsam; 150 ms reichten nicht mehr (Chrome rechnet in virtueller Zeit, kostet nichts)
       // After the tab click of the render script: open the first „Woher?“ / the first delete confirmation.
       setTimeout(() => {
         if (marken.includes('woher')) klick('.woher-knopf');

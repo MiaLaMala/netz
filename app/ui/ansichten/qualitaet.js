@@ -7,7 +7,7 @@
   const LUECKE = 120; // s, same as GAP_SECS in src/messen.rs: a longer pause breaks the line
   // Dash patterns differ per target, so colour is not the only difference.
   const STIL = [
-    { farbe: 'var(--accent)', dash: '' },
+    { farbe: 'var(--accent-lesbar)', dash: '' },
     { farbe: 'var(--gruen)', dash: '6 3' },
     { farbe: 'var(--orange)', dash: '1.5 3' },
   ];
@@ -284,7 +284,7 @@
       if (d) g.append(sv('path', { d, class: 'linie', ...attr }));
     };
     linie((q) => q.rate, yRate, { stroke: 'var(--gruen)', 'stroke-dasharray': '6 3' });
-    linie((q) => q.rssi, ySig, { stroke: 'var(--accent)' });
+    linie((q) => q.rssi, ySig, { stroke: 'var(--accent-lesbar)' });
     g.append(sv('text', { x: L - 8, y: Y1 + 28, class: 'achse', 'text-anchor': 'end' }, 'Ereignisse'));
     for (const e of a.ereignisse.filter((q) => q.zeit >= von)) {
       const [name, farbe, form] = ARTEN[e.art];
