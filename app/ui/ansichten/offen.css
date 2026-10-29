@@ -16,7 +16,4 @@
 [data-ansicht='offen'] .offen-art { font-size: 12px; font-weight: 500; color: var(--fg2); }
 [data-ansicht='offen'] .offen-art.netz { color: var(--fg); font-weight: 600; }
 [data-ansicht='offen'] .offen-tabelle td:last-child { white-space: nowrap; }
-[data-ansicht='offen'] .woher { margin: 2px 0 0; font-size: 12px; }
-[data-ansicht='offen'] .woher summary { cursor: pointer; color: var(--fg2); }
-[data-ansicht='offen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; }
-[data-ansicht='offen'] .woher-inhalt p { margin: 0; }
+[data-ansicht='offen'] .woher-knopf { margin-left: -6px; }

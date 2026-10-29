@@ -33,27 +33,6 @@
   // `*` und die Loopback-Adressen sagen Menschen nichts.
   const adresse = (a) => (a === '*' ? 'alle Adressen' : a === '127.0.0.1' || a === '::1' ? 'nur dieser Mac' : a);
 
-  // „Woher?“ wie in „Verbindungen“: lädt die Startkette erst beim Aufklappen.
-  const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
-  function woher(pid) {
-    const inhalt = el('div', { class: 'woher-inhalt' });
-    const d = el('details', { class: 'woher' }, el('summary', { text: 'Woher?' }), inhalt);
-    d.addEventListener('toggle', async () => {
-      if (!d.open || inhalt.childElementCount) return;
-      try {
-        const h = await Netz.invoke('woher_zeigen', { pid });
-        inhalt.append(
-          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
-          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
-            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
-          el('p', { class: 'fein', text: h.satz }));
-      } catch (f) {
-        inhalt.append(meldung(Netz.text(f), 'rot'));
-      }
-    });
-    return d;
-  }
-
   function zelle(l) {
     const hinweise = [
       l.apple_signiert === false && 'nicht von Apple signiert',
@@ -63,7 +42,7 @@
       el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] })),
       el('td', {}, el('div', { text: l.programm || `PID ${l.pid}` }),
         hinweise.length ? el('div', { class: 'fein warn', text: hinweise.join(' · ') }) : null,
-        woher(l.pid)),
+        Netz.woher(l.pid, l.programm)),
       el('td', { class: 'num' }, el('div', { text: `${l.protokoll} ${l.port}` }),
         l.dienst ? el('div', { class: 'fein', text: l.dienst }) : null),
       el('td', { class: 'fein', text: adresse(l.adresse) }));

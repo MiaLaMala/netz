@@ -68,6 +68,11 @@
         if (marken.includes('formular')) klick('.aktion button');
         if (marken.includes('formular-fehler')) { klick('.aktion button'); document.querySelector('.formular').requestSubmit(); }
       }, 150);
+      // After the tab click of the render script: open the first „Woher?“ / the first delete confirmation.
+      setTimeout(() => {
+        if (marken.includes('woher')) klick('.woher-knopf');
+        if (marken.includes('loeschen')) klick('.knopf.gefahr');
+      }, 900);
     }, 100));
   </script>
   <script src="vorschau/dieses-netz.js"></script>

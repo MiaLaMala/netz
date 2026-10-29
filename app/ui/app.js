@@ -84,6 +84,50 @@
     return el('div', { class: 'leer-zustand' }, el('span', { html: icon }), el('p', { text: satz }));
   }
 
+  // „Woher?“: Aktion einer Zeile, lädt die Startkette des Prozesses erst beim Aufklappen (#56).
+  // Gibt [Knopf, Feld] zurück; beide als Kinder der Zeile einsetzen (el() flacht Listen).
+  let woherNr = 0;
+  const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
+  function woher(pid, programm) {
+    const id = `woher-${++woherNr}`;
+    const inhalt = el('div', { class: 'woher-inhalt', id, hidden: true });
+    const knopf = el('button', { class: 'woher-knopf', type: 'button', text: 'Woher?', 'aria-expanded': 'false', 'aria-controls': id, 'aria-label': `Woher kommt ${programm || `PID ${pid}`}?` });
+    knopf.addEventListener('click', async () => {
+      const auf = inhalt.hidden;
+      inhalt.hidden = !auf;
+      knopf.setAttribute('aria-expanded', String(auf));
+      if (!auf || inhalt.childElementCount) return;
+      try {
+        const h = await invoke('woher_zeigen', { pid });
+        inhalt.append(
+          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
+          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
+            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
+          el('p', { class: 'fein', text: h.satz }));
+      } catch (f) {
+        inhalt.append(meldung(text(f), 'rot'));
+      }
+    });
+    return [knopf, inhalt];
+  }
+
+  // Löschen mit Bestätigung: Frage, „Abbrechen“ (auch Escape) und der rote Knopf. `aktion` darf werfen,
+  // dann zeigt `fehler(f)` den Satz und der Knopf wird wieder frei. Der Aufrufer setzt das Ergebnis
+  // in seine Zeile und baut bei `abbrechen` die alte Zeile zurück. Der Fokus landet auf „Abbrechen“.
+  function bestaetigung({ frage, label, aria, knopf = 'Löschen', aktion, abbrechen, fehler }) {
+    const nein = el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: abbrechen });
+    const ja = el('button', { class: 'knopf gefahr', type: 'button', text: knopf, 'aria-label': aria });
+    ja.addEventListener('click', async () => {
+      ja.disabled = true;
+      try { await aktion(); } catch (f) { fehler(f); ja.disabled = false; }
+    });
+    queueMicrotask(() => nein.focus());
+    return el('div', {
+      class: 'bestaetigung', role: 'group', 'aria-label': label,
+      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); abbrechen(); } },
+    }, el('p', { text: frage }), nein, ja);
+  }
+
   // ---- Seitenleiste ----
   function baueMenue() {
     const menue = document.getElementById('menue');
@@ -182,7 +226,7 @@
   }
 
   window.Netz = {
-    invoke, el, icons, zeit, text, meldung, status, gruppe, zeile, leerZustand, neuLaden,
+    invoke, el, icons, zeit, text, meldung, status, gruppe, zeile, leerZustand, neuLaden, woher, bestaetigung,
     registriere: (a) => ansichten.push(a),
   };
   document.addEventListener('DOMContentLoaded', start);

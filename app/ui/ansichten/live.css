@@ -1,8 +1,7 @@
 /* Styles for the view „live“ only, scoped. */
 [data-ansicht='live'] .werkzeuge { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
 [data-ansicht='live'] .steuerung { margin-top: 18px; }
-[data-ansicht='live'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); box-shadow: inset 0 0 0 0.5px var(--linie); background: var(--bg); color: var(--fg); font: inherit; }
-[data-ansicht='live'] .ziel-feld:disabled { color: var(--fg2); }
+[data-ansicht='live'] .ziel-feld { flex: 1; min-width: 0; }
 [data-ansicht='live'] .werkzeuge .knopf { min-width: 64px; justify-content: center; }
 [data-ansicht='live'] .kacheln { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 10px; }
 [data-ansicht='live'] .kachel { padding: 10px 14px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }

@@ -29,41 +29,16 @@
     return s;
   };
 
-  // „Woher?“: Aktion der Zeile; lädt die Startkette erst beim Aufklappen (Issue #56).
-  const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
-  function woher(pid, programm) {
-    const inhalt = el('div', { class: 'woher-inhalt', hidden: true });
-    const knopf = el('button', { class: 'woher-knopf', type: 'button', text: 'Woher?', 'aria-expanded': 'false', 'aria-label': `Woher kommt ${programm}?` });
-    knopf.addEventListener('click', async () => {
-      const auf = inhalt.hidden;
-      inhalt.hidden = !auf;
-      knopf.setAttribute('aria-expanded', String(auf));
-      if (!auf || inhalt.childElementCount) return;
-      try {
-        const h = await Netz.invoke('woher_zeigen', { pid });
-        inhalt.append(
-          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
-          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
-            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
-          el('p', { class: 'fein', text: h.satz }));
-      } catch (f) {
-        inhalt.append(meldung(Netz.text(f), 'rot'));
-      }
-    });
-    return [knopf, inhalt];
-  }
-
   // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
     const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
     const fein = [v.name && adresse, `Port ${v.ziel_port}`, v.dienst, ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
-    const [knopf, inhalt] = woher(v.pid, v.programm);
     return el('div', { class: 'netz-zeile' },
       el('div', { class: 'text' },
         el('div', { class: 'netz-name num', text: v.name || adresse }),
         el('div', { class: 'fein', text: fein.join(' · ') })),
       v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })),
-      knopf, inhalt);
+      Netz.woher(v.pid, v.programm));
   }
 
   // „Nach Land“: Zählung der Verbindungen je Land, nur wenn die Datenbank da ist und etwas trifft.
@@ -189,22 +164,13 @@
             el('div', { class: 'fein', text: 'Löscht, was Netzinfo über Verbindungen in diesem Netz kennt. Danach ist wieder jedes Ziel „neu“.' })),
           loeschen);
         loeschen.addEventListener('click', () => {
-          const nein = el('button', { class: 'knopf', type: 'button', text: 'Abbrechen' });
-          const ja = el('button', { class: 'knopf gefahr', type: 'button', text: 'Löschen' });
-          nein.addEventListener('click', () => { zeileLoeschen.replaceChildren(...zeileLoeschen0); loeschen.focus(); });
-          ja.addEventListener('click', async () => {
-            ja.disabled = true;
-            try {
-              await Netz.invoke('verbindungen_loeschen');
-              Netz.neuLaden();
-            } catch (f) {
-              fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
-              ja.disabled = false;
-            }
-          });
-          zeileLoeschen.replaceChildren(el('div', { class: 'bestaetigung', role: 'group', 'aria-label': 'Gemerkte Daten löschen?' },
-            el('p', { text: 'Alle gemerkten Verbindungen dieses Netzes löschen? Das lässt sich nicht rückgängig machen.' }), nein, ja));
-          nein.focus();
+          zeileLoeschen.replaceChildren(Netz.bestaetigung({
+            frage: 'Alle gemerkten Verbindungen dieses Netzes löschen? Das lässt sich nicht rückgängig machen.',
+            label: 'Gemerkte Daten löschen?',
+            abbrechen: () => { zeileLoeschen.replaceChildren(...zeileLoeschen0); loeschen.focus(); },
+            aktion: async () => { await Netz.invoke('verbindungen_loeschen'); Netz.neuLaden(); },
+            fehler: (f) => fehler.replaceChildren(meldung(Netz.text(f), 'rot')),
+          }));
         });
         const zeileLoeschen0 = [...zeileLoeschen.childNodes];
         return el('section', { class: 'gruppe', 'aria-labelledby': 'g-merken' },

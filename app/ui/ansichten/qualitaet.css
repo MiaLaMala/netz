@@ -1,7 +1,6 @@
 /* Styles for the view „qualitaet“ only. */
 [data-ansicht='qualitaet'] .werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
 [data-ansicht='qualitaet'] .werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
-[data-ansicht='qualitaet'] .werkzeuge select { height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
 [data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 20px 0; }
 [data-ansicht='qualitaet'] .kurve { display: block; width: 100%; height: auto; }
 [data-ansicht='qualitaet'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
@@ -27,8 +26,7 @@
 /* Karte „Weg zum Ziel“ */
 [data-ansicht='qualitaet'] .weg-karte .karte { margin-top: 6px; }
 [data-ansicht='qualitaet'] .weg .werkzeuge { margin-top: 0; }
-[data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--linie); background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); font: inherit; }
-[data-ansicht='qualitaet'] .ziel-feld:disabled { opacity: 0.5; }
+[data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; }
 [data-ansicht='qualitaet'] .weg .fortschritt progress { vertical-align: middle; width: 80px; }
 [data-ansicht='qualitaet'] .hops { margin: 10px 0 0; padding: 0; list-style: none; }
 [data-ansicht='qualitaet'] .hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 70px 100px; align-items: center; gap: 8px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
