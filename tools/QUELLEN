@@ -1,0 +1,18 @@
+Datenquellen für Land und Anbieter (tools/ipdb-bauen.sh baut daraus ipdb/land.mmdb und ipdb/asn.mmdb)
+
+Land: DB-IP "IP to Country Lite"
+  Stand: Juni 2026, Paket @ip-location-db/dbip-country-mmdb 2.3.2026060120
+  Lizenz: Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
+  Pflicht: Namensnennung "IP Geolocation by DB-IP", https://db-ip.com (steht in der Ansicht "Verbindungen")
+  Quelle: https://db-ip.com/db/download/ip-to-country-lite
+
+Anbieter (AS-Nummer und Name): IPtoASN
+  Stand: Juni 2026, Paket @ip-location-db/iptoasn-asn-mmdb 2.3.2026061719
+  Lizenz: ODC Public Domain Dedication and Licence (PDDL 1.0), https://opendatacommons.org/licenses/pddl/1-0/
+  Pflicht: keine (Dank trotzdem, https://iptoasn.com)
+  Quelle: https://iptoasn.com/
+
+Fertige Dateien: ip-location-db von sapics, https://github.com/sapics/ip-location-db
+  Das Projekt nennt je Datenbank die Lizenz der Quelle; die obigen Lizenzen stammen von dort und von den Seiten der Quellen.
+
+Die Dateien liegen nie im Git. Sie kommen als Release-Artefakt in das App-Bündel (Resources/ipdb).
