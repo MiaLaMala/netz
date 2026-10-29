@@ -2,7 +2,7 @@
 
 use netzinfo::{
     bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal, ports,
-    proxy, pruefen, sni, tls, verbindungen, wlan, woher,
+    proxy, pruefen, sni, tls, traffic, verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -51,6 +51,8 @@ Befehle:
   netzinfo live <Ziel>...    Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele
   netzinfo ipv6 [Dienst]     IPv4 und IPv6 im Vergleich, mit Happy Eyeballs
   netzinfo zeit [--json]     Geht deine Uhr (oder die des Netzes) richtig? NTP und HTTPS-Date
+  netzinfo traffic [--sekunden N] [--json]
+                             Datenmenge je Programm ohne Root (nur Mac)
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -90,6 +92,7 @@ fn main() -> ExitCode {
         "live" => live::run(rest, explain_on),
         "ipv6" => ipv6::run(rest, explain_on),
         "zeit" => netzinfo::zeit::run(rest, explain_on),
+        "traffic" => traffic::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

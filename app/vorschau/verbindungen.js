@@ -42,3 +42,13 @@ VORSCHAU.woher_zeigen = async () => ({
   quelle: 'Unbekannt', eintrag: null, abgeschnitten: false,
   satz: 'launchd hat das Programm gestartet, vor 3 Stunden, aber ich finde keinen Eintrag dafür. Wahrscheinlich ein App-Start per Doppelklick, oder der ursprüngliche Elternprozess ist beendet und launchd hat übernommen.',
 });
+// #58: one measurement, identical numbers every time. Rates = bytes / 5 s; sorted by total rate.
+(() => {
+  const p = (programm, ein, aus) => ({ programm, ein, aus, rate_ein: ein / 5, rate_aus: aus / 5 });
+  VORSCHAU.traffic_messen = async () => [
+    p('Backup', 2_000_000, 24_000_000), p('Safari', 9_500_000, 600_000), p('Mail', 120_000, 40_000), p('Finder', 0, 0),
+  ];
+  if (marken.includes('verbindungen-traffic')) {
+    addEventListener('DOMContentLoaded', () => setTimeout(() => document.querySelector('.traffic .knopf')?.click(), 600));
+  }
+})();
