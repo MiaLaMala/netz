@@ -29,3 +29,11 @@
 [data-ansicht='verbindungen'] .traffic-balken { display: flex; height: 8px; border-radius: 4px; background: var(--linie); overflow: hidden; }
 [data-ansicht='verbindungen'] .traffic-balken .ein { background: var(--accent); }
 [data-ansicht='verbindungen'] .traffic-balken .aus { background: var(--orange); }
+/* Nur für Vorlesegeräte: Ansage nach Filter und Messung. */
+[data-ansicht='verbindungen'] .nur-vorlesen { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Balken und Legende: im Dunkeln braucht der Akzent die aufgehellte Fassung für 3:1 gegen die Spur. */
+[data-ansicht='verbindungen'] .traffic-balken .ein, [data-ansicht='verbindungen'] .traffic-legende .ein::before { background: var(--accent-lesbar); }
+/* Roter Knopf im Dunkeln: --rot hält auf dem Knopfgrund nur 4,02:1. */
+@media (prefers-color-scheme: dark) {
+  [data-ansicht='verbindungen'] .knopf.gefahr { color: #ff8a84; }
+}

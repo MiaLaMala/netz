@@ -17,9 +17,14 @@
 
   const zustand = { nurNeue: false, merken: false };
   let ergebnis = null;
+  // Nach dem Neuzeichnen der ganzen Ansicht (Merken, Löschen) steht der Fokus sonst im Nichts.
+  let fokusNach = null;
+  const neuLaden = (selektor) => { fokusNach = selektor; Netz.neuLaden(); };
+  // Eine Ansage für VoiceOver, einmal pro Ergebnis. Die Liste selbst ist keine Live-Region.
+  const ansage = el('p', { class: 'nur-vorlesen', 'aria-live': 'polite' });
 
   const schalter = (text, key, aenderung) => {
-    const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(zustand[key]) },
+    const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(zustand[key]), 'data-schalter': key },
       el('span', { class: 'spur' }), el('span', { text }));
     s.addEventListener('click', () => {
       zustand[key] = !zustand[key];
@@ -35,7 +40,7 @@
     const ziel = [v.name && adresse, v.dienst ? `Port ${v.ziel_port} (${v.dienst})` : `Port ${v.ziel_port}`].filter(Boolean);
     const herkunft = [ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
     const titel = v.name || adresse;
-    return el('div', { class: 'netz-zeile verbindung' },
+    return el('div', { class: 'netz-zeile verbindung', role: 'listitem' },
       el('div', { class: 'text' },
         el('div', { class: 'netz-name num kuerzen', title: titel, text: titel }),
         el('div', { class: 'fein num', text: ziel.join(' · ') }),
@@ -90,9 +95,9 @@
     }
     return [kopf, fuss, ...gruppen.map((g) => {
       const n = g.verbindungen.length;
-      return el('section', { class: 'gruppe', 'aria-label': g.programm },
+      return el('section', { class: 'gruppe' },
         el('h3', { text: `${g.programm} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
-        el('div', { class: 'liste' }, g.verbindungen.map(verbindung)));
+        el('div', { class: 'liste', role: 'list' }, g.verbindungen.map(verbindung)));
     }), nachLand(gruppen), herkunftFuss(r)];
   }
 
@@ -105,32 +110,40 @@
     const aktiv = liste.filter((v) => v.ein + v.aus > 0).slice(0, 8);
     if (!aktiv.length) return [el('p', { class: 'fuss', text: 'In diesen Sekunden floss bei keinem Programm etwas.' })];
     const max = Math.max(...aktiv.map((v) => v.rate_ein + v.rate_aus));
-    const legende = el('div', { class: 'traffic-legende' },
+    const legende = el('div', { class: 'traffic-legende', 'aria-hidden': 'true' },
       el('span', { class: 'ein', text: '↓ Empfangen' }), el('span', { class: 'aus', text: '↑ Gesendet' }));
     return [legende, ...aktiv.map((v) => el('div', { class: 'traffic-zeile' },
       el('div', { class: 'traffic-kopf' },
         el('span', { class: 'netz-name kuerzen', title: v.programm, text: v.programm }),
-        el('span', { class: 'fein num traffic-rate' }, el('span', { text: `↓ ${menge(v.rate_ein)}/s` }), el('span', { text: `↑ ${menge(v.rate_aus)}/s` }))),
-      el('div', { class: 'traffic-balken', role: 'img', 'aria-label': `${v.programm}: ${menge(v.ein)} empfangen, ${menge(v.aus)} gesendet` },
+        el('span', { class: 'fein num traffic-rate', 'aria-hidden': 'true' }, el('span', { text: `↓ ${menge(v.rate_ein)}/s` }), el('span', { text: `↑ ${menge(v.rate_aus)}/s` }))),
+      el('div', { class: 'traffic-balken', role: 'img', 'aria-label': `${v.programm}: empfängt ${menge(v.rate_ein)} pro Sekunde, sendet ${menge(v.rate_aus)} pro Sekunde` },
         el('span', { class: 'ein', style: `width:${((v.rate_ein / max) * 100).toFixed(1)}%` }),
         el('span', { class: 'aus', style: `width:${((v.rate_aus / max) * 100).toFixed(1)}%` }))))];
   }
 
   function trafficAbschnitt() {
-    const ort = el('div', { class: 'traffic-liste', 'aria-live': 'polite' }, el('p', { class: 'traffic-leer', text: 'Noch nicht gemessen.' }));
+    const ort = el('div', { class: 'traffic-liste' }, el('p', { class: 'traffic-leer', text: 'Noch nicht gemessen.' }));
     const messen = el('button', { class: 'knopf haupt', type: 'button', text: 'Messen' });
     let wiederholen = false;
     let laeuft = false;
     let timer = null;
-    const einmal = async () => {
+    const einmal = async (vonHand = true) => {
       if (laeuft) return;
       laeuft = true;
+      // Ein deaktivierter Knopf verliert den Fokus: danach zurück, aber nur wenn er ihn hatte.
+      const hatteFokus = document.activeElement === messen;
       messen.disabled = true;
       messen.textContent = 'Messe …';
       try {
-        const balken = trafficBalken(await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN }));
+        const werte = await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN });
+        const balken = trafficBalken(werte);
         const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         ort.replaceChildren(...balken, el('p', { class: 'fuss', text: `Gemessen um ${uhr} Uhr, ${TRAFFIC_SEKUNDEN} Sekunden lang.` }));
+        // Nur die Messung per Hand wird angesagt, die Wiederholung alle 30 Sekunden bleibt still.
+        if (vonHand) {
+          const top = werte.filter((v) => v.ein + v.aus > 0).sort((a, b) => b.rate_ein + b.rate_aus - (a.rate_ein + a.rate_aus))[0];
+          ansage.textContent = top ? `Messung fertig. Am meisten Verkehr: ${top.programm}.` : 'Messung fertig. Bei keinem Programm floss etwas.';
+        }
       } catch (f) {
         ort.replaceChildren(Netz.fehlerKarte(Netz.text(f), einmal));
         wiederholen = false;
@@ -139,13 +152,14 @@
       laeuft = false;
       messen.disabled = false;
       messen.textContent = 'Messen';
+      if (hatteFokus) messen.focus();
       clearTimeout(timer);
       if (wiederholen && messen.isConnected) timer = setTimeout(takt, TRAFFIC_TAKT);
     };
     const takt = () => {
       if (!messen.isConnected) return; // view was left: the loop ends
       if (document.hidden) timer = setTimeout(takt, TRAFFIC_TAKT);
-      else einmal();
+      else einmal(false);
     };
     const sw = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': 'false', title: 'Solange diese Ansicht offen ist' },
       el('span', { class: 'spur' }), el('span', { text: 'Alle 30 Sekunden wiederholen' }));
@@ -155,12 +169,13 @@
       clearTimeout(timer);
       if (wiederholen) einmal();
     });
-    messen.addEventListener('click', einmal);
-    return Object.assign(gruppe('Wer sendet gerade', [
+    messen.addEventListener('click', () => einmal());
+    return Object.assign(el('section', { class: 'gruppe traffic', 'aria-labelledby': 'g-traffic' },
+      el('h3', { id: 'g-traffic', text: 'Wer sendet gerade' }),
+      el('div', { class: 'liste' },
       el('p', { class: 'traffic-text', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt und sendet. Die Balken zeigen das Verhältnis zum lautesten Programm, gezählt werden alle Wege, auch zum Router.` }),
       el('div', { class: 'traffic-werkzeuge' }, messen, sw),
-      ort,
-    ]), { className: 'gruppe traffic' });
+      ort)), { className: 'gruppe traffic' });
   }
 
   Netz.registriere({
@@ -168,7 +183,8 @@
     titel: 'Verbindungen',
     icon: Netz.icons.verbindungen,
     async render(wurzel) {
-      const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' }, el('p', { class: 'fuss', text: 'Wird gelesen …' }));
+      const ort = el('div', { class: 'ergebnis' }, el('p', { class: 'fuss', text: 'Wird gelesen …' }));
+      ansage.textContent = '';
       const zeichne = () => ort.replaceChildren(...liste(ergebnis).filter(Boolean));
       let loeschenAus = () => {};
       const merkenGruppe = () => {
@@ -183,7 +199,7 @@
             frage: 'Alle gemerkten Verbindungen dieses Netzes löschen? Das lässt sich nicht rückgängig machen.',
             label: 'Gemerkte Daten löschen?',
             abbrechen: () => { zeileLoeschen.replaceChildren(...zeileLoeschen0); loeschen.focus(); },
-            aktion: async () => { await Netz.invoke('verbindungen_loeschen'); Netz.neuLaden(); },
+            aktion: async () => { await Netz.invoke('verbindungen_loeschen'); neuLaden('#g-merken'); },
             fehler: (f) => fehler.replaceChildren(meldung(Netz.text(f), 'rot')),
           }));
         });
@@ -194,20 +210,25 @@
           zeileLoeschen.querySelector('.fein').textContent = 'Dieses Netz ist nicht gemerkt, es gibt nichts zu löschen.';
         };
         return el('section', { class: 'gruppe', 'aria-labelledby': 'g-merken' },
-          el('h3', { id: 'g-merken', text: 'Gemerkte Daten' }),
+          el('h3', { id: 'g-merken', tabindex: '-1', text: 'Gemerkte Daten' }),
           el('div', { class: 'liste' },
             el('div', { class: 'netz-zeile' },
               el('div', { class: 'text' },
                 el('div', { class: 'fein', text: 'Speichert, welche Ziele dieses Netz kennt, damit neue auffallen. In „meins“-Netzen geschieht das immer, sonst nur mit diesem Schalter.' })),
-              schalter('Merken', 'merken', () => Netz.neuLaden())),
+              schalter('Merken', 'merken', () => neuLaden('[role=switch][data-schalter=merken]'))),
             zeileLoeschen),
           fehler);
       };
       wurzel.append(
         el('div', { class: 'kopf' }, el('h2', { text: 'Verbindungen' }),
           el('p', { class: 'status' }, el('span', { text: 'Wer gerade mit wem spricht, nach Programm gruppiert.' }))),
-        el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => ergebnis && zeichne())),
+        el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => {
+          if (!ergebnis) return;
+          zeichne();
+          ansage.textContent = ort.querySelector('.status')?.textContent ?? '';
+        })),
         ort,
+        ansage,
         merkenGruppe(),
         trafficAbschnitt(),
         Object.assign(gruppe('So entsteht die Liste', [
@@ -223,6 +244,12 @@
         if (!ergebnis.netz_name) loeschenAus();
       } catch (f) {
         ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
+      }
+      if (fokusNach) {
+        const ziel = fokusNach;
+        fokusNach = null;
+        // Die Ansicht hängt erst nach render() im Dokument: einen Takt später fokussieren.
+        setTimeout(() => { const e = wurzel.querySelector(ziel); if (e?.isConnected) e.focus(); });
       }
     },
   });

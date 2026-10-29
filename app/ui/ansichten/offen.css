@@ -25,3 +25,5 @@
 [data-ansicht='offen'] .kuerzen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-ansicht='offen'] .offen-tabelle .warn { display: flex; align-items: flex-start; gap: 6px; }
 [data-ansicht='offen'] .offen-tabelle .warn .punkt { margin-top: 5px; width: 7px; height: 7px; }
+/* Nur für Vorlesegeräte: Ansage nach dem Filter. */
+[data-ansicht='offen'] .nur-vorlesen { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
