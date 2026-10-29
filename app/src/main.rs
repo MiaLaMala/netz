@@ -186,6 +186,12 @@ fn dns_gespeichert(name: String) -> Result<Option<netzinfo::dnsverschl::Gespeich
     netzinfo::dnsverschl::gespeichert(&name).map_err(Into::into)
 }
 
+/// IPv6 routers the system learned, compared with the gateway, see issue #68. Reads only.
+#[tauri::command(async)]
+fn ipv6_router() -> Result<netzinfo::ipv6router::Anzeige, Fehler> {
+    netzinfo::ipv6router::anzeige().map_err(Into::into)
+}
+
 /// One Wi-Fi sample into the running visit, see issue #36. Stores only in remembered networks.
 #[tauri::command(async)]
 fn wlan_verlauf_abtasten() -> Result<netzinfo::wlanverlauf::Ansicht, Fehler> {
@@ -272,6 +278,7 @@ fn main() {
             wlan_umfeld,
             proxy_lesen,
             proxy_pac_ansehen,
+            ipv6_router,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

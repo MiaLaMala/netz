@@ -39,3 +39,12 @@
   VORSCHAU.proxy_pac_ansehen = async () => ['proxy1.example.net', 'proxy2.example.net'];
   if (marken.includes('proxy-pac-offen')) addEventListener('load', () => setTimeout(() => document.querySelector('[data-ansicht=\'dieses-netz\'] button[data-pac]')?.click(), 300));
 })();
+
+// IPv6-Router (#68). Marken: v6-keiner, v6-mehrere; ohne Marke ein Router, der zum Gateway passt.
+(() => {
+  VORSCHAU.ipv6_router = async () => (marken.includes('v6-keiner')
+    ? { anzahl: 0, passt_zu_gateway: null, text: 'kein IPv6-Router, dieses Netz nutzt wohl kein IPv6' }
+    : marken.includes('v6-mehrere')
+      ? { anzahl: 2, passt_zu_gateway: false, text: '2 Router, passt nicht zum Gateway' }
+      : { anzahl: 1, passt_zu_gateway: true, text: 'ein Router, passt zum Gateway' });
+})();

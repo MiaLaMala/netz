@@ -247,11 +247,12 @@ pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
             "DNS übersetzt Namen in IP-Adressen. „System“ ist, was der Mac wirklich fragt, „DHCP“ ist, was das Netz angeboten hat. Beides sollte meist übereinstimmen."
         },
     );
-    println!("Domain:        {}", show(n.domain));
+    println!("Domain:        {}", show(n.domain.as_ref()));
     explain(
         explain_on,
         "Die Domain vom DHCP-Server wird an unvollständige Namen angehängt (Suchdomain).",
     );
+    crate::ipv6router::zeigen(&n, explain_on);
     Ok(())
 }
 

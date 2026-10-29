@@ -199,6 +199,17 @@
     return ort;
   }
 
+  // IPv6-Router (#68): eine Zeile; bei einem Fehler oder ohne App-Befehl bleibt sie weg.
+  async function ipv6Gruppe() {
+    const r = await Netz.invoke('ipv6_router').catch(() => null);
+    if (!r) return null;
+    return gruppe('IPv6', [zeile('IPv6-Router', r.text, r.anzahl === 0
+      ? 'Ohne IPv6 im Netz meldet sich kein Gerät als IPv6-Router. Das ist ruhig und kein Fehler.'
+      : r.anzahl === 1
+        ? 'Nur dein Router meldet sich als IPv6-Router. Das ist der Normalfall.'
+        : 'In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal.')]);
+  }
+
   Netz.registriere({
     id: 'dieses-netz',
     titel: 'Dieses Netz',
@@ -276,6 +287,8 @@
         if (ort) wurzel.append(ort);
         wurzel.append(wlanKarte(funk));
       }
+      const v6 = await ipv6Gruppe();
+      if (v6) wurzel.append(v6);
     },
   });
 })();
