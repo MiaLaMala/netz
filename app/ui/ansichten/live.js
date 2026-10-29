@@ -26,17 +26,17 @@
 
   // Kurve, Band P5 bis P95 (nur über das Kennzahlenfenster der letzten 60 s) und rote Striche für Verlust.
   function kurve(a) {
-    const B = 600, H = 150, L = 36, U = 18;
+    const B = 600, H = 190, L = 50, U = 28;
     const jetzt = a.punkte.length ? a.punkte[a.punkte.length - 1].zeit : 0;
     const werte = a.punkte.map((p) => p.ms).filter((v) => v != null);
     // Glatte Achse (50, 100, 200 …), damit die Beschriftung nicht bei jedem Takt springt.
     const hoechst = Math.max(0, ...werte) * 1.05;
     const max = [50, 100, 200, 500, 1000, 2000, 5000].find((g) => g >= hoechst) ?? hoechst;
     const x = (t) => L + ((t - (jetzt - FENSTER_MS)) / FENSTER_MS) * (B - L - 4);
-    const y = (v) => H - U - (v / max) * (H - U - 6);
+    const y = (v) => H - U - (v / max) * (H - U - 12);
     const s = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'kurve', role: 'img', 'aria-label': a.punkte.length ? `Antwortzeit zu ${a.ziel}, letzte 5 Minuten` : 'Leeres Diagramm, Antwortzeit der letzten 5 Minuten' });
     for (const [px, anker, wort] of [[L, 'start', 'vor 5 min'], [B - 8, 'end', 'jetzt']]) {
-      const z = sv('text', { x: px, y: H - 1, 'text-anchor': anker, class: 'achse' });
+      const z = sv('text', { x: px, y: H - 2, 'text-anchor': anker, class: 'achse' });
       z.textContent = wort;
       s.append(z);
     }
@@ -44,7 +44,7 @@
       const v = max * t;
       s.append(sv('line', { x1: L, x2: B - 4, y1: y(v), y2: y(v), class: 'gitter' }));
       const z = sv('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'achse' });
-      z.textContent = Math.round(v);
+      z.textContent = t === 1 ? `${Math.round(v)} ms` : Math.round(v);
       s.append(z);
     }
     const k = a.kennzahlen;
@@ -59,7 +59,7 @@
     }
     for (const t of teile.filter((t) => t.length)) s.append(sv('path', { d: `M${t.join(' L')}`, class: 'linie' }));
     for (const p of a.punkte) {
-      if (p.ms == null) s.append(sv('line', { x1: x(p.zeit), x2: x(p.zeit), y1: H - U, y2: H - U + 8, class: 'verlust' }));
+      if (p.ms == null) s.append(sv('line', { x1: x(p.zeit), x2: x(p.zeit), y1: H - U + 3, y2: H - U + 9, class: 'verlust' }));
     }
     return s;
   }
@@ -94,15 +94,15 @@
           el('li', {}, el('span', { class: 'muster linie-muster' }), 'Antwortzeit in ms'),
           el('li', {}, el('span', { class: 'muster band-muster' }), 'P5 bis P95 (60 s)'),
           el('li', {}, el('span', { class: 'muster verlust-muster' }), 'Verlust'))),
+      el('h3', { class: 'unter', text: 'Eignung' }),
+      el('dl', { class: 'liste' }, ampeln.map(([n, st]) => el('div', { class: 'zeile' },
+        el('dt', { class: 'label', text: n }), el('dd', { class: 'wert' }, status(FARBE[st], WORT[st]))))),
       el('h3', { class: 'unter', text: 'Letzte 60 Sekunden' }),
       el('dl', { class: 'liste' },
         zeile('Median', k && ms(k.median_ms)),
         zeile('P95', k && ms(k.p95_ms)),
         zeile('Maximum', k && ms(k.max_ms))),
-      el('p', { class: 'fuss', text: gesendet }),
-      el('h3', { class: 'unter', text: 'Eignung' }),
-      el('dl', { class: 'liste' }, ampeln.map(([n, st]) => el('div', { class: 'zeile' },
-        el('dt', { class: 'label', text: n }), el('dd', { class: 'wert' }, status(FARBE[st], WORT[st]))))));
+      el('p', { class: 'fuss', text: gesendet }));
   }
 
   Netz.registriere({

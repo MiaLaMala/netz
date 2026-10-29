@@ -1,4 +1,6 @@
 /* Styles for the view „live“ only, scoped. */
+[data-ansicht='live'] { --band: 0.18; --gitter: rgba(0, 0, 0, 0.12); }
+@media (prefers-color-scheme: dark) { [data-ansicht='live'] { --band: 0.38; --gitter: rgba(255, 255, 255, 0.2); } }
 [data-ansicht='live'] .werkzeuge { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
 [data-ansicht='live'] .steuerung { margin-top: 18px; }
 [data-ansicht='live'] .ziel-feld { flex: 1; min-width: 0; }
@@ -6,22 +8,23 @@
 [data-ansicht='live'] .kacheln { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 10px; }
 [data-ansicht='live'] .kachel { padding: 10px 14px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
 [data-ansicht='live'] .kachel .label { color: var(--fg2); font-size: 12px; }
-[data-ansicht='live'] .kachel .gross { margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+[data-ansicht='live'] .kachel .gross { white-space: nowrap; margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 [data-ansicht='live'] .kachel .erklaerung { margin-top: 4px; }
 [data-ansicht='live'] .gruppe > h3.unter { margin-top: 18px; }
 [data-ansicht='live'] .leer-karte { position: relative; margin-top: 18px; }
 [data-ansicht='live'] .leer-text { position: absolute; top: 46%; left: 54%; transform: translate(-50%, -50%); width: min(380px, 80%); padding: 8px 12px; background: var(--gruppe); text-align: center; color: var(--fg2); font-size: 13px; line-height: 1.4; }
 [data-ansicht='live'] .kurve { display: block; width: 100%; height: auto; }
-[data-ansicht='live'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
-[data-ansicht='live'] .kurve .achse { fill: var(--fg2); font-size: 11px; }
-[data-ansicht='live'] .kurve .linie { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-ansicht='live'] .kurve .band { fill: var(--accent); opacity: 0.18; }
+[data-ansicht='live'] .kurve .gitter { stroke: var(--gitter); stroke-width: 1; vector-effect: non-scaling-stroke; }
+[data-ansicht='live'] .kurve .achse { fill: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
+[data-ansicht='live'] .kurve .linie { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+[data-ansicht='live'] .kurve .band { fill: var(--accent); opacity: var(--band); }
 [data-ansicht='live'] .kurve .verlust { stroke: var(--rot); stroke-width: 2; stroke-linecap: round; }
-[data-ansicht='live'] .legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+[data-ansicht='live'] .legende { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 10px 0 0; padding-left: 8px; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
 [data-ansicht='live'] .legende li { display: flex; align-items: center; gap: 6px; }
 [data-ansicht='live'] .muster { width: 22px; height: 8px; border-radius: 2px; }
 [data-ansicht='live'] .linie-muster { height: 2px; background: var(--accent); }
-[data-ansicht='live'] .band-muster { background: var(--accent); opacity: 0.18; }
+[data-ansicht='live'] .band-muster { background: color-mix(in srgb, var(--accent) calc(var(--band) * 100%), transparent); border: 1px solid var(--accent); height: 10px; }
 [data-ansicht='live'] .verlust-muster { width: 2px; height: 10px; margin: 0 10px; background: var(--rot); }
 [data-ansicht='live'] .zeile .wert .status { justify-content: flex-end; margin: 0; color: var(--fg); }
 [data-ansicht='live'] .ergebnis { margin-top: 8px; }
+[data-ansicht='live'] .ziel-feld:disabled { color: var(--fg2); -webkit-text-fill-color: var(--fg2); opacity: 1; }
