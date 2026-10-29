@@ -20,6 +20,9 @@ pub struct NetInfo {
     pub domain: Option<String>,
 }
 
+/// Anzeige für Werte, die nur eine DHCP-Antwort liefert.
+const KEIN_DHCP: &str = "nicht ermittelt";
+
 fn show<T: std::fmt::Display>(v: Option<T>) -> String {
     v.map_or("unbekannt".into(), |v| v.to_string())
 }
@@ -63,7 +66,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     println!("IP-Adresse:    {}", show(n.ip));
     explain(
         explain_on,
-        "Die IPv4-Adresse hat dir der DHCP-Server geliehen. Im Heimnetz ist sie privat (10.x, 172.16 bis 172.31, 192.168.x) und wird per NAT ins Internet übersetzt.",
+        if n.dhcp_server.is_some() {
+            "Die IPv4-Adresse hat dir der DHCP-Server geliehen. Im Heimnetz ist sie privat (10.x, 172.16 bis 172.31, 192.168.x) und wird per NAT ins Internet übersetzt."
+        } else {
+            "Zu dieser Adresse wurde keine DHCP-Antwort gefunden: Sie kommt von der Gegenstelle eines Tunnels (z. B. Tailscale oder WireGuard) oder ist fest eingestellt."
+        },
     );
     match &n.subnet {
         Some(s) => {
@@ -71,8 +78,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             println!("Netzadresse:   {}", s.network);
             println!("Broadcast:     {}", s.broadcast);
             println!(
-                "Hostbereich:   {} bis {} ({} Hosts)",
-                s.first, s.last, s.hosts
+                "Hostbereich:   {} bis {} ({} {})",
+                s.first,
+                s.last,
+                s.hosts,
+                if s.hosts == 1 { "Host" } else { "Hosts" }
             );
             explain(
                 explain_on,
@@ -83,7 +93,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             println!("Maske:         unbekannt");
             explain(
                 explain_on,
-                "Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) kennt der Rechner die Maske nicht, deshalb lässt sich das Subnetz nicht ausrechnen.",
+                "Für diese Schnittstelle liegt keine Maske vor, etwa bei einem VPN-Tunnel ohne DHCP. Deshalb lässt sich das Subnetz nicht ausrechnen.",
             );
         }
     }
@@ -92,12 +102,31 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         explain_on,
         "Der Router (Gateway) ist die Tür aus dem eigenen Subnetz. Alles, was nicht im Subnetz liegt, schickt der Rechner an ihn.",
     );
-    println!("DHCP-Server:   {}", show(n.dhcp_server));
+    let dhcp = n.dhcp_server.is_some();
+    println!(
+        "DHCP-Server:   {}",
+        if dhcp {
+            show(n.dhcp_server)
+        } else {
+            KEIN_DHCP.into()
+        }
+    );
     explain(
         explain_on,
-        "Der DHCP-Server vergibt IP, Maske, Router und DNS (Ablauf DORA: Discover, Offer, Request, Ack). Im Heimnetz ist er fast immer der Router.",
+        if dhcp {
+            "Der DHCP-Server vergibt IP, Maske, Router und DNS (Ablauf DORA: Discover, Offer, Request, Ack). Im Heimnetz ist er fast immer der Router."
+        } else {
+            "Eine DHCP-Antwort ließ sich nicht lesen. Das ist bei Tunneln und festen Adressen normal. Unter Linux liest Netzinfo sie nur mit systemd-networkd oder NetworkManager, bei anderen DHCP-Clients bleibt sie leer."
+        },
     );
-    println!("DNS (DHCP):    {}", list(&n.dhcp_dns));
+    println!(
+        "DNS (DHCP):    {}",
+        if dhcp {
+            list(&n.dhcp_dns)
+        } else {
+            KEIN_DHCP.into()
+        }
+    );
     println!("DNS (System):  {}", list(&n.system_dns));
     let magic = n.system_dns.iter().any(|d| d == "100.100.100.100");
     explain(
@@ -108,7 +137,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "DNS übersetzt Namen in IP-Adressen. „System“ ist, was der Rechner wirklich fragt, „DHCP“ ist, was das Netz angeboten hat. Beides sollte meist übereinstimmen."
         },
     );
-    println!("Domain:        {}", show(n.domain.as_ref()));
+    println!(
+        "Domain:        {}",
+        if !dhcp {
+            KEIN_DHCP.into()
+        } else {
+            n.domain.as_deref().unwrap_or("keine").to_string()
+        }
+    );
     explain(
         explain_on,
         "Die Domain vom DHCP-Server wird an unvollständige Namen angehängt (Suchdomain).",
@@ -138,23 +174,24 @@ pub fn run_subnet(args: &[String], explain_on: bool) -> Result<(), String> {
             true,
             "UND-Verknüpfung: Ein Bit bleibt nur 1, wenn es in IP und Maske 1 ist. Das Ergebnis ist die Netzadresse.",
         );
-        let host = Ipv4Addr::from(u32::from(ip) & !u32::from(s.mask));
-        println!("  Host    {}  {host}", subnetz::binary(host));
-        explain(
-            true,
-            &format!(
-                "Hostanteil: die letzten {} Bit der IP (IP UND invertierte Maske). Es bleibt der Teil, der das Gerät im Netz benennt.",
-                32 - u32::from(prefix)
-            ),
-        );
-        explain(
-            true,
-            &format!(
-                "Broadcast: alle {} Hostbits auf 1 setzen, hier {}.",
-                32 - u32::from(prefix),
-                subnetz::binary(s.broadcast)
-            ),
-        );
+        if prefix < 32 {
+            let host = Ipv4Addr::from(u32::from(ip) & !u32::from(s.mask));
+            let bits = 32 - u32::from(prefix);
+            println!("  Host    {}  {host}", subnetz::binary(host));
+            explain(
+                true,
+                &format!(
+                    "Hostanteil: die letzten {bits} Bit der IP (IP UND invertierte Maske). Es bleibt der Teil, der das Gerät im Netz benennt."
+                ),
+            );
+            explain(
+                true,
+                &format!(
+                    "Broadcast: alle {bits} Hostbits auf 1 setzen, hier {}.",
+                    subnetz::binary(s.broadcast)
+                ),
+            );
+        }
         explain(true, &match prefix {
             32 => "Bei /32 gibt es nur diesen einen Host, kein Netz mit Broadcast.".to_string(),
             31 => "Bei /31 gibt es keine Netz- und Broadcastadresse, beide Adressen sind Hosts (RFC 3021, Punkt-zu-Punkt-Verbindung).".to_string(),

@@ -57,10 +57,10 @@ pub fn calc(ip: Ipv4Addr, prefix: u8) -> Result<Subnet, String> {
     })
 }
 
-/// Accepts `["172.16.0.0/16"]` or `["192.168.178.20", "255.255.255.0"]`.
+/// Accepts `["172.16.0.0/16"]` or `["192.0.2.20", "255.255.255.0"]`.
 pub fn parse_args(args: &[String]) -> Result<(Ipv4Addr, u8), String> {
     let usage =
-        "Aufruf: netzinfo subnetz 172.16.0.0/16 oder netzinfo subnetz 192.168.178.20 255.255.255.0";
+        "Aufruf: netzinfo subnetz 172.16.0.0/16 oder netzinfo subnetz 192.0.2.20 255.255.255.0";
     let ip_of = |s: &str| {
         s.parse::<Ipv4Addr>()
             .map_err(|_| format!("„{s}“ ist keine gültige IPv4-Adresse. {usage}"))
@@ -175,8 +175,8 @@ mod tests {
             Ok((ip("172.16.0.0"), 16))
         );
         assert_eq!(
-            parse_args(&args(&["192.168.178.20", "255.255.255.0"])),
-            Ok((ip("192.168.178.20"), 24))
+            parse_args(&args(&["192.0.2.20", "255.255.255.0"])),
+            Ok((ip("192.0.2.20"), 24))
         );
     }
 

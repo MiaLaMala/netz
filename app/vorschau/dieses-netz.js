@@ -4,6 +4,11 @@
   const grund = VORSCHAU.dieses_netz;
   VORSCHAU.dieses_netz = async () => JSON.parse(JSON.stringify(await grund())
     .replaceAll('192.168.178.', '192.0.2.').replaceAll('100.64.0.', '198.51.100.').replaceAll('fd7a:115c:a1e0::53', '2001:db8::53'));
+  // Marke hinweis: die Liste gemerkter Netze ist nicht lesbar (Hinweis oben, Netz bleibt unbekannt).
+  if (marken.includes('hinweis')) {
+    const roh = VORSCHAU.dieses_netz;
+    VORSCHAU.dieses_netz = async () => ({ ...(await roh()), hinweis: 'Die Liste der gemerkten Netze ließ sich nicht lesen. Dieses Netz kann gerade nicht wiedererkannt werden.' });
+  }
 })();
 // Fake answers for the WLAN card of the view „dieses-netz“ in vorschau.html.
 // Marks: wlan-gut, wlan-schwach; without a mark (cable) the card stays hidden.
@@ -47,11 +52,13 @@
   if (marken.includes('proxy-pac-offen')) addEventListener('load', () => setTimeout(() => document.querySelector('[data-ansicht=\'dieses-netz\'] button[data-pac]')?.click(), 300));
 })();
 
-// IPv6-Router (#68). Marken: v6-keiner, v6-mehrere; ohne Marke ein Router, der zum Gateway passt.
+// IPv6-Router (#68). Marken: v6-keiner, v6-mehrere, v6-fremd; ohne Marke ein Router, der zum Gateway passt.
 (() => {
   VORSCHAU.ipv6_router = async () => (marken.includes('v6-keiner')
     ? { anzahl: 0, passt_zu_gateway: null, text: 'kein IPv6-Router, dieses Netz nutzt wohl kein IPv6' }
-    : marken.includes('v6-mehrere')
+    : marken.includes('v6-fremd')
+      ? { anzahl: 1, passt_zu_gateway: false, text: 'ein Router, passt nicht zum Gateway' }
+      : marken.includes('v6-mehrere')
       ? { anzahl: 2, passt_zu_gateway: false, text: '2 Router, passt nicht zum Gateway' }
       : { anzahl: 1, passt_zu_gateway: true, text: 'ein Router, passt zum Gateway' });
 })();
