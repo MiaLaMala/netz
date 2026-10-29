@@ -1,8 +1,8 @@
 //! Command line front end of Netzinfo. The logic lives in the library (src/lib.rs).
 
 use netzinfo::{
-    bonjour, diagnose, dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls,
-    verbindungen, wlan, woher,
+    bonjour, diagnose, dns, geraete, hier, live, messen, netze, offen, pfad, portal, ports,
+    pruefen, tls, verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -42,6 +42,7 @@ Befehle:
   netzinfo woher <Port|Programm> [--json]
                              Wer hat dieses Programm gestartet? Kette bis launchd
   netzinfo woher --pid <PID> Dasselbe für ein Programm ohne offenen Port
+  netzinfo live <Ziel>...    Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -75,6 +76,7 @@ fn main() -> ExitCode {
         "wlan" => wlan::run(rest, explain_on),
         "verbindungen" => verbindungen::run(rest, explain_on),
         "woher" => woher::run(rest, explain_on),
+        "live" => live::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
