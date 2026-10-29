@@ -32,7 +32,7 @@ Befehle:
   netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
   netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
   netzinfo bonjour           Dienste im Netz, die sich per Bonjour melden
-  netzinfo diagnose          Wo liegt das Problem? Schicht für Schicht eingrenzen
+  netzinfo diagnose [--json] Wo liegt das Problem? Schicht für Schicht eingrenzen
   netzinfo wlan [--json]     Funkverbindung, Signal und Sicherheit des WLANs
   netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
 

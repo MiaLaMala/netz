@@ -40,3 +40,4 @@
 .hop.ende-verlust .adresse, .hop.ende-verlust .zahl.verlust { color: var(--rot); font-weight: 600; }
 .hop.ende-verlust .balken span { background: var(--rot); }
 .weg .erklaerung { margin: 8px 0 0; }
+[data-ansicht='qualitaet'] .diagnose-verlauf { margin: 8px 0 0; font-weight: 600; }
