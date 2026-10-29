@@ -7,7 +7,7 @@
 // geraete-fritz-formular (Formular offen), geraete-fritz (Zugang da, noch nicht gelesen),
 // geraete-fritz-liste (gelesen, Karten mit „vom Router“), geraete-fritz-falsch (401), geraete-fritz-aus (TR-064 aus),
 // geraete-fritz-weg (nicht erreichbar).
-// Cards (issue #29): geraete (cards), geraete-gefiltert (filter „Drucker“), geraete-keine (no cards).
+// Cards (issue #29): geraete (cards), geraete-gefiltert (filter „Drucker“), geraete-keine (no cards), geraete-name (edit form of the first card).
 (() => {
   const m = (s) => marken.includes(s);
   const T = 1793050200;
@@ -25,7 +25,7 @@
   VORSCHAU.geraete_suchen = async () => {
     await warte(m('geraete-suche') ? 600000 : 700);
     if (m('geraete-nichtmeins')) throw { art: 'nicht_meins', text: nichtMeins };
-    if (m('geraete-fehler')) throw 'Das aktuelle Subnetz ist unbekannt.';
+    if (m('geraete-fehler')) throw 'Das Subnetz deines Netzes ist unbekannt. Verbinde dich mit einem Netz und versuche es noch einmal.';
     const r = { bereich: '192.0.2.0/24', adressen: 254, geraete: [router, mac, handy, drucker, neu], neu: [neu], verschwunden: [weg], erster_lauf: false };
     if (m('geraete-leer')) return { ...r, geraete: [], neu: [], verschwunden: [] };
     if (m('geraete-erst')) return { ...r, geraete: [router, mac, drucker, handy], neu: [], verschwunden: [], erster_lauf: true };
@@ -35,7 +35,7 @@
   // Cards come from the stored file, not from the search.
   const dienst = (typ, instanz, port) => ({ typ, instanz, host: '', port, ipv4: [], ipv6: [], txt: {} });
   const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, namen: [], router: null, besuche: 5, typ, symbol, anzeigename, namequelle: QUELLEN[anzeigename] || (/^\d/.test(anzeigename) ? '' : 'DNS (PTR)'), erklaerung, hinweise, ...extra });
-  const QUELLEN = { 'Wohnzimmer-TV': 'Bonjour', 'Alter Laptop': 'von dir', 'MIAS-PC': 'NetBIOS' };
+  const QUELLEN = { 'Wohnzimmer-TV': 'Bonjour', 'Alter Laptop': 'von dir', 'BEISPIEL-PC': 'NetBIOS' };
   const KARTEN = [
     k(router, 'Router', '🌐', 'fritz.box', 'Netzinfo hält dieses Gerät für einen Router, weil es das Standardgateway deines Netzes ist.', [], { hersteller: 'Beispiel Netzwerktechnik GmbH', besuche: 40, gateway: true }),
     k(neu, 'Medien', '📺', 'wohnzimmer-tv.fritz.box', 'Netzinfo hält dieses Gerät für ein Medien-Gerät (Fernseher oder Lautsprecher), weil es den Bonjour-Dienst AirPlay (_airplay._tcp) anbietet.', ['wurde erst einmal gesehen'], { hersteller: 'Beispiel Elektronik Co.', besuche: 1, dienste: [dienst('_airplay._tcp', 'Wohnzimmer-TV', 7000), dienst('_googlecast._tcp', 'Wohnzimmer-TV', 8009)] }),
@@ -111,6 +111,7 @@
       if (marken.some((s) => freimarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.router-knoepfe button')][1]?.click(), 400);
       if (m('geraete-fritz-formular')) setTimeout(() => document.querySelector('.fritz-einrichten')?.click(), 500);
       if (marken.some((s) => fritzmarken.includes(s))) setTimeout(() => document.querySelector('.fritz-lesen')?.click(), 500);
+      if (m('geraete-name')) setTimeout(() => document.querySelector('.karte .knopf.leise')?.click(), 400);
       if (m('geraete-gefiltert')) setTimeout(() => [...document.querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Drucker'))?.click(), 400);
     }, 150));
   }

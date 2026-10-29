@@ -325,14 +325,14 @@ fn io_stoerung(ip: Ipv4Addr, e: &std::io::Error) -> Stoerung {
     }
     let warum = match e.kind() {
         std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => {
-            "nicht innerhalb von 3 s".to_string()
+            "antwortet nicht innerhalb von 3 s".to_string()
         }
-        _ => format!("nicht ({e})"),
+        _ => format!("ist nicht erreichbar ({})", crate::router::io_satz(e)),
     };
     (
         Zustand::NichtErreichbar,
         format!(
-            "Die Fritz!Box {ip} antwortet {warum}. Prüfe die Verbindung und die Rechte für das lokale Netzwerk."
+            "Die Fritz!Box {ip} {warum}. Prüfe die Verbindung und die Rechte für das lokale Netzwerk."
         ),
     )
 }
@@ -409,7 +409,10 @@ fn aufruf(
             }
         }
     }
-    Err(stoerung(Zustand::ZugangFalsch, "Anmeldung fehlgeschlagen."))
+    Err(stoerung(
+        Zustand::ZugangFalsch,
+        "Die Anmeldung bei der Fritz!Box ist fehlgeschlagen. Prüfe Benutzer und Passwort oder richte den Zugang neu ein.",
+    ))
 }
 
 fn host_lesen(xml: &str) -> Option<Host> {
@@ -693,8 +696,10 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let r = abrufen(zugang_lesen)?;
     match r.zustand {
         Zustand::Ok => println!(
-            "{} Geräte vom Router gelesen, {} davon neu in deiner Liste.",
-            r.gefunden, r.neu
+            "{} {} vom Router gelesen, {} davon neu in deiner Liste.",
+            r.gefunden,
+            if r.gefunden == 1 { "Gerät" } else { "Geräte" },
+            r.neu
         ),
         _ => println!("{}", r.satz),
     }
