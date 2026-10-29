@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml"><img src="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/macOS-13%2B%20%C2%B7%20Apple%20Silicon-111?logo=apple&logoColor=white" alt="macOS 13 oder neuer, Apple Silicon">
+  <img src="https://img.shields.io/badge/macOS-13%2B%20%C2%B7%20Apple%20Silicon-6e6e73?logo=apple&logoColor=white" alt="macOS 13 oder neuer, Apple Silicon">
   <img src="https://img.shields.io/badge/Rust-2024-b7410e?logo=rust&logoColor=white" alt="Rust 2024">
   <img src="https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white" alt="Tauri 2">
   <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-1d5fd8" alt="Lizenz MIT"></a>
