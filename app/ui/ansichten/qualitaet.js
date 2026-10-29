@@ -216,9 +216,9 @@
   const EV = {
     marken: 'Roaming heißt: Der Mac hat den Zugangspunkt gewechselt, ohne dass die Verbindung abriss. Das ist normal, wenn man sich bewegt, und ein Problem, wenn man am Schreibtisch sitzt.',
     vergleich: 'Verglichen wird der Median dieses Besuchs mit dem Median der Mediane früherer Besuche in diesem Netz.',
-    ohne_hash: 'Ohne Standortfreigabe kennt Netzinfo die Kennung des Zugangspunkts nicht und sieht keinen Wechsel. Abbrüche sieht es trotzdem. Die Freigabe gibst du im Bereich „Dieses Netz“.',
+    ohne_hash: 'Ohne Standortfreigabe sieht Netzinfo keinen Wechsel des Zugangspunkts, Abbrüche schon. Die Freigabe gibst du in „Dieses Netz“.',
   };
-  const ARTEN = { Roaming: ['Zugangspunkt gewechselt', 'var(--accent)', 'M0 -6V6'], Getrennt: ['Verbindung weg', 'var(--rot)', 'M-4 -4L4 4M4 -4L-4 4'], Verbunden: ['wieder verbunden', 'var(--gruen)', 'M-4 0L-1 4L5 -4'], Bandwechsel: ['Band gewechselt', 'var(--orange)', 'M-4 4L0 -5L4 4Z'] };
+  const ARTEN = { Roaming: ['Zugangspunkt gewechselt', 'currentColor', 'M0 -5L4 0L0 5L-4 0Z'], Getrennt: ['Verbindung weg', 'var(--rot)', 'M-4 -4L4 4M4 -4L-4 4'], Verbunden: ['wieder verbunden', 'var(--gruen)', 'M-4 0L-1 4L5 -4'], Bandwechsel: ['Band gewechselt', 'var(--orange)', 'M-4 4L0 -5L4 4Z'] };
 
   // Signal (solid) and rate (dashed) of the ring buffer; events as marks on a strip below.
   function wlanKurve(a) {
@@ -299,7 +299,7 @@
           zeile('Abbrüche', String(b.abbrueche)),
         ]),
         a.vergleich && el('p', { class: 'wlan-vergleich', text: a.vergleich, title: EV.vergleich }),
-        !a.roaming_erkennbar && meldung(`Ohne Standortfreigabe ist Roaming nicht erkennbar, Abbrüche schon. ${EV.ohne_hash}`, 'orange'),
+        !a.roaming_erkennbar && meldung(EV.ohne_hash, 'orange'),
         a.hinweis && meldung(a.hinweis),
       ].filter(Boolean));
     }

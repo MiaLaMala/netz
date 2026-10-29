@@ -33,7 +33,7 @@
         ziel, messungen: punkte.length, verloren: v, verlust_prozent: (v / punkte.length) * 100,
         median_ms: w[Math.floor(w.length / 2)], p95_ms: w[Math.floor(w.length * 0.95)], max_ms: w[w.length - 1],
         laengster_aussetzer_s: 60,
-        schlechteste_stunde: { stunde: Math.floor(punkte[0].zeit / 3600) * 3600, verlust_prozent: 2.4, durchschnitt_ms: w[Math.floor(w.length / 2)] + 2 },
+        schlechteste_stunde: { stunde: Math.floor(punkte[0].zeit / 3600) * 3600, verlust_prozent: Math.round((v / punkte.length) * 2200) / 10, durchschnitt_ms: w[Math.floor(w.length / 2)] + 2 },
       };
     });
     return { netz: 'WG', von: alle[0].zeit, bis: jetzt(), ziele, reihen: r };
