@@ -197,7 +197,7 @@ fn main() {
             ort_anfragen,
             ort_einstellungen_oeffnen,
             dns_gespeichert,
-            wlan_verlauf_abtasten
+            wlan_verlauf_abtasten,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

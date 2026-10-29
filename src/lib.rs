@@ -5,15 +5,21 @@
 pub mod bonjour;
 pub mod diagnose;
 pub mod dns;
+pub mod dnstempo;
 pub mod dnsverschl;
 pub mod gatewaywache;
 pub mod geraete;
 pub mod geraetekarte;
 pub mod hersteller;
 pub mod hier;
+pub mod ipv6;
+pub mod ipv6router;
+pub mod kanal;
+pub mod live;
 pub mod messen;
 pub mod mtu;
 pub mod nachbarn;
+pub mod namen;
 pub mod netze;
 pub mod offen;
 pub mod ort;
@@ -22,12 +28,18 @@ pub mod portal;
 pub mod ports;
 pub mod proxy;
 pub mod pruefen;
+pub mod router;
+pub mod sni;
 pub mod statistik;
 pub mod subnetz;
 pub mod tls;
+pub mod traffic;
+pub mod upnp;
 pub mod verbindungen;
 pub mod wlan;
 pub mod wlanverlauf;
+pub mod woher;
+pub mod zeit;
 
 /// Prints a German explanation line when `--erklaer` is on.
 pub fn explain(on: bool, text: &str) {

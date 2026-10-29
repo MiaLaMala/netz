@@ -248,6 +248,15 @@ fn reichweite(host: &str) -> Reichweite {
     }
 }
 
+/// Findings for `netzinfo pruefen` (issue #74: new listeners in this network); stub until #74.
+pub fn fuer_pruefen(
+    _daten: &std::path::Path,
+    _key: &str,
+    _meins: bool,
+) -> Vec<(crate::pruefen::Klasse, String)> {
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
