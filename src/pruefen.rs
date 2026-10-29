@@ -328,7 +328,12 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     let mut weitere = crate::gatewaywache::fuer_pruefen(&path, &fp.key(), known[i].meins);
     weitere.extend(crate::mtu::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::proxy::fuer_pruefen(&path, &fp.key(), known[i].meins));
-    weitere.extend(crate::sni::fuer_pruefen(&path, &fp.key(), known[i].meins));
+    weitere.extend(crate::sni::fuer_pruefen(
+        &path,
+        &fp.key(),
+        known[i].meins,
+        portal,
+    ));
     weitere.extend(crate::ipv6router::fuer_pruefen(
         &path,
         &fp.key(),

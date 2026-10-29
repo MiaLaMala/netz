@@ -198,6 +198,12 @@ fn mtu_messen(ziel: Option<String>) -> Result<netzinfo::mtu::MtuErgebnis, Fehler
     netzinfo::mtu::mtu_daten(ziel.as_deref().unwrap_or("1.1.1.1")).map_err(Into::into)
 }
 
+/// SNI filter check against 1.1.1.1, see issue #52. Stores nothing.
+#[tauri::command(async)]
+fn sni_pruefen() -> Result<netzinfo::sni::SniErgebnis, Fehler> {
+    netzinfo::sni::messen().map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -230,6 +236,7 @@ fn main() {
             woher_zeigen,
             live_sonde,
             mtu_messen,
+            sni_pruefen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
