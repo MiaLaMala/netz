@@ -41,6 +41,12 @@
   const rund = (v) => [10, 20, 50, 100, 250, 500, 1000, 2500].find((n) => n >= v) ?? Math.ceil(v / 1000) * 1000;
   // Error with a way out: the button repeats the action (or reloads the view).
   const fehlerAus = (e, nochmal) => Netz.fehlerKarte(Netz.text(e), nochmal);
+  // After a redraw the focus must not fall to the page: give it back to the button if it was there (or in the result) before.
+  const halteFokus = (knopf, ort) => {
+    const hatte = knopf.matches(':focus') || ort.contains(document.activeElement);
+    return () => { if (hatte && knopf.isConnected && (!document.activeElement || document.activeElement === document.body)) knopf.focus(); };
+  };
+  const anzahl = (n, eins, viele) => (n === 1 ? `1 ${eins}` : `${n} ${viele}`);
   const stunde = (w) => (w ? `${zeit(w.stunde)}, Verlust ${fmt(w.verlust_prozent)} %, Ø ${ms(w.durchschnitt_ms)}` : null); // for the Markdown report
 
   // Same text as `netzinfo bericht --markdown`, times in local time.
@@ -63,11 +69,12 @@
     const g = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'kurve', role: 'img' });
     const zusammen = reihen.map((r, k) => {
       const p = sichtbar[k];
+      const spitze = p.reduce((m, q) => (q.ms != null && (m == null || q.ms > m.ms) ? q : m), null);
       const werte = p.filter((q) => q.ms != null).map((q) => q.ms).sort((a, b) => a - b);
-      return `${r.ziel}: ${p.length} Messungen, ${p.filter((q) => q.verlust).length} Verluste`
-        + (werte.length ? `, Median ${ms(werte[Math.floor(werte.length / 2)])}, Maximum ${ms(werte[werte.length - 1])}` : '');
+      const v = p.filter((q) => q.verlust).length;
+      return `${r.ziel}: ` + (werte.length ? `Median ${ms(werte[Math.floor(werte.length / 2)])}, Spitze ${ms(spitze.ms)} um ${uhr(spitze.zeit)}, ` : 'keine Antwort, ') + (v === 0 ? 'kein Verlust' : anzahl(v, 'Verlust', 'Verluste'));
     });
-    g.setAttribute('aria-label', `Antwortzeiten der letzten ${std === 1 ? 'Stunde' : `${std} Stunden`}. ${zusammen.join('. ')}.`);
+    g.setAttribute('aria-label', `Antwortzeit der letzten ${std === 1 ? 'Stunde' : `${std} Stunden`}. ${zusammen.join('. ')}.`);
     for (const f of [0, 0.25, 0.5, 0.75, 1]) {
       g.append(sv('line', { x1: L, x2: B - R, y1: y(oben * f), y2: y(oben * f), class: f === 0 ? 'gitter basis' : 'gitter' }),
         sv('text', { x: L - 8, y: y(oben * f) + 4, class: 'achse', 'text-anchor': 'end' }, f === 1 ? `${fmt(oben * f, 0)} ms` : fmt(oben * f, 0)));
@@ -142,8 +149,9 @@
   }
   function diagnoseKarte() {
     const ort = el('div', { 'aria-live': 'polite' });
-    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Jetzt prüfen' });
+    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Jetzt prüfen', 'aria-label': 'Wo hakt es? Jetzt prüfen' });
     knopf.addEventListener('click', async () => {
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an vier Stellen'));
       try {
@@ -162,6 +170,7 @@
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
+      zurueck();
     });
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-hakt' }, el('h3', { id: 'g-hakt', text: 'Wo hakt es?' }),
       el('div', { class: 'karte diagnose' }, el('p', { class: 'fuss', text: 'Misst etwa 5 Sekunden Router, Anbieter und Internet und prüft das WLAN-Signal. Das Ergebnis sagt, wo es wahrscheinlich hakt.' }), knopf, ort));
@@ -183,7 +192,7 @@
     const rot = ende && h.verlust_prozent > 0;
     const breite = h.median_ms != null && max > 0 ? Math.max(2, (h.median_ms / max) * 100) : 0;
     return el('li', { class: `hop${rot ? ' ende-verlust' : ''}${h.adressen.length ? '' : ' stumm'}` },
-      el('span', { class: 'ttl', text: h.ttl }),
+      el('span', { class: 'ttl' }, el('span', { class: 'nur-lesen', text: 'Station ' }), String(h.ttl)),
       el('span', { class: 'adresse', text: adr + (h.ziel ? ' (Ziel)' : '') }),
       el('span', { class: 'balken', 'aria-hidden': 'true' }, el('span', { style: `width:${breite}%` })),
       el('span', { class: 'zahl', text: ms(h.median_ms) }),
@@ -191,11 +200,12 @@
   }
 
   function wegKarte() {
-    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: wegLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
+    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: wegLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel für den Weg', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
     const router = el('button', { class: 'knopf', type: 'button', text: 'Router eintragen', title: 'Trägt den Router dieses Netzes als Ziel ein', onclick: async () => {
       try { const r = (await Netz.invoke('dieses_netz')).info.router; if (r) eingabe.value = r; } catch { /* the field keeps its value */ }
     } });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Pfad messen', onclick: messe });
+    eingabe.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') messe(); });
     const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
     const ort = el('div', { 'aria-live': 'polite' });
     const k = el('section', { class: 'gruppe weg-karte', 'aria-labelledby': 'g-weg' },
@@ -217,20 +227,21 @@
       ort.replaceChildren(...[
         status(e.erreicht ? 'gruen' : 'orange', `${e.ziel} (${e.ziel_ip}) · ${e.hops.length} Stationen · ${zeit(e.zeitpunkt)}`),
         !e.erreicht && meldung('Das Ziel hat nicht geantwortet. Der Weg endet dort, wo die Antworten aufhören. Das Ziel kann Anfragen auch absichtlich ignorieren.', 'orange'),
-        el('ol', { class: 'hops' }, e.hops.map((h, i) => hopZeile(h, max, i === e.hops.length - 1))),
+        el('ol', { class: 'hops', 'aria-label': `Weg zum Ziel, ${anzahl(e.hops.length, 'Station', 'Stationen')}` }, e.hops.map((h, i) => hopZeile(h, max, i === e.hops.length - 1))),
         el('p', { class: 'erklaerung', text: EW.balken }),
         el('p', { class: 'erklaerung', text: EW.verlust })].filter(Boolean));
     }
 
     async function messe() {
       if (wegLaeuft) return;
+      const zurueck = halteFokus(knopf, ort);
       const ziel = eingabe.value.trim() || '1.1.1.1';
       const p = Netz.invoke('pfad_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
       wegLaeuft = { ziel, p };
       zeichneWeg();
       wegLetzt = await p;
       wegLaeuft = null;
-      if (k.isConnected) { zeichneWeg(); knopf.focus(); }
+      if (k.isConnected) { zeichneWeg(); zurueck(); }
     }
 
     zeichneWeg();
@@ -249,7 +260,7 @@
 
   // Signal (solid) and rate (dashed) of the ring buffer; events as marks on a strip below.
   function wlanKurve(a) {
-    const B = 600, H = 270, L = 64, R = 56, T = 28, Y1= 180;
+    const B = 600, H = 270, L = 72, R = 56, T = 28, Y1= 180;
     const p = a.proben;
     const von = p[0].zeit, bis = Math.max(p[p.length - 1].zeit, von + 60);
     const x = (t) => L + ((t - von) / (bis - von)) * (B - L - R);
@@ -257,10 +268,12 @@
     const rmax = rund(Math.max(100, ...p.map((q) => q.rate ?? 0)));
     const yRate = (v) => Y1 - (v / rmax) * (Y1 - T);
     const g = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'wlan-kurve', role: 'img' });
-    const sig = p.filter((q) => q.rssi != null).map((q) => q.rssi).sort((m, n) => m - n);
-    g.setAttribute('aria-label', `Signal und Senderate der letzten ${Math.max(1, Math.round((bis - von) / 60))} Minuten. `
-      + (sig.length ? `Signal im Median ${sig[Math.floor(sig.length / 2)]} dBm. ` : '')
-      + `${a.ereignisse.length} Ereignisse.`);
+    const med = (w) => { const l = p.map(w).filter((v) => v != null).sort((m, n) => m - n); return l.length ? l[Math.floor(l.length / 2)] : null; };
+    const sig = med((q) => q.rssi), rate = med((q) => q.rate);
+    const ereig = a.ereignisse.filter((q) => q.zeit >= von);
+    g.setAttribute('aria-label', `Signal und Senderate der letzten ${Math.max(1, Math.round((bis - von) / 60))} Minuten`
+      + `${sig != null ? `: Signal im Median ${sig} dBm` : ''}${rate != null ? `, Senderate im Median ${fmt(rate, 0)} MBit/s` : ''}. `
+      + (ereig.length ? `${anzahl(ereig.length, 'Ereignis', 'Ereignisse')}: ${ereig.slice(0, 4).map((e) => `${ARTEN[e.art][0]} um ${uhr(e.zeit)}`).join(', ')}${ereig.length > 4 ? ' und weitere' : ''}.` : 'Keine Ereignisse.'));
     for (const f of [0, 0.5, 1]) {
       const yy = Y1 - f * (Y1 - T);
       g.append(sv('line', { x1: L, x2: B - R, y1: yy, y2: yy, class: f === 0 ? 'gitter basis' : 'gitter' }),
@@ -296,7 +309,7 @@
   }
 
   function wlanKarte() {
-    const ort = el('div', { 'aria-live': 'polite' });
+    const ort = el('div'); // no live region: redrawn every 5 s
     const k = el('section', { class: 'gruppe wlan-karte', 'aria-labelledby': 'g-wlan' }, el('h3', { id: 'g-wlan', text: 'WLAN-Verlauf' }), el('div', { class: 'karte' }, ort));
     let timer = null;
     ort.replaceChildren(status('grau', 'Liest das WLAN …'));
@@ -337,9 +350,13 @@
       if (!k.isConnected) return; // view was left: the loop ends, nothing else to clean up
       if (document.hidden) return; // resumed by `sicht`
       try {
-        zeichne(await Netz.invoke('wlan_verlauf_abtasten'));
+        const a = await Netz.invoke('wlan_verlauf_abtasten');
+        delete ort.dataset.fehler;
+        zeichne(a);
       } catch (e) {
-        ort.replaceChildren(fehlerAus(e, () => { clearTimeout(timer); tick(); }));
+        // the same error is drawn once: a new alert every 5 s would be read out again and again, and would take the focus from the button
+        const t = Netz.text(e);
+        if (ort.dataset.fehler !== t) { ort.dataset.fehler = t; ort.replaceChildren(fehlerAus(e, () => { clearTimeout(timer); tick(); })); }
       }
       if (k.isConnected) timer = setTimeout(tick, TAKT);
     }
@@ -362,8 +379,9 @@
   let mtuLetzt = null; // { erg } | { fehler }
 
   function mtuKarte() {
-    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: mtuLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
+    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: mtuLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel für die Paketgröße', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Paketgröße messen', onclick: messe });
+    eingabe.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') messe(); });
     const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
     const ort = el('div', { 'aria-live': 'polite' });
     const k = el('section', { class: 'gruppe mtu-karte', 'aria-labelledby': 'g-mtu' },
@@ -395,13 +413,14 @@
 
     async function messe() {
       if (mtuLaeuft) return;
+      const zurueck = halteFokus(knopf, ort);
       const ziel = eingabe.value.trim() || '1.1.1.1';
       const p = Netz.invoke('mtu_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
       mtuLaeuft = { ziel, p };
       zeichneMtu();
       mtuLetzt = await p;
       mtuLaeuft = null;
-      if (k.isConnected) { zeichneMtu(); knopf.focus(); }
+      if (k.isConnected) { zeichneMtu(); zurueck(); }
     }
 
     zeichneMtu();
@@ -414,6 +433,7 @@
     const ort = el('div', { 'aria-live': 'polite' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'DNS vergleichen' });
     knopf.addEventListener('click', async () => {
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst vier Server nacheinander, etwa 20 Sekunden'));
       try {
@@ -433,6 +453,7 @@
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
+      zurueck();
     });
     return el('section', { class: 'gruppe dns-tempo-karte', 'aria-labelledby': 'g-dns-tempo' }, el('h3', { id: 'g-dns-tempo', text: 'DNS-Tempo' }),
       el('div', { class: 'karte' }, el('p', { class: 'fuss', text: 'Fragt je Server höchstens 60 Namen ab, nacheinander. Balken: Median, bekannte Namen und neue.' }), knopf, ort));
@@ -451,6 +472,7 @@
     const ort = el('div', { 'aria-live': 'polite' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'IPv6 messen' });
     knopf.addEventListener('click', async () => {
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an fünf Diensten'));
       try {
@@ -458,14 +480,15 @@
         const [ampel, wort] = V6[r.urteil];
         ort.replaceChildren(
           r.ziele.length ? el('table', { class: 'ipv6-tabelle' },
-            el('thead', {}, el('tr', {}, el('th', { text: 'Dienst' }), el('th', { text: 'IPv4' }), el('th', { text: 'IPv6' }))),
-            el('tbody', {}, r.ziele.map((z) => el('tr', {}, el('td', { text: z.name }), el('td', { text: ipv6Spalte(z.v4) }), el('td', { text: ipv6Spalte(z.v6) }))))) : '',
+            el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: 'Dienst' }), el('th', { scope: 'col', text: 'IPv4' }), el('th', { scope: 'col', text: 'IPv6' }))),
+            el('tbody', {}, r.ziele.map((z) => el('tr', {}, el('th', { scope: 'row', text: z.name }), el('td', { text: ipv6Spalte(z.v4) }), el('td', { text: ipv6Spalte(z.v6) }))))) : '',
           el('p', { class: 'diagnose-urteil' }, el('span', { class: `punkt ${ampel}` }), el('strong', { text: wort })),
           el('p', { class: 'ipv6-satz', text: r.satz }));
       } catch (e) {
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
+      zurueck();
     });
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-ipv6' }, el('h3', { id: 'g-ipv6', text: 'IPv6' }), el('div', { class: 'karte ipv6-karte' }, knopf, ort));
   }
@@ -491,7 +514,10 @@
     const feld = el('input', { type: 'text', class: 'ziel-feld', autocapitalize: 'off', spellcheck: 'false', placeholder: 'Testserver, leer = gespeicherter', 'aria-label': 'Testserver' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Ports prüfen' });
     const WORT = { offen: 'offen', abgelehnt: 'abgelehnt', verschluckt: 'verschluckt', fehler: 'Fehler' };
+    feld.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') knopf.click(); });
     knopf.addEventListener('click', async () => {
+      if (knopf.disabled) return;
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Prüft 16 Ports, das dauert bis zu 15 Sekunden'));
       try {
@@ -502,6 +528,7 @@
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
+      zurueck();
     });
     return el('section', { class: 'gruppe egress-karte', 'aria-labelledby': 'g-egress' }, el('h3', { id: 'g-egress', text: 'Was darf raus?' }),
       el('div', { class: 'karte' }, el('div', { class: 'egress-werkzeuge' }, feld, knopf), ort));
@@ -509,6 +536,13 @@
 
   // ---- Karte „Funkumfeld“ (`netzinfo wlan --umfeld`, src/kanal.rs): scannt nur auf Klick, speichert nichts ----
   const BAENDER = ['2,4 GHz', '5 GHz', '6 GHz'];
+  // One sentence per channel: the bars are no list for VoiceOver, so the whole row is one picture with this text.
+  function umfeldText(a, band, kanal, n, ziel) {
+    const stoert = a.belegung.find((l) => l.band === band && l.kanal === kanal);
+    const du = a.aktuell?.band === band && a.aktuell.kanal === kanal;
+    const rat = ziel?.band === band && ziel.kanal === kanal;
+    return `Kanal ${kanal}${du ? ' (dein Kanal)' : rat ? ' (empfohlen)' : ''}: ${anzahl(n, 'Netz sendet', 'Netze senden')} hier${stoert ? `, mit Nachbarkanälen ${stoert.netze} Netze, zusammen ${Math.round(stoert.dbm)} dBm` : ''}`;
+  }
   function umfeldBalken(a) {
     if (a.belegung.length === 0) return meldung('Der Scan hat kein Netz gehört. Ohne Standortfreigabe liefert macOS manchmal nichts; erteile sie unter „Dieses Netz“.', 'orange');
     const eigene = (band, kanal) => a.beobachtungen.filter((b) => b.band === band && b.kanal === kanal).length;
@@ -519,18 +553,17 @@
       BAENDER.map((band) => {
         const kanaele = [...new Set([...a.beobachtungen, a.aktuell, ziel].filter((k) => k?.band === band).map((k) => k.kanal))].sort((x, y) => x - y);
         return kanaele.length > 0 && el('div', { class: 'umfeld-band' }, el('h4', { text: band }),
-          el('ul', { class: 'umfeld-balken' }, kanaele.map((kanal) => {
+          el('ul', { class: 'umfeld-balken', role: 'img', 'aria-label': `${band}: ${kanaele.map((kanal) => umfeldText(a, band, kanal, eigene(band, kanal), ziel)).join('; ')}` }, kanaele.map((kanal) => {
             const n = eigene(band, kanal);
-            const stoert = a.belegung.find((l) => l.band === band && l.kanal === kanal);
             const du = a.aktuell?.band === band && a.aktuell.kanal === kanal;
             const rat = ziel?.band === band && ziel.kanal === kanal;
             const saeule = el('span', { class: 'saeule' });
             saeule.style.setProperty('--h', `${Math.round((n / hoechst) * 80)}px`);
-            return el('li', { class: du ? 'jetzt' : rat ? 'rat' : '', title: `Kanal ${kanal}${du ? ' (dein Kanal)' : rat ? ' (empfohlen)' : ''}: ${n} Netze senden hier${stoert ? `, mit Nachbarkanälen ${stoert.netze} Netze, zusammen ${Math.round(stoert.dbm)} dBm` : ''}` },
-              el('span', { class: 'zahl', text: String(n) }), saeule, el('span', { class: 'kanal', text: String(kanal) }));
+            return el('li', { class: du ? 'jetzt' : rat ? 'rat' : '', title: umfeldText(a, band, kanal, n, ziel) },
+              du || rat ? el('span', { class: 'tag', text: du ? 'du' : 'Rat' }) : '', el('span', { class: 'zahl', text: String(n) }), saeule, el('span', { class: 'kanal', text: String(kanal) }));
           })));
       }),
-      el('p', { class: 'umfeld-legende', text: 'Zahl = Netze auf genau diesem Kanal. Der Rat zählt im 2,4 GHz Band die Nachbarkanäle mit, weil sie sich überlappen. Blau: dein Kanal, grün: empfohlen.' }),
+      el('p', { class: 'umfeld-legende', text: 'Zahl = Netze auf genau diesem Kanal. Der Rat zählt im 2,4 GHz Band die Nachbarkanäle mit, weil sie sich überlappen. „du“ (blau) ist dein Kanal, „Rat“ (grün) der empfohlene.' }),
       el('p', { class: 'umfeld-rat', text: a.empfehlung.text }));
   }
 
@@ -538,6 +571,7 @@
     const ort = el('div', { 'aria-live': 'polite' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Umgebung ansehen' });
     knopf.addEventListener('click', async () => {
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Scannt etwa 5 Sekunden, die Verbindung kann kurz haken'));
       try {
@@ -546,6 +580,7 @@
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
+      zurueck();
     });
     return el('section', { class: 'gruppe umfeld-karte', 'aria-labelledby': 'g-umfeld' }, el('h3', { id: 'g-umfeld', text: 'Funkumfeld' }),
       el('div', { class: 'karte' }, el('p', { class: 'umfeld-hinweis', text: 'Zählt Netze je Kanal, ohne Namen. Von den Nachbarn wird nichts gespeichert. Der Scan läuft nur auf Klick.' }), knopf, ort));
@@ -576,6 +611,7 @@
       el('ul', { class: 'last-verlauf' }, [...v].reverse().map((l) => el('li', { text: `${zeit(l.zeit)}: ${l.ergebnis.rpm == null ? 'keine Antworten pro Minute' : `${fmt(l.ergebnis.rpm, 0)} pro Minute, ${einstufung(l.ergebnis.rpm)}`}, ${mbit(l.ergebnis.down_bps)} runter` }))),
     ]));
     async function lauf(trotz) {
+      const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 30 Sekunden, die Leitung ist dabei voll ausgelastet'));
       try {
@@ -588,6 +624,7 @@
         knopf.textContent = 'Noch einmal versuchen';
       }
       knopf.disabled = false;
+      zurueck();
     }
     knopf.addEventListener('click', () => {
       if (!hotspot || ort.querySelector('.last-trotzdem')) return lauf(hotspot);
@@ -686,10 +723,11 @@
 
       let std = 1;
       let timer = null;
+      let gezeigt = null; // report the table was drawn for
       let seit = 0; // probes since the last full report
       const zustand = { wurzel, an: false, stop: () => { zustand.an = false; clearTimeout(timer); document.removeEventListener('visibilitychange', sicht); } };
       const ausfaelle = ausfallKarte();
-      const stat = el('div', { 'aria-live': 'polite' });
+      const stat = el('div'); // no live region: it is redrawn with every probe, the switch announces its own state
       const kurvenOrt = el('div', { class: 'karte' });
       const zahlen = el('div');
       const fehler = el('div', { 'aria-live': 'polite' });
@@ -718,13 +756,14 @@
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
           kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.', 'keine-messungen'));
           zahlen.replaceChildren();
+          gezeigt = null;
           return;
         }
         const jetzt = Math.floor(Date.now() / 1000);
         const leerer = !b.reihen.some((r) => r.punkte.some((p) => p.zeit >= jetzt - std * 3600));
-        kurvenOrt.replaceChildren(kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
+        kurvenOrt.replaceChildren(el('h3', { class: 'nur-lesen', text: 'Antwortzeit' }), kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
           leerer ? el('p', { class: 'fuss', text: `Im gewählten Zeitraum gibt es keine Messung.${std === 1 ? ' Wähle 6 Stunden oder schalte' : ' Schalte'} „Messen“ ein, dann wächst die Kurve.` }) : '');
-        zahlen.replaceChildren(kennzahlen(b));
+        if (gezeigt !== b) { zahlen.replaceChildren(kennzahlen(b)); gezeigt = b; } // the table changes only with a new report: VoiceOver is not thrown out of it every 5 s
       }
 
       async function tick() {
@@ -732,6 +771,7 @@
         try {
           const p = await Netz.invoke('messen_einmal');
           fehler.replaceChildren();
+          delete fehler.dataset.t;
           p.werte.forEach((w, k) => {
             if (w.ms == null && !w.verlust) return; // not measured
             (b.reihen[k] ??= { ziel: w.ziel, punkte: [] }).punkte.push({ zeit: p.zeit, ms: w.ms, verlust: w.verlust });
@@ -739,7 +779,7 @@
           // ponytail: Kennzahlen are reread on the first and every 6th probe, the chart grows locally
           if (b.ziele.length === 0 || ++seit % 6 === 0) { b = { ...(await Netz.invoke('bericht', { name: null })), reihen: b.reihen }; ausfaelle.lade(); }
         } catch (e) {
-          fehler.replaceChildren(meldung(Netz.text(e)));
+          if (fehler.dataset.t !== Netz.text(e)) { fehler.dataset.t = Netz.text(e); fehler.replaceChildren(meldung(Netz.text(e))); } // once, not every 5 s
         }
         if (!zustand.an || !wurzel.isConnected) return;
         zeichne();
