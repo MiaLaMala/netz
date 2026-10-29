@@ -192,6 +192,12 @@ fn live_sonde(ziel: String, neu: bool) -> Result<netzinfo::live::Ansicht, Fehler
     netzinfo::live::sonde(&ziel, neu).map_err(Into::into)
 }
 
+/// Path MTU to a target, see issue #47. Stores in remembered networks.
+#[tauri::command(async)]
+fn mtu_messen(ziel: Option<String>) -> Result<netzinfo::mtu::MtuErgebnis, Fehler> {
+    netzinfo::mtu::mtu_daten(ziel.as_deref().unwrap_or("1.1.1.1")).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -223,6 +229,7 @@ fn main() {
             wlan_verlauf_abtasten,
             woher_zeigen,
             live_sonde,
+            mtu_messen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

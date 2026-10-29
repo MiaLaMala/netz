@@ -136,3 +136,34 @@
     }
   });
 })();
+
+// Karte „Paketgröße“ (#47). Marks: ,mtu-ok (1500) ,mtu-pppoe (1492, default) ,mtu-klein (1280, VPN) ,mtu-unsicher (Stille)
+// ,mtu-anders (Besuch weicht ab) ,mtu-ungemerkt ,mtu-laeuft ,mtu-fehler; misst sofort. Alle Zahlen erfunden.
+(() => {
+  const satz = {
+    1500: 'Dein Netz lässt Pakete bis 1500 Byte durch. Das ist der Normalwert.',
+    1492: 'Dein Netz lässt Pakete bis 1492 Byte durch statt 1500. Das ist bei DSL mit PPPoE üblich und normalerweise kein Fehler.',
+    1280: 'Bei 1280 Byte ist ein Tunnel oder Mobilfunk im Weg. Große Dateien über manche Seiten können dann hängen. Die Grenze liegt schon an deiner eigenen Schnittstelle, zum Beispiel einem VPN.',
+  };
+  VORSCHAU.mtu_messen = async ({ ziel }) => {
+    if (marken.includes('mtu-laeuft')) return new Promise(() => {});
+    if (marken.includes('mtu-fehler')) throw 'Schon 576 Byte große Pakete kommen nicht durch. Entweder blockt das Ziel Ping, oder der Weg ist gestört; die Paketgröße lässt sich so nicht bestimmen. Probiere ein anderes Ziel, zum Beispiel 1.1.1.1.';
+    const mtu = marken.includes('mtu-ok') ? 1500 : marken.includes('mtu-klein') ? 1280 : 1492;
+    const unsicher = marken.includes('mtu-unsicher');
+    return {
+      ziel, ziel_ip: '203.0.113.200', pfad_mtu: mtu, lokale_mtu: mtu === 1280 ? 1280 : 1500,
+      quelle: unsicher ? 'stille' : 'antwort',
+      einstufung: { 1500: 'normal', 1492: 'pppoe', 1280: 'klein' }[mtu],
+      satz: satz[mtu] + (unsicher ? ' Das Ergebnis ist unsicher: Größere Pakete bekamen keine Antwort, und manche Netze verwerfen die Meldung „Paket zu groß“ ganz.' : ''),
+      zeitpunkt: 1793050200,
+      netz: marken.includes('mtu-ungemerkt') ? null : 'WG',
+      vorher: marken.includes('mtu-anders') ? 1500 : marken.includes('mtu-ungemerkt') ? null : mtu,
+    };
+  };
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('mtu-'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => { document.querySelector('.mtu-karte .haupt')?.click(); document.querySelector('.mtu-karte')?.scrollIntoView(); }, 600);
+    }
+  });
+})();

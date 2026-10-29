@@ -53,3 +53,8 @@
 [data-ansicht='qualitaet'] .wlan-vergleich { margin: 8px 0 0; font-weight: 600; }
 [data-ansicht='qualitaet'] .wlan-karte .legende .zeichen { width: 14px; height: 14px; }
 [data-ansicht='qualitaet'] .wlan-karte .karte > div { padding-bottom: 6px; }
+
+/* Karte „Paketgröße“ (#47) */
+[data-ansicht='qualitaet'] .mtu-karte .karte { margin-top: 6px; }
+[data-ansicht='qualitaet'] .mtu .erklaerung { margin: 8px 0 0; }
+[data-ansicht='qualitaet'] .mtu-satz { margin: 8px 0 0; font-weight: 600; }
