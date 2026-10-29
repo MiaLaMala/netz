@@ -125,14 +125,37 @@ pub fn fingerprint(n: &NetInfo) -> Result<Fingerprint, String> {
     }
 }
 
-/// `NETZ_DATEN` or `~/Library/Application Support/netzinfo/netze.json`.
+/// `NETZ_DATEN` (a file), else the usual per-user data folder of the system.
 pub fn data_path() -> Result<PathBuf, String> {
-    if let Some(p) = std::env::var_os("NETZ_DATEN") {
+    data_path_from(std::env::consts::OS, |k| std::env::var_os(k))
+}
+
+/// Pure version of `data_path`: system name and environment are parameters, so tests cover every system.
+/// macOS `~/Library/Application Support/netzinfo/netze.json`, Windows `%LOCALAPPDATA%\netzinfo\netze.json`
+/// (local, not Roaming), else `$XDG_DATA_HOME` or `~/.local/share`.
+fn data_path_from(
+    os: &str,
+    env: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Result<PathBuf, String> {
+    let get = |k| env(k).filter(|v| !v.is_empty());
+    if let Some(p) = get("NETZ_DATEN") {
         return Ok(PathBuf::from(p));
     }
-    let home = std::env::var_os("HOME")
-        .ok_or("Der Ordner für gemerkte Netze ist unbekannt (HOME fehlt). Setze `NETZ_DATEN` auf eine Datei.")?;
-    Ok(PathBuf::from(home).join("Library/Application Support/netzinfo/netze.json"))
+    let fehlt = |v: &str| {
+        format!(
+            "Der Ordner für gemerkte Netze ist unbekannt ({v} fehlt). Setze `NETZ_DATEN` auf eine Datei."
+        )
+    };
+    let base = match os {
+        "macos" => PathBuf::from(get("HOME").ok_or_else(|| fehlt("HOME"))?)
+            .join("Library/Application Support"),
+        "windows" => PathBuf::from(get("LOCALAPPDATA").ok_or_else(|| fehlt("LOCALAPPDATA"))?),
+        _ => match get("XDG_DATA_HOME") {
+            Some(x) => PathBuf::from(x),
+            None => PathBuf::from(get("HOME").ok_or_else(|| fehlt("HOME"))?).join(".local/share"),
+        },
+    };
+    Ok(base.join("netzinfo").join("netze.json"))
 }
 
 /// Reads the store. A missing file is an empty list. A file that cannot be read or parsed is
@@ -190,7 +213,11 @@ pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> 
     name.push(".tmp");
     let tmp = PathBuf::from(name);
     let write = || -> std::io::Result<()> {
-        let f = std::fs::File::create(&tmp)?;
+        let mut o = std::fs::OpenOptions::new();
+        o.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+        let f = o.open(&tmp)?;
         std::io::Write::write_all(&mut &f, json.as_bytes())?;
         f.sync_all()?;
         std::fs::rename(&tmp, path)
@@ -479,7 +506,7 @@ pub fn run_netze(_args: &[String], explain_on: bool) -> Result<(), String> {
     }
     explain(
         explain_on,
-        "Die Liste liegt als JSON-Datei auf deinem Mac. Pfad ändern geht mit der Umgebungsvariable NETZ_DATEN.",
+        "Die Liste liegt als JSON-Datei auf deinem Rechner. Pfad ändern geht mit der Umgebungsvariable NETZ_DATEN.",
     );
     Ok(())
 }
@@ -512,6 +539,50 @@ mod tests {
             domain: Some("fritz.box".into()),
             ..NetInfo::default()
         }
+    }
+
+    fn env<'a>(v: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<std::ffi::OsString> + 'a {
+        move |k| v.iter().find(|(n, _)| *n == k).map(|(_, w)| (*w).into())
+    }
+
+    #[test]
+    fn data_path_pro_system() {
+        let p = |os, v: &[(&str, &str)]| data_path_from(os, env(v));
+        assert_eq!(
+            p("macos", &[("HOME", "/Users/x")]).unwrap(),
+            PathBuf::from("/Users/x/Library/Application Support/netzinfo/netze.json")
+        );
+        assert_eq!(
+            p("windows", &[("LOCALAPPDATA", "C:/L")]).unwrap(),
+            PathBuf::from("C:/L").join("netzinfo").join("netze.json")
+        );
+        assert_eq!(
+            p("linux", &[("XDG_DATA_HOME", "/d"), ("HOME", "/h")]).unwrap(),
+            PathBuf::from("/d/netzinfo/netze.json")
+        );
+        assert_eq!(
+            p("linux", &[("XDG_DATA_HOME", ""), ("HOME", "/h")]).unwrap(),
+            PathBuf::from("/h/.local/share/netzinfo/netze.json")
+        );
+        assert_eq!(
+            p("linux", &[("NETZ_DATEN", "/f.json"), ("HOME", "/h")]).unwrap(),
+            PathBuf::from("/f.json")
+        );
+        for os in ["macos", "windows", "linux"] {
+            assert!(p(os, &[]).unwrap_err().contains("NETZ_DATEN"));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_setzt_rechte_0600() {
+        use std::os::unix::fs::PermissionsExt;
+        let f = tmp_dir("rechte").join("netze.json");
+        save(&f, &Vec::<Netz>::new()).unwrap();
+        assert_eq!(
+            std::fs::metadata(&f).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     fn tmp_dir(name: &str) -> PathBuf {
