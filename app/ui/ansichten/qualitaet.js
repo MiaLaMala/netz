@@ -522,6 +522,58 @@
       el('div', { class: 'karte' }, el('p', { class: 'umfeld-hinweis', text: 'Zählt Netze je Kanal, ohne Namen. Von den Nachbarn wird nichts gespeichert. Der Scan läuft nur auf Klick.' }), knopf, ort));
   }
 
+  // ---- Karte „Unter Last“ (`netzinfo last`, src/last.rs): misst nur auf Klick, belastet die Leitung ----
+  const mbit = (b) => (b == null ? '-' : `${fmt(b / 1e6, 0)} Mbit/s`);
+  const einstufung = (r) => (r >= 800 ? 'sehr reaktionsfähig' : r >= 200 ? 'gut' : r >= 100 ? 'mäßig' : 'schlecht');
+  function lastZahlen(e) {
+    const rpm = e.rpm;
+    return [
+      zeile('Download / Upload', `${mbit(e.down_bps)} / ${mbit(e.up_bps)}`),
+      zeile('Antwortzeit in Ruhe', ms(e.ruhe_ms), 'Wie lange eine kleine Anfrage braucht, wenn sonst nichts läuft.'),
+      zeile('Antwortzeit unter Last', `${ms(e.last_down_ms)} (Download) / ${ms(e.last_up_ms)} (Upload)`, 'Dieselbe Anfrage, während die Leitung voll ausgelastet ist. Steigt sie stark, staut der Router Pakete (Bufferbloat) und Anrufe ruckeln.'),
+      zeile('Antworten pro Minute', rpm == null ? 'nicht gemeldet' : `${fmt(rpm, 0)}, ${einstufung(rpm)}`, 'Je mehr, desto besser. Ab 800 sehr reaktionsfähig, 200 bis 799 gut, 100 bis 199 mäßig, darunter schlecht.'),
+    ];
+  }
+
+  function lastKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const verlauf = el('div');
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Reaktionsfähigkeit messen' });
+    const hinweis = el('p', { class: 'last-hinweis' });
+    let hotspot = false;
+    let frage = '';
+    const zeigeVerlauf = (v) => verlauf.replaceChildren(...(v.length === 0 ? [] : [
+      el('h4', { text: 'Verlauf (neueste zuerst)' }),
+      el('ul', { class: 'last-verlauf' }, [...v].reverse().map((l) => el('li', { text: `${zeit(l.zeit)}: ${l.ergebnis.rpm == null ? 'keine Antworten pro Minute' : `${fmt(l.ergebnis.rpm, 0)} pro Minute, ${einstufung(l.ergebnis.rpm)}`}, ${mbit(l.ergebnis.down_bps)} runter` }))),
+    ]));
+    async function lauf(trotz) {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Misst etwa 30 Sekunden, die Leitung ist dabei voll ausgelastet'));
+      try {
+        const l = await Netz.invoke('last_messen', { trotzHotspot: trotz });
+        ort.replaceChildren(el('dl', { class: 'liste' }, lastZahlen(l.ergebnis)));
+        zeigeVerlauf((await Netz.invoke('last_vorab')).verlauf);
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    }
+    knopf.addEventListener('click', () => {
+      if (!hotspot || ort.querySelector('.last-trotzdem')) return lauf(hotspot);
+      // Zweite Rückfrage im Hotspot: erst der Hinweis, dann derselbe Knopf noch einmal.
+      ort.replaceChildren(el('div', { class: 'last-trotzdem' }, meldung(frage, 'orange')));
+      knopf.textContent = 'Trotzdem messen';
+    });
+    Netz.invoke('last_vorab').then((v) => {
+      hinweis.textContent = v.hinweis;
+      hotspot = v.hotspot;
+      frage = v.hotspot_frage;
+      zeigeVerlauf(v.verlauf);
+    }, (f) => hinweis.replaceChildren(meldung(Netz.text(f))));
+    return el('section', { class: 'gruppe last-karte', 'aria-labelledby': 'g-last' }, el('h3', { id: 'g-last', text: 'Unter Last' }),
+      el('div', { class: 'karte' }, hinweis, knopf, ort, verlauf));
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -625,6 +677,7 @@
       wurzel.append(zeitKarte());
       wurzel.append(egressKarte());
       wurzel.append(umfeldKarte());
+      wurzel.append(lastKarte());
       if (weiter) schalte(true);
     },
   });
