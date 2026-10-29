@@ -257,7 +257,7 @@ pub(crate) fn merge(
 fn check_permission(table: &[Nachbar], router: Ipv4Addr, target: &Subnet) -> Result<(), String> {
     let in_range = (target.first..=target.last).contains(&router);
     if in_range && !table.iter().any(|n| n.ipv4.contains(&router)) {
-        return Err("Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Mögliche Ursachen: Die Freigabe „Lokales Netzwerk“ fehlt (Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk, dort Terminal oder die App erlauben), oder dein Mac ist über einen VPN- oder Netzwerkfilter angebunden, der die Pakete ohne ARP weitergibt. Zur Kontrolle: Zeigt `arp -an` im Terminal Einträge, liegt es an der Freigabe der App oder des Programms, das Netzinfo startet.".into());
+        return Err(nachbarn::LEERE_TABELLE.into());
     }
     Ok(())
 }
