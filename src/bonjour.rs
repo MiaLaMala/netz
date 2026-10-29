@@ -6,14 +6,15 @@
 use crate::dns::{self, u16_at};
 use crate::netze;
 use serde::{Deserialize, Serialize};
-use socket2::{Domain, Socket, Type};
+use socket2::{Domain, SockRef, Socket, Type};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, UdpSocket};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6, UdpSocket};
 use std::time::{Duration, Instant};
 
 const SRV: u16 = 33;
 const META: &str = "_services._dns-sd._udp.local";
 const GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
+const GROUP6: Ipv6Addr = Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 0xfb);
 const PORT: u16 = 5353;
 /// Question class IN with the „unicast response“ bit (RFC 6762, 5.4).
 const IN_QU: u16 = 0x8001;
@@ -183,6 +184,28 @@ impl Sammler {
         }
     }
 
+    /// What the answers left out, as (name, type): SRV/TXT of instances, A/AAAA of hosts.
+    // ponytail: instance names with a dot inside are not asked for (labels would split).
+    fn offen(&self) -> Vec<(String, u16)> {
+        let mut v = Vec::new();
+        for (full, (typ, inst)) in &self.inst {
+            if !inst.contains('.') && !self.srv.contains_key(full) {
+                let n = format!("{inst}.{typ}.local");
+                v.extend([(n.clone(), SRV), (n, dns::TXT)]);
+            }
+        }
+        for (_, host) in self.srv.values() {
+            let h = host.to_lowercase();
+            if !self.v4.contains_key(&h) {
+                v.push((host.clone(), dns::A));
+            }
+            if !self.v6.contains_key(&h) {
+                v.push((host.clone(), dns::AAAA));
+            }
+        }
+        v
+    }
+
     /// Instances without an SRV record are dropped: no port, nothing to show.
     fn dienste(&self) -> Vec<Dienst> {
         let mut out: Vec<Dienst> = self
@@ -221,46 +244,214 @@ fn net_err(e: impl std::fmt::Display) -> String {
     )
 }
 
-/// Joins the mDNS group on the default interface; port 5353 is shared with the system.
-// ponytail: IPv4 only, default interface; ff02::fb and multi-homed Macs need an interface loop.
-fn listener() -> Result<UdpSocket, String> {
-    let s = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(net_err)?;
+/// A network interface that is up, can multicast and is not loopback / point-to-point.
+#[derive(Debug, Default, Clone)]
+struct Schnittstelle {
+    index: u32,
+    v4: Option<Ipv4Addr>,
+    v6: bool,
+}
+
+/// All active multicast interfaces with their IPv4 address and whether they speak IPv6.
+fn schnittstellen() -> Vec<Schnittstelle> {
+    let (mut out, mut head): (Vec<Schnittstelle>, *mut libc::ifaddrs) =
+        (Vec::new(), std::ptr::null_mut());
+    if unsafe { libc::getifaddrs(&mut head) } != 0 {
+        return out;
+    }
+    let (want, deny) = (
+        libc::IFF_UP | libc::IFF_RUNNING | libc::IFF_MULTICAST,
+        libc::IFF_LOOPBACK | libc::IFF_POINTOPOINT,
+    );
+    let mut p = head;
+    while !p.is_null() {
+        let a = unsafe { &*p };
+        p = a.ifa_next;
+        let f = a.ifa_flags as i32;
+        if f & want != want || f & deny != 0 || a.ifa_addr.is_null() {
+            continue;
+        }
+        let index = unsafe { libc::if_nametoindex(a.ifa_name) };
+        if index == 0 {
+            continue;
+        }
+        let pos = out
+            .iter()
+            .position(|s| s.index == index)
+            .unwrap_or_else(|| {
+                out.push(Schnittstelle {
+                    index,
+                    ..Default::default()
+                });
+                out.len() - 1
+            });
+        match i32::from(unsafe { (*a.ifa_addr).sa_family }) {
+            libc::AF_INET => {
+                let sin = unsafe { &*(a.ifa_addr as *const libc::sockaddr_in) };
+                let ip = Ipv4Addr::from(u32::from_be(sin.sin_addr.s_addr));
+                out[pos].v4.get_or_insert(ip);
+            }
+            libc::AF_INET6 => out[pos].v6 = true,
+            _ => {}
+        }
+    }
+    unsafe { libc::freeifaddrs(head) };
+    out
+}
+
+/// Port 5353 is shared with the system, hence address and port reuse.
+fn mdns_socket(domain: Domain) -> Result<Socket, String> {
+    let s = Socket::new(domain, Type::DGRAM, None).map_err(net_err)?;
     s.set_reuse_address(true).map_err(net_err)?;
     #[cfg(unix)]
     s.set_reuse_port(true).map_err(net_err)?;
+    Ok(s)
+}
+
+fn kurz(s: Socket) -> Result<UdpSocket, String> {
+    let u = UdpSocket::from(s);
+    u.set_read_timeout(Some(Duration::from_millis(25)))
+        .map_err(net_err)?;
+    Ok(u)
+}
+
+/// Joins 224.0.0.251 on every interface that has an IPv4 address.
+fn hoerer4(ifs: &[Schnittstelle]) -> Result<UdpSocket, String> {
+    let s = mdns_socket(Domain::IPV4)?;
     s.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, PORT).into())
         .map_err(net_err)?;
-    s.join_multicast_v4(&GROUP, &Ipv4Addr::UNSPECIFIED)
-        .map_err(net_err)?;
-    let u = UdpSocket::from(s);
-    u.set_read_timeout(Some(Duration::from_millis(50)))
-        .map_err(net_err)?;
-    Ok(u)
+    let mut ok = false;
+    for a in ifs.iter().filter_map(|i| i.v4) {
+        ok |= s.join_multicast_v4(&GROUP, &a).is_ok();
+    }
+    if !ok {
+        return Err(net_err("keine Schnittstelle mit IPv4"));
+    }
+    kurz(s)
 }
 
-/// Own port, so responders answer us directly (with QU even when the system holds 5353).
-fn asker() -> Result<UdpSocket, String> {
-    let u = UdpSocket::bind("0.0.0.0:0").map_err(net_err)?;
-    u.set_multicast_ttl_v4(255).map_err(net_err)?;
-    u.set_read_timeout(Some(Duration::from_millis(50)))
+/// Joins ff02::fb on every interface that has an IPv6 address.
+fn hoerer6(ifs: &[Schnittstelle]) -> Result<UdpSocket, String> {
+    let s = mdns_socket(Domain::IPV6)?;
+    s.set_only_v6(true).map_err(net_err)?;
+    s.bind(&SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, PORT, 0, 0).into())
         .map_err(net_err)?;
-    Ok(u)
+    let mut ok = false;
+    for i in ifs.iter().filter(|i| i.v6) {
+        ok |= s.join_multicast_v6(&GROUP6, i.index).is_ok();
+    }
+    if !ok {
+        return Err(net_err("keine Schnittstelle mit IPv6"));
+    }
+    kurz(s)
 }
 
-fn ask(sock: &UdpSocket, name: &str) -> Result<(), String> {
-    let q = dns::build_query(0, name, dns::PTR, IN_QU)?;
-    sock.send_to(&q, (GROUP, PORT)).map_err(|e| {
-        format!(
-            "Die Bonjour-Anfrage ließ sich nicht senden ({e}). Prüfe, ob der Mac im WLAN oder LAN ist und die Rechte für das lokale Netzwerk gesetzt sind."
-        )
-    })?;
-    Ok(())
+/// Own ports, so responders answer us directly (with QU even when the system holds 5353).
+struct Frager {
+    v4: Option<UdpSocket>,
+    v6: Option<UdpSocket>,
+    ifs: Vec<Schnittstelle>,
 }
 
-/// Listens for `sekunden`; with `fragen` it also asks for all types, then for each type found.
+impl Frager {
+    fn neu(ifs: &[Schnittstelle]) -> Result<Self, String> {
+        let offen = |d: Domain, a: &str| -> Result<UdpSocket, String> {
+            kurz(
+                Socket::new(d, Type::DGRAM, None)
+                    .map_err(net_err)
+                    .and_then(|s| {
+                        s.bind(&a.parse::<std::net::SocketAddr>().map_err(net_err)?.into())
+                            .map_err(net_err)?;
+                        Ok(s)
+                    })?,
+            )
+        };
+        let f = Frager {
+            v4: offen(Domain::IPV4, "0.0.0.0:0").ok(),
+            v6: offen(Domain::IPV6, "[::]:0").ok(),
+            ifs: ifs.to_vec(),
+        };
+        if f.v4.is_none() && f.v6.is_none() {
+            return Err(net_err("kein UDP-Socket verfügbar"));
+        }
+        Ok(f)
+    }
+
+    fn sockets(&self) -> impl Iterator<Item = &UdpSocket> {
+        self.v4.iter().chain(self.v6.iter())
+    }
+
+    /// Sends one question out of every interface; fails only if no interface could send.
+    fn fragen(&self, name: &str, qtype: u16) -> Result<(), String> {
+        let q = frage_bytes(name, qtype)?;
+        let (mut ok, mut letzter) = (false, String::new());
+        let mut zaehlen = |r: std::io::Result<()>| match r {
+            Ok(()) => ok = true,
+            Err(e) => letzter = e.to_string(),
+        };
+        for i in &self.ifs {
+            if let (Some(s), Some(a)) = (&self.v4, i.v4) {
+                let sr = SockRef::from(s);
+                zaehlen(
+                    sr.set_multicast_if_v4(&a)
+                        .and_then(|()| s.send_to(&q, (GROUP, PORT)).map(drop)),
+                );
+            }
+            if let (Some(s), true) = (&self.v6, i.v6) {
+                let sr = SockRef::from(s);
+                zaehlen(sr.set_multicast_if_v6(i.index).and_then(|()| {
+                    s.send_to(&q, SocketAddrV6::new(GROUP6, PORT, 0, i.index))
+                        .map(drop)
+                }));
+            }
+        }
+        if ok {
+            return Ok(());
+        }
+        Err(format!(
+            "Die Bonjour-Anfrage ließ sich nicht senden ({letzter}). Prüfe, ob der Mac im WLAN oder LAN ist und die Rechte für das lokale Netzwerk gesetzt sind."
+        ))
+    }
+}
+
+/// One mDNS question (ID 0, no flags). Labels stay UTF-8: `dns::build_query` is ASCII only,
+/// but instance names carry spaces and umlauts (RFC 6763, 4.1.3).
+fn frage_bytes(name: &str, qtype: u16) -> Result<Vec<u8>, String> {
+    let mut p = vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+    for label in name.split('.') {
+        if label.is_empty() || label.len() > 63 || name.len() > 253 {
+            return Err(format!(
+                "„{name}“ ist kein gültiger Bonjour-Name (Teile von 1 bis 63 Byte)."
+            ));
+        }
+        p.push(label.len() as u8);
+        p.extend_from_slice(label.as_bytes());
+    }
+    p.push(0);
+    p.extend_from_slice(&qtype.to_be_bytes());
+    p.extend_from_slice(&IN_QU.to_be_bytes());
+    Ok(p)
+}
+
+/// Listens for `sekunden`; with `fragen` it also asks for all types, then for each type found,
+/// then for what the answers left out (SRV/TXT of instances, A/AAAA of hosts).
 pub fn sammeln(sekunden: u64, fragen: bool) -> Result<Vec<Dienst>, String> {
-    let hear = listener()?;
-    let asker = if fragen { Some(asker()?) } else { None };
+    let ifs = schnittstellen();
+    let (mut hear, mut fehler) = (Vec::new(), String::new());
+    for r in [hoerer4(&ifs), hoerer6(&ifs)] {
+        match r {
+            Ok(u) => hear.push(u),
+            Err(e) => fehler = e,
+        }
+    }
+    if hear.is_empty() {
+        return Err(fehler);
+    }
+    let frager = if fragen {
+        Some(Frager::neu(&ifs)?)
+    } else {
+        None
+    };
     let (end, mut next) = (
         Instant::now() + Duration::from_secs(sekunden),
         Instant::now(),
@@ -268,14 +459,17 @@ pub fn sammeln(sekunden: u64, fragen: bool) -> Result<Vec<Dienst>, String> {
     let (mut s, mut gefragt) = (Sammler::default(), BTreeSet::new());
     let mut buf = [0u8; 9000];
     while Instant::now() < end {
-        if let Some(a) = asker.as_ref().filter(|_| Instant::now() >= next) {
-            ask(a, META)?;
-            for t in s.typen.iter().filter(|t| gefragt.insert((*t).clone())) {
-                ask(a, &format!("{t}.local"))?;
+        if let Some(f) = frager.as_ref().filter(|_| Instant::now() >= next) {
+            f.fragen(META, dns::PTR)?;
+            let typen = s.typen.iter().map(|t| (format!("{t}.local"), dns::PTR));
+            for (n, t) in typen.chain(s.offen()) {
+                if gefragt.insert((n.clone(), t)) {
+                    f.fragen(&n, t)?;
+                }
             }
             next += Duration::from_millis(1200);
         }
-        for sock in std::iter::once(&hear).chain(asker.as_ref()) {
+        for sock in hear.iter().chain(frager.iter().flat_map(Frager::sockets)) {
             if let Ok(n) = sock.recv(&mut buf)
                 && let Ok(recs) = parse(&buf[..n])
             {
@@ -360,13 +554,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let meins = netze::current_is_meins();
     gate(meins, lauschen.is_some())?;
     e(
-        "Bonjour ist ein Rundruf im Netz: Geräte melden dort, was sie anbieten. `_ipp` heißt zum Beispiel: Hier steht ein Drucker. Ich scanne keinen Port, ich höre nur zu und stelle Fragen an die Rundruf-Adresse 224.0.0.251.",
+        "Bonjour ist ein Rundruf im Netz: Geräte melden dort, was sie anbieten. `_ipp` heißt zum Beispiel: Hier steht ein Drucker. Ich scanne keinen Port, ich höre nur zu und stelle Fragen an die Rundruf-Adressen 224.0.0.251 (IPv4) und ff02::fb (IPv6), auf jeder aktiven Schnittstelle.",
     );
     let fragen = lauschen.is_none();
     let sek = lauschen.unwrap_or(SAMMELZEIT);
     if fragen {
         e(
-            "Dieses Netz ist „meins“, darum darf ich fragen: erst nach allen Diensttypen, dann je Typ nach den Geräten. Die Fragen tragen das Bit „bitte direkt antworten“, so erreichen mich die Antworten auch, wenn dein Mac selbst auf Port 5353 lauscht.",
+            "Dieses Netz ist „meins“, darum darf ich fragen: erst nach allen Diensttypen, dann je Typ nach den Geräten, danach nach allem, was die Antworten ausgelassen haben (Port, Adressen). Die Fragen tragen das Bit „bitte direkt antworten“, so erreichen mich die Antworten auch, wenn dein Mac selbst auf Port 5353 lauscht.",
         );
     } else {
         e(
@@ -550,6 +744,66 @@ mod tests {
         let mut s = Sammler::default();
         s.add(parse(&p).unwrap());
         assert_eq!(s.typen.into_iter().collect::<Vec<_>>(), vec!["_smb._tcp"]);
+    }
+
+    /// Recorded response: PTR "Küche Drucker._ipp._tcp.local", SRV (port 631, host
+    /// drucker.local), AAAA 2001:db8::7 and fe80::1 (hex of the wire bytes).
+    const IPV6_ANTWORT: &str = "\
+        000084000000000100000003045f697070045f746370056c6f63616c00000c80\
+        010000007800200e4bc3bc63686520447275636b6572045f697070045f746370\
+        056c6f63616c00c0270021800100000078001500000000027707647275636b65\
+        72056c6f63616c00c059001c800100000078001020010db80000000000000000\
+        00000007c059001c8001000000780010fe800000000000000000000000000001";
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn recorded_ipv6_answer_with_umlaut_instance() {
+        let mut s = Sammler::default();
+        s.add(parse(&hex(IPV6_ANTWORT)).unwrap());
+        let d = s.dienste();
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].instanz, "Küche Drucker");
+        assert_eq!((d[0].host.as_str(), d[0].port), ("drucker.local", 631));
+        assert!(d[0].ipv4.is_empty());
+        let v6: Vec<Ipv6Addr> = ["2001:db8::7", "fe80::1"]
+            .iter()
+            .map(|a| a.parse().unwrap())
+            .collect();
+        assert_eq!(d[0].ipv6, v6);
+    }
+
+    #[test]
+    fn asks_for_what_the_answer_left_out() {
+        let mut s = Sammler::default();
+        let mut p = vec![0, 0, 0x84, 0, 0, 0, 0, 1, 0, 0, 0, 0];
+        p.extend(rr(
+            &nm("_ipp._tcp.local"),
+            dns::PTR,
+            120,
+            &nm("Küche Drucker._ipp._tcp.local"),
+        ));
+        s.add(parse(&p).unwrap());
+        let o = s.offen();
+        let n = "Küche Drucker._ipp._tcp.local".to_string();
+        assert_eq!(o, vec![(n.clone(), SRV), (n, dns::TXT)]);
+        s.add(parse(&hex(IPV6_ANTWORT)).unwrap());
+        assert_eq!(s.offen(), vec![("drucker.local".to_string(), dns::A)]);
+    }
+
+    #[test]
+    fn query_keeps_umlauts_as_utf8() {
+        let q = frage_bytes("Küche Drucker._ipp._tcp.local", SRV).unwrap();
+        assert_eq!(&q[..12], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&q[12..27], b"\x0eK\xc3\xbcche Drucker");
+        assert_eq!(q[q.len() - 4..], [0, 33, 0x80, 1]);
+        assert!(frage_bytes("a..local", SRV).is_err());
+        assert!(frage_bytes(&"x".repeat(64), SRV).is_err());
     }
 
     #[test]
