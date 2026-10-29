@@ -126,6 +126,16 @@ fn verbindungen_loeschen() -> Result<bool, Fehler> {
     netzinfo::verbindungen::loeschen().map_err(Into::into)
 }
 
+/// Programs with open ports on this Mac, see issue #74. `aussen`: also try the TCP ports on the own address.
+#[tauri::command(async)]
+fn offen_zeigen(aussen: bool) -> Result<Vec<netzinfo::offen::Lauscher>, Fehler> {
+    let mut liste = netzinfo::offen::offen_im_netz()?;
+    if aussen {
+        netzinfo::offen::aussen_abgleichen(&mut liste, false)?;
+    }
+    Ok(liste)
+}
+
 /// Location permission for SSID and BSSID, see issue #35. Reading the state shows no dialog.
 #[tauri::command]
 fn ort_status() -> netzinfo::ort::OrtStatus {
@@ -191,6 +201,7 @@ fn main() {
             wlan_lesen,
             verbindungen_zeigen,
             verbindungen_loeschen,
+            offen_zeigen,
             geraete_karten,
             geraet_setzen,
             ort_status,
