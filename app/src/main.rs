@@ -164,6 +164,18 @@ fn dns_gespeichert(name: String) -> Result<Option<netzinfo::dnsverschl::Gespeich
     netzinfo::dnsverschl::gespeichert(&name)
 }
 
+/// One Wi-Fi sample into the running visit, see issue #36. Stores only in remembered networks.
+#[tauri::command(async)]
+fn wlan_verlauf_abtasten() -> Result<netzinfo::wlanverlauf::Ansicht, String> {
+    netzinfo::wlanverlauf::abtasten()
+}
+
+/// Stored visits and events of the current network, see issue #36.
+#[tauri::command(async)]
+fn wlan_besuche() -> Result<netzinfo::wlanverlauf::NetzVerlauf, String> {
+    netzinfo::wlanverlauf::besuche_jetzt()
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -190,7 +202,9 @@ fn main() {
             ort_status,
             ort_anfragen,
             ort_einstellungen_oeffnen,
-            dns_gespeichert
+            dns_gespeichert,
+            wlan_verlauf_abtasten,
+            wlan_besuche
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
