@@ -46,7 +46,7 @@
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
-  const z = { laeuft: false, erg: null, fehler: null, art: null, portal: null, sni: null };
+  const z = { laeuft: false, offen: {}, erg: null, fehler: null, art: null, portal: null, sni: null };
   let ui = null;
 
   // One row: current value right, the old one below it when it differs.
@@ -66,13 +66,33 @@
       erkl && el('dd', { class: 'erklaerung', text: erkl }));
   };
 
+  // What the two cards found, as head lines (dot plus word). The red box below stays for real changes since the last visit.
+  function kartenBefunde() {
+    const s = z.sni;
+    const fremd = s?.namen?.some(([, st]) => st === 'fremdes_zertifikat');
+    return [
+      z.portal?.status === 'PortalVermutet' && status('orange', 'Auffällig. Anmeldeseite vermutet.'),
+      s?.gestoert?.length && (fremd
+        ? status('rot', `Alarm. Webfilter: fremdes Zertifikat bei ${s.gestoert.join(', ')}. Jemand liest vielleicht mit.`)
+        : status('orange', `Auffällig. Webfilter stört ${s.gestoert.join(', ')}.`)),
+    ].filter(Boolean);
+  }
+
+  // The head sums up the whole page: comparison with the last visit plus both cards. Green only when all say nothing.
   function urteil(erg) {
     const worst = diffs(erg)[0]?.klasse;
     const seit = `Seit dem letzten Besuch am ${zeit(erg.vorher.time)}`;
-    if (worst === 'Alarm') return el('div', { class: 'urteil' }, el('span', { class: 'punkt rot' }),
-      el('div', {}, el('strong', { text: 'Alarm' }), el('p', { text: `${seit} hat sich etwas geändert, das du klären solltest.` })));
-    if (worst === 'Auffaellig') return status('orange', `Auffällig. ${seit} ist etwas anders, schau nach, ob das so gewollt ist.`);
-    return status('gruen', `Nichts Auffälliges. ${seit} ist alles im Rahmen.`);
+    const karten = kartenBefunde();
+    const misst = z.offen.sni || z.offen.portal;
+    const was = [z.offen.sni && 'Webfilter', z.offen.portal && 'Anmeldeseite'].filter(Boolean).join(' und ');
+    const wartet = misst && status('grau', `${was} ${z.offen.sni && z.offen.portal ? 'werden' : 'wird'} noch gemessen.`);
+    if (worst === 'Alarm') return [el('div', { class: 'urteil' }, el('span', { class: 'punkt rot' }),
+      el('div', {}, el('strong', { text: 'Alarm' }), el('p', { text: `${seit} hat sich etwas geändert, das du klären solltest.` }))), ...karten, wartet];
+    if (worst === 'Auffaellig') return [status('orange', `Auffällig. ${seit} ist etwas anders, schau nach, ob das so gewollt ist.`), ...karten, wartet];
+    if (karten.length) return [...karten, wartet];
+    if (misst) return [status('grau', `${seit} ist nichts anders. ${was} ${z.offen.sni && z.offen.portal ? 'werden' : 'wird'} noch gemessen.`)];
+    const unklar = z.sni?.unklar && status('grau', 'Der Webfilter ließ sich nicht beurteilen.');
+    return [status('gruen', `Nichts Auffälliges. ${seit} ist alles im Rahmen.`), unklar];
   }
 
   const diffs = (erg) => erg.unterschiede.filter((u) => !wegRuhig(u));
@@ -162,16 +182,16 @@
     fuell(kopf,
       portalHinweis(),
       el('h2', { text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
-      z.laeuft ? status('grau', 'Prüfe …')
-        : erg ? (erg.erster_besuch ? status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis') : urteil(erg))
+      z.offen.vergleich ? status('grau', 'Prüfe …')
+        : erg ? (erg.erster_besuch ? [status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis'), ...kartenBefunde()] : urteil(erg))
         : unbekannt ? status('orange', 'Noch nicht gemerkt') : null);
     fuell(rest,
-      ...(z.fehler && !z.laeuft ? [
+      ...(z.fehler && !z.offen.vergleich ? [
         meldung(z.fehler, unbekannt ? 'orange' : 'rot'),
         unbekannt && el('div', { class: 'aktion' },
           el('button', { class: 'knopf', type: 'button', text: 'Zu „Dieses Netz“ …', onclick: () => document.getElementById('tab-dieses-netz').click() })),
       ] : []),
-      ...(erg ? [
+      ...(erg && !z.offen.vergleich ? [
         erg.erster_besuch && el('p', { class: 'fuss erklaerung', text: E.erst }),
         !erg.erster_besuch && diffs(erg).length > 0 && unterschiede(erg),
         ...werte(erg),
@@ -184,9 +204,13 @@
     z.laeuft = true;
     z.fehler = null;
     z.art = null;
+    z.sni = z.portal = null;
+    z.offen = { vergleich: true, sni: true, portal: true };
     zeichne();
-    const portal = Netz.invoke('portal_pruefen').catch(() => null); // runs alongside, a failed check just shows no hint
-    const sni = Netz.invoke('sni_pruefen').catch(() => null); // same: a failed filter check just shows no card
+    // All three run alongside; each one redraws the head when it is in, so the head never says „fine“ before a card has spoken.
+    const fertig = (name, f) => (w) => { z.offen[name] = false; f(w); zeichne(); };
+    const portal = Netz.invoke('portal_pruefen').catch(() => null).then(fertig('portal', (w) => { z.portal = w; })); // a failed check just shows no hint
+    const sni = Netz.invoke('sni_pruefen').catch(() => null).then(fertig('sni', (w) => { z.sni = w; })); // same: no card
     try {
       z.erg = await Netz.invoke('pruefen');
     } catch (e) {
@@ -194,8 +218,9 @@
       z.fehler = Netz.text(e);
       z.art = e?.art;
     }
-    z.sni = await sni;
-    z.portal = await portal;
+    z.offen.vergleich = false;
+    zeichne();
+    await Promise.all([sni, portal]);
     z.laeuft = false;
     zeichne();
   }

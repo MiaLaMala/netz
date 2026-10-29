@@ -1,7 +1,7 @@
 // Fake answers for the view „pruefung“ in vorschau.html.
 // Marks: pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
 // pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“),
-// sni-filter, sni-fremd, sni-unklar (Karte „Webfilter am Servernamen“, sonst: kein Name gestört).
+// pruefung-misst (Webfilter misst noch), sni-filter, sni-fremd, sni-unklar (Karte „Webfilter am Servernamen“, sonst: kein Name gestört).
 (() => {
   const vorher = {
     time: 1793050200 - 86400 * 3,
@@ -63,6 +63,7 @@
   };
 
   VORSCHAU.sni_pruefen = async () => {
+    if (marken.includes('pruefung-misst')) return new Promise(() => {});
     const ok = [['bbc.com', 'ok'], ['youtube.com', 'ok'], ['telegram.org', 'ok']];
     if (marken.includes('sni-unklar')) return { kontrolle: 'zeitueberschreitung', namen: [], gestoert: [], unklar: true };
     if (marken.includes('sni-fremd')) return { kontrolle: 'ok', namen: [ok[0], ['youtube.com', 'fremdes_zertifikat'], ok[2]], gestoert: ['youtube.com'], unklar: false };
