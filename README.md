@@ -38,26 +38,48 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo` (die läuft auch u
 
 ## Was Netzinfo kann
 
+Die App hat vier Ansichten. Jede beantwortet oben eine Frage, alles Weitere liegt eine Ebene tiefer unter „Details“. ⌘1 bis ⌘4 wechseln die Ansicht, ⌘, öffnet die Einstellungen.
+
+Drei Dinge sind der Kern:
+
+- **Das Netz wiedererkennen und warnen.** Netzinfo vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und der Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
+- **Den Engpass finden.** Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Die kleinste Zahl ist der Engpass, dazu ein Satz Rat.
+- **Ein Störungsprotokoll für die Hotline.** Netzinfo hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
+
 <table>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert, darunter die Gruppen Netz, Sperren und Umleitungen und Zertifikate"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Qualität“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Kennzahlen, darunter „Wo hakt es?“ und die Ausfälle der letzten 7 Tage als Zeitleiste mit Liste und dem Knopf „Text für den Anbieter kopieren“"></picture><br><sub>Qualität: Wie gut ist die Leitung über den Tag?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Übersicht“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert, darunter die Gruppen Netz, Sperren und Umleitungen und Zertifikate"></picture><br><sub>Übersicht: Ist das noch mein Netz?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Tempo“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Kennzahlen, darunter „Wo hakt es?“ und die Ausfälle der letzten 7 Tage als Zeitleiste mit Liste und dem Knopf „Text für den Anbieter kopieren“"></picture><br><sub>Tempo: Bekomme ich, wofür ich zahle, und wo bremst es?</sub></td>
   </tr>
   <tr>
     <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router, Fernseher, Mac und Drucker mit Hersteller, Ports und Diensten, darüber Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Ansicht „Live“: Antwortzeit, Jitter und Verlust zu 1.1.1.1 als Kacheln und Kurve, dazu die Eignung für Videoanrufe, Spiele und Streaming"></picture><br><sub>Live: Reicht die Leitung gerade für einen Anruf?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Live-Kurve in der Ansicht „Tempo“: Antwortzeit, Jitter und Verlust zu 1.1.1.1 als Kacheln und Kurve, dazu die Eignung für Videoanrufe, Spiele und Streaming"></picture><br><sub>Tempo, Live-Kurve: Reicht die Leitung gerade für einen Anruf?</sub></td>
   </tr>
 </table>
 
-- **Dieses Netz** zeigt Adresse, Router, DNS, WLAN mit Signal und Sicherheit, Proxy, IPv6 und verschlüsseltes DNS. Oben steht, ob du hier schon warst.
-- **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
-- **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
-- **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Ein Ausfallprotokoll hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
-- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat. Bei einer Fritz!Box liest es mit einem eigenen Zugang (nur auf dem Mac) auch deren Geräteliste, die Geräte kennt, die auf keinen Scan antworten.
-- **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
-- **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
-- **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
-- **In der Menüleiste** wacht Netzinfo weiter, wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt. Auf Wunsch startet es mit der Anmeldung.
+### Übersicht
+
+Oben steht in einem Satz, ob das Netz noch dasselbe ist wie beim letzten Besuch, darunter die fünf Werte Netz, Adresse, Router, DNS und Signal. Unter „Details“ liegen alle Einzelheiten: WLAN mit Signal und Sicherheit, Proxy, IPv6, verschlüsseltes DNS und jeder Punkt der Prüfung mit Zustand und Erklärung.
+
+### Tempo
+
+Oben die Engpass-Karte, darunter das Störungsprotokoll und die Live-Kurve mit Jitter und Verlust. Unter „Details“ liegen die Werkzeuge: Weg Hop für Hop, Paketgröße (MTU), Funkumfeld und Kanalwahl, DNS-Tempo, IPv4 gegen IPv6, die Uhrzeit, Antwortzeit unter Last und ausgehende Ports. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt.
+
+### Geräte
+
+Findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt Netzinfo die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat. Bei einer Fritz!Box liest es mit einem eigenen Zugang (nur auf dem Mac, einzutragen in den Einstellungen) auch deren Geräteliste, die Geräte kennt, die auf keinen Scan antworten. Gesucht wird nur in Netzen, die du als „meins“ markiert hast.
+
+### Verbindungen
+
+Jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat. Ein Umschalter zeigt statt der ausgehenden Verbindungen, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
+
+### Einstellungen (⌘,)
+
+Die Einstellungen stehen abgesetzt unter der Seitenleiste und haben drei Gruppen:
+
+- **Gemerkte Netze:** alle Netze, die du dir gemerkt hast, zum Umbenennen, Vergessen und Markieren als „meins“. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
+- **Allgemein:** Netzinfo startet auf Wunsch mit der Anmeldung. Danach wacht es in der Menüleiste weiter, auch wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt.
+- **Fritz!Box:** der Zugang für die Geräteliste. Das Passwort liegt nur im macOS-Schlüsselbund.
 
 ## Installieren
 

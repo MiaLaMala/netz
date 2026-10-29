@@ -224,7 +224,7 @@
   // Fritz!Box (Rust: fritzbox::Abruf): die Geräteliste vom Router selbst über TR-064. Der Zugang liegt im
   // Schlüsselbund, hier kennt die Oberfläche nur den Benutzernamen, nie das Passwort.
   const istFritzbox = (k) => k.gateway && (/(^|\.)fritz\.box$/i.test(k.name ?? '') || /AVM|FRITZ/i.test(k.hersteller ?? ''));
-  const fritz = { erkannt: false, geladen: false, benutzer: null, formular: false, ergebnis: null, fehler: null, laeuft: false };
+  const fritz = { erkannt: false, geladen: false, benutzer: null, ergebnis: null, fehler: null, laeuft: false };
   const FRITZ_ZUSTAND = {
     zugang_falsch: ['rot', 'Zugang abgelehnt'],
     tr064_aus: ['orange', 'TR-064 ist aus'],
@@ -232,74 +232,17 @@
     keine_fritzbox: ['grau', 'Keine Fritz!Box'],
   };
 
-  const FRITZ_START = '.fritz-einrichten, .fritz-aendern'; // der Knopf, der das Formular geöffnet hat
-
-  function fritzFormular() {
-    const bid = neueId('benutzer');
-    const pid = neueId('passwort');
-    const benutzer = el('input', { id: bid, type: 'text', value: fritz.benutzer ?? '', placeholder: 'Benutzer', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false', maxlength: '60' });
-    const passwort = el('input', { id: pid, type: 'password', placeholder: 'Passwort', autocomplete: 'current-password', maxlength: '200' });
-    const fehler = el('div', { id: neueId('fehler') });
-    const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
-    return el('form', {
-      class: 'karte-formular fritz-formular', 'aria-label': 'Zugang zur Fritz!Box',
-      onsubmit: async (e) => {
-        e.preventDefault();
-        speichern.disabled = true;
-        ohneFehler([benutzer, passwort]);
-        try {
-          await Netz.invoke('fritzbox_speichern', { benutzer: benutzer.value, passwort: passwort.value });
-          passwort.value = '';
-          Object.assign(fritz, { benutzer: benutzer.value.trim(), formular: false, ergebnis: null, fehler: null });
-          fritzZeichne();
-          await fritzLesen();
-        } catch (f) {
-          fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
-          amFeld([benutzer, passwort], fehler);
-          speichern.disabled = false;
-          passwort.focus();
-        }
-      },
-      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); fritz.formular = false; fritzZeichne(FRITZ_START); } },
-    }, el('label', { class: 'nur-vorlesen', for: bid, text: 'Benutzer der Fritz!Box' }), benutzer,
-    el('label', { class: 'nur-vorlesen', for: pid, text: 'Passwort der Fritz!Box' }), passwort,
-    el('p', { class: 'fein hinweis', text: 'Lege in der Fritz!Box unter System, Fritz!Box-Benutzer einen eigenen Benutzer an und gib ihm das Recht „FRITZ!Box Einstellungen“. Das Passwort speichert Netzinfo nur im macOS-Schlüsselbund.' }),
-    el('div', { class: 'knoepfe' },
-      el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: () => { fritz.formular = false; fritzZeichne(FRITZ_START); } }), speichern),
-    fehler);
-  }
-
-  function fritzEntfernen(zeile) {
-    zeile.replaceChildren(Netz.bestaetigung({
-      frage: 'Zugang aus dem Schlüsselbund entfernen? Die Geräte aus der Router-Liste bleiben in deiner Liste.',
-      label: 'Fritz!Box-Zugang entfernen?',
-      aria: 'Fritz!Box-Zugang endgültig entfernen',
-      knopf: 'Entfernen',
-      abbrechen: () => fritzZeichne('.fritz-entfernen'),
-      aktion: async () => {
-        await Netz.invoke('fritzbox_entfernen');
-        Object.assign(fritz, { benutzer: null, ergebnis: null, fehler: null });
-        fritzZeichne('.fritz-einrichten');
-      },
-      fehler: (f) => zeile.append(meldung(Netz.text(f), 'rot')),
-    }));
-  }
-
   function fritzZeichne(fokus) {
     if (!fritz.erkannt || !fritz.geladen) { fritzOrt.replaceChildren(); return; }
     const teile = [el('h4', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
     const e = fritz.ergebnis;
-    if (fritz.formular) {
-      teile.push(fritzFormular());
-    } else if (!fritz.benutzer) {
-      teile.push(el('div', { class: 'fein', text: 'Die Fritz!Box kennt jedes Gerät im Heimnetz, auch die, die auf keinen Scan antworten. Dafür braucht Netzinfo einen eigenen Zugang.' }),
-        el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-einrichten', type: 'button', text: 'Fritz!Box-Zugang einrichten', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } })));
+    const zuEinstellungen = (text) => el('button', { class: 'knopf fritz-einrichten', type: 'button', text, onclick: () => Netz.zeige('gemerkte-netze') });
+    if (!fritz.benutzer) {
+      teile.push(el('div', { class: 'fein', text: 'Die Fritz!Box kennt jedes Gerät im Heimnetz, auch die, die auf keinen Scan antworten. Dafür braucht Netzinfo einen eigenen Zugang. Den trägst du in den Einstellungen ein.' }),
+        el('div', { class: 'karte-aktionen' }, zuEinstellungen('Zugang in den Einstellungen eintragen')));
       if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), 'rot'));
     } else {
-      const zeile = el('div', { class: 'karte-aktionen' },
-        el('button', { class: 'knopf leise fritz-aendern', type: 'button', text: 'Zugang ändern', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } }),
-        el('button', { class: 'knopf leise gefahr fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => fritzEntfernen(zeile) }));
-      teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund` }),
+      teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund. Ändern oder entfernen kannst du ihn in den Einstellungen.` }),
         el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen })));
       if (fritz.laeuft) teile.push(el('div', { class: 'fein', text: 'Lese die Liste …' }));
       else if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), fritz.fehler?.art === 'nicht_meins' ? 'orange' : 'rot'));
@@ -309,7 +252,6 @@
       } else if (e && FRITZ_ZUSTAND[e.zustand]) {
         teile.push(status(...FRITZ_ZUSTAND[e.zustand]), el('div', { class: 'fein', text: e.satz }));
       }
-      teile.push(zeile);
     }
     teile.push(el('p', { class: 'erklaerung', text: E.fritz }));
     fritzOrt.replaceChildren(...teile);
@@ -390,6 +332,7 @@
     icon: Netz.icons.geraete,
     aktualisieren: false, // „Netz absuchen“ lädt die Karten ebenfalls neu
     async render(wurzel) {
+      fritz.geladen = false; // der Zugang kann in den Einstellungen geändert worden sein
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: letztes ? 'Netz noch mal absuchen' : 'Netz absuchen' });
       const fortschritt = el('p', { class: 'fuss fortschritt' });
       const ort = el('div', { class: 'ergebnis' });
@@ -416,8 +359,8 @@
           ansage(nein ? 'Suche nicht erlaubt in diesem Netz.' : 'Suche fehlgeschlagen.');
           ort.replaceChildren(...[nein ? meldung(Netz.text(f), 'orange') : Netz.fehlerKarte(Netz.text(f), suche),
             nein && el('div', { class: 'aktion' }, el('button', {
-              class: 'knopf', type: 'button', text: 'Zu „Gemerkte Netze“',
-              onclick: () => document.getElementById('tab-gemerkte-netze')?.click(),
+              class: 'knopf', type: 'button', text: 'Zu den Einstellungen',
+              onclick: () => Netz.zeige('gemerkte-netze'),
             }))].filter(Boolean));
         }
         fortschritt.textContent = '';

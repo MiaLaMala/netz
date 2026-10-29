@@ -1,4 +1,5 @@
-// „Gemerkte Netze“: die Liste aus netze.json.
+// „Einstellungen“ (⌘,): gemerkte Netze aus netze.json, Autostart und der Zugang zur Fritz!Box.
+// Die Id bleibt `gemerkte-netze`, damit Marken, CSS und Verweise weiter passen.
 (() => {
   const { el, zeit, meldung } = Netz;
 
@@ -134,7 +135,7 @@
     return ort;
   }
 
-  // Start mit der Anmeldung (#9). Fehlt der Befehl oder scheitert er beim Lesen, bleibt der Schalter weg.
+  // Start mit der Anmeldung (#9). Fehlt der Befehl oder scheitert er beim Lesen, bleibt die Gruppe weg.
   async function autostart() {
     const an = await Netz.invoke('autostart_lesen').catch(() => null);
     if (an === null) return null;
@@ -152,35 +153,116 @@
         fehler.replaceChildren(meldung(Netz.text(err)));
       }
       s.disabled = false;
+      s.focus();
     });
-    return el('section', { class: 'gruppe autostart' }, s,
-      el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }),
-      hinweis && el('p', { class: 'fein', text: hinweis }), fehler);
+    return el('section', { class: 'gruppe', 'aria-labelledby': 'g-allgemein' },
+      el('h3', { id: 'g-allgemein', text: 'Allgemein' }),
+      el('div', { class: 'liste block' }, s,
+        el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }),
+        hinweis && el('p', { class: 'fein', text: hinweis }), fehler));
+  }
+
+  // Fritz!Box-Zugang (Rust: fritzbox): Die Oberfläche kennt nur den Benutzernamen, das Passwort liegt im Schlüsselbund.
+  // Fehlt der Befehl (kein Mac), bleibt die Gruppe weg.
+  let feldNr = 0;
+  async function fritzbox() {
+    let benutzer = await Netz.invoke('fritzbox_zugang').catch(() => undefined);
+    if (benutzer === undefined) return null;
+    const ort = el('div', { class: 'liste block' });
+    const gruppe = el('section', { class: 'gruppe fritz', 'aria-labelledby': 'g-fritz' }, el('h3', { id: 'g-fritz', text: 'Fritz!Box' }), ort);
+    const ansage = el('p', { class: 'nur-vorlesen', role: 'status' });
+    const hilfe = el('p', { class: 'fein', text: 'Mit dem Zugang liest Netzinfo die Geräteliste der Fritz!Box, auch die Geräte, die auf keinen Scan antworten. Das Passwort speichert Netzinfo nur im macOS-Schlüsselbund.' });
+
+    const formular = () => {
+      const bid = `fritz-benutzer-${++feldNr}`;
+      const pid = `fritz-passwort-${feldNr}`;
+      const fid = `fritz-fehler-${feldNr}`;
+      const b = el('input', { id: bid, type: 'text', value: benutzer ?? '', placeholder: 'Benutzer', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false', maxlength: '60' });
+      const pw = el('input', { id: pid, type: 'password', placeholder: 'Passwort', autocomplete: 'current-password', maxlength: '200' });
+      const fehler = el('div', { id: fid, 'aria-live': 'polite' });
+      const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
+      const zurueck = (ziel) => { zeichne(); ort.querySelector(ziel)?.focus(); };
+      const form = el('form', {
+        class: 'fritz-formular', 'aria-label': 'Zugang zur Fritz!Box',
+        onsubmit: async (e) => {
+          e.preventDefault();
+          speichern.disabled = true;
+          for (const f of [b, pw]) { f.removeAttribute('aria-invalid'); f.removeAttribute('aria-describedby'); }
+          try {
+            await Netz.invoke('fritzbox_speichern', { benutzer: b.value, passwort: pw.value });
+            pw.value = '';
+            benutzer = b.value.trim();
+            zeichne();
+            ansage.textContent = `Zugang „${benutzer}“ gespeichert.`;
+            ort.querySelector('.fritz-aendern')?.focus();
+          } catch (f) {
+            fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
+            for (const x of [b, pw]) { x.setAttribute('aria-invalid', 'true'); x.setAttribute('aria-describedby', fid); }
+            speichern.disabled = false;
+            pw.focus();
+          }
+        },
+        onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); zurueck('.fritz-aendern, .fritz-einrichten'); } },
+      }, el('label', { class: 'nur-vorlesen', for: bid, text: 'Benutzer der Fritz!Box' }), b,
+      el('label', { class: 'nur-vorlesen', for: pid, text: 'Passwort der Fritz!Box' }), pw,
+      el('p', { class: 'fein', text: 'Lege in der Fritz!Box unter System, Fritz!Box-Benutzer einen eigenen Benutzer an und gib ihm das Recht „FRITZ!Box Einstellungen“.' }),
+      el('div', { class: 'knoepfe' }, el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: () => zurueck('.fritz-aendern, .fritz-einrichten') }), speichern),
+      fehler);
+      ort.replaceChildren(form);
+      b.focus();
+    };
+
+    const entfernen = (zeile) => zeile.replaceChildren(Netz.bestaetigung({
+      frage: 'Zugang aus dem Schlüsselbund entfernen? Die Geräte aus der Router-Liste bleiben in deiner Liste.',
+      label: 'Fritz!Box-Zugang entfernen?',
+      aria: 'Fritz!Box-Zugang endgültig entfernen',
+      knopf: 'Entfernen',
+      abbrechen: () => { zeichne(); ort.querySelector('.fritz-entfernen')?.focus(); },
+      aktion: async () => {
+        await Netz.invoke('fritzbox_entfernen');
+        benutzer = null;
+        zeichne();
+        ansage.textContent = 'Zugang entfernt.';
+        ort.querySelector('.fritz-einrichten')?.focus();
+      },
+      fehler: (f) => zeile.append(meldung(Netz.text(f), 'rot')),
+    }));
+
+    function zeichne() {
+      if (!benutzer) {
+        ort.replaceChildren(hilfe, el('div', { class: 'aktionen' }, el('button', { class: 'knopf fritz-einrichten', type: 'button', text: 'Zugang einrichten', onclick: formular })));
+        return;
+      }
+      const zeile = el('div', { class: 'aktionen' },
+        el('button', { class: 'knopf fritz-aendern', type: 'button', text: 'Zugang ändern', onclick: formular }),
+        el('button', { class: 'knopf gefahr fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => entfernen(zeile) }));
+      ort.replaceChildren(el('p', { class: 'fritz-benutzer', text: `Zugang „${benutzer}“ im Schlüsselbund` }), hilfe, zeile);
+    }
+    zeichne();
+    gruppe.append(ansage);
+    return gruppe;
   }
 
   Netz.registriere({
     id: 'gemerkte-netze',
     teil: true,
-    titel: 'Gemerkte Netze',
-    icon: Netz.icons.merken,
+    titel: 'Einstellungen',
+    icon: Netz.icons.zahnrad,
     async render(wurzel) {
       const liste = await Netz.invoke('gemerkte_netze');
       // Which saved network is the Mac in right now? Unknown or not saved: no row is marked.
       const jetzt = (await Netz.invoke('dieses_netz').catch(() => null))?.netz?.name;
-      const start = await autostart();
-      if (!liste.length) {
-        // Leere Liste: Der Leerzustand füllt die Höhe, der Schalter steht deshalb davor.
-        if (start) wurzel.append(start);
-        wurzel.append(Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. Unter „Dieses Netz“ merkst du das aktuelle.', 'gemerkte-netze'));
-        return;
-      }
-      const titel = `${liste.length} ${liste.length === 1 ? 'Netz' : 'Netze'}`;
-      wurzel.append(el('section', { class: 'gruppe', 'aria-labelledby': 'g-netze' },
-        el('h2', { id: 'g-netze', text: titel }),
-        el('div', { class: 'liste', role: 'list' }, liste.map((n, i) => zeile(n, i, n.name === jetzt))),
-        el('p', { class: 'fuss', id: 'meins-hilfe', text: '„meins“ erlaubt Gerätesuche und Portscans in diesem Netz. Schalte es nur für Netze ein, die dir gehören.' }),
-        el('p', { class: 'fuss erklaer-gruppe', text: 'DoT und DoH verschlüsseln deine DNS-Anfragen (die Frage nach der Adresse zu einem Namen). DDR heißt: Der Router verrät selbst, welchen verschlüsselten Server er anbietet. „nein“ heißt: Bei der letzten Prüfung ging das in diesem Netz nicht.' })));
-      if (start) wurzel.append(start);
+      const [start, fritz] = await Promise.all([autostart(), fritzbox()]);
+      const titel = liste.length ? `Gemerkte Netze (${liste.length})` : 'Gemerkte Netze';
+      wurzel.append(el('div', { class: 'kopf' }, el('h2', { text: 'Einstellungen' })),
+        el('section', { class: 'gruppe', 'aria-labelledby': 'g-netze' },
+          el('h3', { id: 'g-netze', text: titel }),
+          liste.length
+            ? [el('div', { class: 'liste', role: 'list' }, liste.map((n, i) => zeile(n, i, n.name === jetzt))),
+              el('p', { class: 'fuss', id: 'meins-hilfe', text: '„meins“ erlaubt Gerätesuche und Portscans in diesem Netz. Schalte es nur für Netze ein, die dir gehören.' }),
+              el('p', { class: 'fuss erklaer-gruppe', text: 'DoT und DoH verschlüsseln deine DNS-Anfragen (die Frage nach der Adresse zu einem Namen). DDR heißt: Der Router verrät selbst, welchen verschlüsselten Server er anbietet. „nein“ heißt: Bei der letzten Prüfung ging das in diesem Netz nicht.' })]
+            : el('div', { class: 'liste' }, Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. In der Übersicht merkst du das aktuelle.', 'gemerkte-netze'))),
+        start, fritz);
     },
   });
 })();

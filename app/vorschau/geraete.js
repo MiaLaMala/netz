@@ -54,10 +54,13 @@
     nurRouter('192.0.2.50', '00:00:5e:00:53:50', 'steckdose-flur', 'WLAN'),
     nurRouter('192.0.2.52', '00:00:5e:00:53:52', 'thermostat-bad', 'WLAN'),
   ].sort((a, b) => b.last_seen - a.last_seen);
-  let zugang = m('geraete-fritz') || m('geraete-fritz-liste') || m('geraete-fritz-falsch') || m('geraete-fritz-aus') || m('geraete-fritz-weg') ? 'netzinfo' : null;
+  let zugang = m('einst-fritz') || m('einst-fritz-entfernen') || m('geraete-fritz') || m('geraete-fritz-liste') || m('geraete-fritz-falsch') || m('geraete-fritz-aus') || m('geraete-fritz-weg') ? 'netzinfo' : null;
   let gelesen = false;
   VORSCHAU.fritzbox_zugang = async () => zugang;
-  VORSCHAU.fritzbox_speichern = async () => { zugang = 'netzinfo'; };
+  VORSCHAU.fritzbox_speichern = async ({ benutzer }) => {
+    if (m('einst-fritz-fehler')) throw 'Die Fritz!Box lehnt Benutzer oder Passwort ab. Prüfe sie unter System, Fritz!Box-Benutzer.';
+    zugang = benutzer.trim() || 'netzinfo';
+  };
   VORSCHAU.fritzbox_entfernen = async () => { zugang = null; gelesen = false; };
   VORSCHAU.fritzbox_lesen = async () => {
     await warte(600);
