@@ -131,12 +131,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     } else {
         String::new()
     };
-    println!(
+    let summe = format!(
         "{} lauschend{ohne}, davon {} für das Netz erreichbar, {} nur über VPN. Programme anderer Nutzer sind ohne Root nicht sichtbar.",
         lauschend(&liste),
         zaehle(Reichweite::Netz),
         zaehle(Reichweite::Vpn)
     );
+    println!("{}", crate::umbruch(&summe, "", ""));
     Ok(())
 }
 

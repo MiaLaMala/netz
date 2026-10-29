@@ -426,7 +426,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Die Eignung ist eine Faustregel: Videoanruf gut bei P95 unter 100 ms, Jitter unter 30 ms, Verlust unter 1 %. Spiele gut bei Median unter 50 ms, Jitter unter 15 ms, Verlust unter 0,5 %. Streaming gut bei Verlust unter 2 %. Ein Ping wird von Routern manchmal langsamer beantwortet als echter Verkehr.",
     );
     let mut serien: Vec<Serie> = ziele.iter().map(|_| Serie::default()).collect();
-    let tty = std::io::stdout().is_terminal();
+    // Cursorsteuerung nur im echten Terminal. Farbe nutzt Netzinfo nicht, `NO_COLOR` ist hier egal.
+    let tty =
+        std::io::stdout().is_terminal() && std::env::var_os("TERM").is_none_or(|t| t != "dumb");
     let ende = Instant::now() + Duration::from_secs(sekunden);
     let takt = Duration::from_millis(intervall);
     let (tx, rx) = mpsc::channel::<(usize, SerienStichprobe)>();

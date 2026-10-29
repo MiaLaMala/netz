@@ -475,7 +475,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                 Klasse::Auffaellig => "Auffällig",
                 Klasse::Alarm => "Alarm",
             };
-            println!("{label}: {}", u.text);
+            let kopf = format!("{label}: ");
+            let folge = " ".repeat(kopf.chars().count());
+            println!("{}", crate::umbruch(&u.text, &kopf, &folge));
         }
     }
     if r.nicht_messbar > 0 {
