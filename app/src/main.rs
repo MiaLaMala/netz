@@ -216,6 +216,12 @@ fn ipv6_messen() -> Result<netzinfo::ipv6::Ergebnis, Fehler> {
     netzinfo::ipv6::daten().map_err(Into::into)
 }
 
+/// Scan of the Wi-Fi channels around the Mac, only on click, stores nothing, see issue #55.
+#[tauri::command(async)]
+fn wlan_umfeld() -> Result<netzinfo::kanal::Ansicht, Fehler> {
+    netzinfo::kanal::umfeld().map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -251,6 +257,7 @@ fn main() {
             sni_pruefen,
             ipv6_messen,
             zeit_pruefen,
+            wlan_umfeld,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

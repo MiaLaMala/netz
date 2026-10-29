@@ -427,6 +427,50 @@
     return k;
   }
 
+  // ---- Karte „Funkumfeld“ (`netzinfo wlan --umfeld`, src/kanal.rs): scannt nur auf Klick, speichert nichts ----
+  const BAENDER = ['2,4 GHz', '5 GHz', '6 GHz'];
+  function umfeldBalken(a) {
+    if (a.belegung.length === 0) return meldung('Der Scan hat kein Netz gehört. Ohne Standortfreigabe liefert macOS manchmal nichts; erteile sie unter „Dieses Netz“.', 'orange');
+    const eigene = (band, kanal) => a.beobachtungen.filter((b) => b.band === band && b.kanal === kanal).length;
+    const hoechst = Math.max(...a.beobachtungen.map((b) => eigene(b.band, b.kanal)));
+    const ziel = a.empfehlung.ziel;
+    return el('div', {},
+      el('p', { class: 'umfeld-summe', text: `${a.beobachtungen.length} Netze in Reichweite${a.land ? `, Regelgebiet ${a.land}` : ''}` }),
+      BAENDER.map((band) => {
+        const kanaele = [...new Set([...a.beobachtungen, a.aktuell, ziel].filter((k) => k?.band === band).map((k) => k.kanal))].sort((x, y) => x - y);
+        return kanaele.length > 0 && el('div', { class: 'umfeld-band' }, el('h4', { text: band }),
+          el('ul', { class: 'umfeld-balken' }, kanaele.map((kanal) => {
+            const n = eigene(band, kanal);
+            const stoert = a.belegung.find((l) => l.band === band && l.kanal === kanal);
+            const du = a.aktuell?.band === band && a.aktuell.kanal === kanal;
+            const rat = ziel?.band === band && ziel.kanal === kanal;
+            const saeule = el('span', { class: 'saeule' });
+            saeule.style.setProperty('--h', `${Math.round((n / hoechst) * 80)}px`);
+            return el('li', { class: du ? 'jetzt' : rat ? 'rat' : '', title: `Kanal ${kanal}${du ? ' (dein Kanal)' : rat ? ' (empfohlen)' : ''}: ${n} Netze senden hier${stoert ? `, mit Nachbarkanälen ${stoert.netze} Netze, zusammen ${Math.round(stoert.dbm)} dBm` : ''}` },
+              el('span', { class: 'zahl', text: String(n) }), saeule, el('span', { class: 'kanal', text: String(kanal) }));
+          })));
+      }),
+      el('p', { class: 'umfeld-legende', text: 'Zahl = Netze auf genau diesem Kanal. Der Rat zählt im 2,4 GHz Band die Nachbarkanäle mit, weil sie sich überlappen. Blau: dein Kanal, grün: empfohlen.' }),
+      el('p', { class: 'umfeld-rat', text: a.empfehlung.text }));
+  }
+
+  function umfeldKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Umgebung ansehen' });
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Scannt etwa 5 Sekunden, die Verbindung kann kurz haken'));
+      try {
+        ort.replaceChildren(umfeldBalken(await Netz.invoke('wlan_umfeld')));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    });
+    return el('section', { class: 'gruppe umfeld-karte', 'aria-labelledby': 'g-umfeld' }, el('h3', { id: 'g-umfeld', text: 'Funkumfeld' }),
+      el('div', { class: 'karte' }, el('p', { class: 'umfeld-hinweis', text: 'Zählt Netze je Kanal, ohne Namen. Von den Nachbarn wird nichts gespeichert. Der Scan läuft nur auf Klick.' }), knopf, ort));
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -527,6 +571,7 @@
       wurzel.append(mtuKarte());
       wurzel.append(ipv6Karte());
       wurzel.append(zeitKarte());
+      wurzel.append(umfeldKarte());
       if (weiter) schalte(true);
     },
   });

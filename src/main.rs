@@ -40,6 +40,8 @@ Befehle:
   netzinfo wlan [--json]     Funkverbindung, Signal und Sicherheit des WLANs
   netzinfo wlan --verlauf [--minuten N]
                              Signal, Roaming und Abbrüche über Minuten verfolgen
+  netzinfo wlan --umfeld [--json]
+                             Scan: Netze je Kanal und Band, Rat für einen leereren Kanal
   netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
   netzinfo woher <Port|Programm> [--json]
                              Wer hat dieses Programm gestartet? Kette bis launchd
