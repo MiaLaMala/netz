@@ -40,12 +40,12 @@
     ].filter(Boolean);
     return el('tr', {},
       el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] })),
-      el('td', {}, el('div', { text: l.programm || `Unbekanntes Programm (PID ${l.pid})` }),
-        hinweise.length ? el('div', { class: 'fein warn', text: hinweise.join(' · ') }) : null,
+      el('td', { class: 'programm' }, el('div', { class: 'kuerzen', title: l.programm, text: l.programm || `Unbekanntes Programm (PID ${l.pid})` }),
+        hinweise.length ? el('div', { class: 'fein warn' }, el('span', { class: 'punkt orange' }), el('span', { text: hinweise.join(' · ') })) : null,
         Netz.woher(l.pid, l.programm)),
       el('td', { class: 'num' }, el('div', { text: `${l.protokoll} ${l.port}` }),
         l.dienst ? el('div', { class: 'fein', text: l.dienst }) : null),
-      el('td', { class: 'fein', text: adresse(l.adresse) }));
+      el('td', { class: 'fein num adresse', text: adresse(l.adresse) }));
   }
 
   // Der Kopf trägt die Aussage; ein UDP-Client lauscht nicht und zählt nicht mit.
@@ -128,7 +128,7 @@
           pruefen.textContent = 'Von außen prüfen';
         } catch {
           titel.textContent = 'Offen';
-          ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+          ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
         }
       }
     },

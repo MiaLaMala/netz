@@ -1,5 +1,5 @@
 // Fake answers for the view „verbindungen“ in vorschau.html.
-// Marks: verbindungen (grouped list), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database), verbindungen-keinnetz (Netz nicht gemerkt), verbindungen-fehler; add ,erklaeren.
+// Marks: verbindungen (grouped list), verbindungen-traffic / verbindungen-trafficfehler (Messung läuft / scheitert), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database), verbindungen-keinnetz (Netz nicht gemerkt), verbindungen-fehler; add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
   const v = (ziel, ziel_port, dienst, art, name, quelle, neu, land = null, anbieter = null) => ({
@@ -18,6 +18,7 @@
       v('203.0.113.40', 993, 'IMAPS', 'internet', 'imap.beispiel.example', 'PTR', false, 'Deutschland', 'BEISPIEL-HOSTING'),
       v('203.0.113.41', 5223, 'Apple Push', 'internet', null, null, true, 'USA', 'BEISPIEL-NETZ'),
     ]),
+    g('Code Helper (Renderer)', [v('203.0.113.77', 443, 'HTTPS', 'internet', 'ec2-203-0-113-77.eu-west-1.compute.beispiel-cloud.example', 'PTR', false, 'Irland', 'BEISPIEL-CLOUD')]),
     g('Backup', [v('198.51.100.40', 443, 'HTTPS', 'internet', 'speicher.beispiel.example', 'PTR', false, 'USA', 'BEISPIEL-CLOUD')]),
     g('Systemeinstellungen', [v('192.0.2.9', 631, 'IPP', 'netz', 'drucker.fritz.box', 'Gerät', false)]),
   ];
@@ -52,10 +53,10 @@ VORSCHAU.woher_zeigen = async () => ({
 // #58: one measurement, identical numbers every time. Rates = bytes / 5 s; sorted by total rate.
 (() => {
   const p = (programm, ein, aus) => ({ programm, ein, aus, rate_ein: ein / 5, rate_aus: aus / 5 });
-  VORSCHAU.traffic_messen = async () => [
+  VORSCHAU.traffic_messen = async () => marken.includes('verbindungen-trafficfehler') ? Promise.reject('Die Messung ging nicht: Netzinfo darf die Zähler nicht lesen.') : [
     p('Backup', 2_000_000, 24_000_000), p('Safari', 9_500_000, 600_000), p('Mail', 120_000, 40_000), p('Systemeinstellungen', 0, 0),
   ];
-  if (marken.includes('verbindungen-traffic')) {
+  if (marken.includes('verbindungen-traffic') || marken.includes('verbindungen-trafficfehler')) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => document.querySelector('.traffic .knopf')?.click(), 600));
   }
 })();
