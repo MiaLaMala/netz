@@ -2,23 +2,39 @@
 /* Kopf: Netzname und Status sind die erste Aussage der Ansicht. */
 [data-ansicht='dieses-netz'] .kopf h2 { font-size: 30px; letter-spacing: -0.025em; line-height: 1.1; }
 [data-ansicht='dieses-netz'] .status { flex-wrap: wrap; gap: 2px 8px; margin-top: 8px; font-size: 15px; }
+[data-ansicht='dieses-netz'] .status + .status { margin-top: 4px; }
 [data-ansicht='dieses-netz'] .status-wort { color: var(--fg); font-weight: 500; }
-[data-ansicht='dieses-netz'] .status-rest { color: var(--fg2); font-size: 13px; }
+[data-ansicht='dieses-netz'] .status-rest { color: var(--fg2); font-weight: 400; }
 /* Farbe nur für eine Bewertung. Gemischt mit der Schriftfarbe, damit sie 4,5:1 hält (hell wie dunkel). */
 [data-ansicht='dieses-netz'] .wert.gut { color: color-mix(in srgb, var(--gruen) 80%, var(--fg)); }
 [data-ansicht='dieses-netz'] .wert.mittel { color: color-mix(in srgb, var(--orange) 80%, var(--fg)); }
 [data-ansicht='dieses-netz'] .wert.schlecht { color: color-mix(in srgb, var(--rot) 80%, var(--fg)); }
 /* Mehrere Werte untereinander */
 [data-ansicht='dieses-netz'] .wert.stapel { white-space: pre-line; }
-/* Aufklappen für seltene Werte */
-[data-ansicht='dieses-netz'] .mehr { margin-top: 8px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+/* Aufklappen für seltene Werte: letzte Zeile der Gruppe, keine eigene Karte. */
+[data-ansicht='dieses-netz'] .gruppe:has(> .mehr) > .liste { border-bottom: 0; border-radius: 10px 10px 0 0; }
+[data-ansicht='dieses-netz'] .mehr { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 0 0 10px 10px; }
 [data-ansicht='dieses-netz'] .mehr summary { padding: 8px 14px; cursor: pointer; color: var(--fg2); }
 [data-ansicht='dieses-netz'] .mehr dl { margin: 0; }
 [data-ansicht='dieses-netz'] .mehr .zeile { border-top: 0.5px solid var(--linie); }
+/* Unbekanntes Netz: Strichbild, ein Satz, die Hauptaktion. */
+[data-ansicht='dieses-netz'] .neues-netz { margin-top: 8px; }
+[data-ansicht='dieses-netz'] .neues-netz .leer-zustand { padding: 16px 0 0; gap: 8px; }
+[data-ansicht='dieses-netz'] .neues-netz .leer-bild svg { width: 96px; height: 96px; }
+[data-ansicht='dieses-netz'] .neues-netz .aktion { margin-top: 16px; display: flex; justify-content: center; }
+[data-ansicht='dieses-netz'] .neues-netz .formular { width: 100%; }
+/* Knöpfe gehören in ihre Karte: eigene Zeile am Fuß, rechtsbündig. */
+[data-ansicht='dieses-netz'] .aktionszeile { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; padding: 10px 0; }
+[data-ansicht='dieses-netz'] .aktionszeile .fuss { margin: 0; }
+/* Neuer Messwert: die Gruppe blendet kurz ein. */
+[data-ansicht='dieses-netz'] .frisch { animation: rein 0.18s ease-out; }
+/* Keine Waisen in Sätzen */
+[data-ansicht='dieses-netz'] :is(.meldung, .fuss, .hilfe, .ort-status, .stand .label) { text-wrap: pretty; }
 /* Stand der Messung mit „Neu messen“ */
 [data-ansicht='dieses-netz'] .stand { align-items: center; }
 [data-ansicht='dieses-netz'] .stand .label { font-size: 12px; color: var(--fg2); white-space: normal; flex: 1; min-width: 0; }
 /* Standortfreigabe (#35) */
 [data-ansicht='dieses-netz'] .ort-karte .zeile { display: block; }
-[data-ansicht='dieses-netz'] .ort-karte summary { cursor: pointer; }
+[data-ansicht='dieses-netz'] .ort-karte summary { cursor: pointer; color: var(--fg2); }
+[data-ansicht='dieses-netz'] .ort-karte .zeile.aktionszeile { display: flex; }
 [data-ansicht='dieses-netz'] .ort-karte .ort-status { margin: 0; }
