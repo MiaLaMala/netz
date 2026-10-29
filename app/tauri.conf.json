@@ -14,11 +14,7 @@
         "width": 1000,
         "height": 680,
         "minWidth": 760,
-        "minHeight": 480,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "transparent": true,
-        "windowEffects": { "effects": ["sidebar"], "state": "followsWindowActiveState" }
+        "minHeight": 480
       }
     ],
     "security": {

@@ -5,7 +5,6 @@
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
 use std::net::{IpAddr, SocketAddr, UdpSocket};
-use std::process::Command;
 use std::time::{Duration, Instant};
 
 use crate::explain;
@@ -310,38 +309,15 @@ pub fn query(server: IpAddr, name: &str, qtype: u16, qclass: u16) -> Result<Answ
     query_raw(server, name, qtype, qclass).map(|r| r.2)
 }
 
-/// First nameserver from `scutil --dns`, else /etc/resolv.conf.
+/// First DNS server the system asks (see `plattform::system_dns`).
 pub fn system_resolver() -> Result<IpAddr, String> {
-    let scutil = Command::new("scutil")
-        .arg("--dns")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
-    let resolv = std::fs::read_to_string("/etc/resolv.conf").ok();
-    scutil
-        .as_deref()
-        .and_then(|t| first_nameserver(t, "nameserver["))
-        .or_else(|| {
-            resolv
-                .as_deref()
-                .and_then(|t| first_nameserver(t, "nameserver "))
-        })
+    // ponytail: scoped link-local IPv6 (fe80::1%en0) fails to parse and is skipped
+    crate::plattform::system_dns()
+        .iter()
+        .find_map(|s| s.parse().ok())
         .ok_or_else(|| {
             "Kein DNS-Server des Systems gefunden. Prüfe in den Systemeinstellungen unter Netzwerk, ob du verbunden bist.".into()
         })
-}
-
-fn first_nameserver(text: &str, prefix: &str) -> Option<IpAddr> {
-    text.lines().find_map(|l| {
-        let rest = l.trim().strip_prefix(prefix)?;
-        let value = if prefix.ends_with('[') {
-            rest.split_once(':')?.1
-        } else {
-            rest
-        };
-        // ponytail: scoped link-local IPv6 (fe80::1%en0) fails to parse and is skipped
-        value.trim().parse().ok()
-    })
 }
 
 fn type_name(t: u16) -> String {
@@ -766,20 +742,6 @@ mod tests {
             ]
         );
         assert_eq!(a.records[0].class, CH);
-    }
-
-    #[test]
-    fn nameserver_parsing() {
-        let scutil = "DNS configuration\n\nresolver #1\n  search domain[0] : fritz.box\n  nameserver[0] : 100.100.100.100\n  nameserver[1] : 192.0.2.53\n";
-        assert_eq!(
-            first_nameserver(scutil, "nameserver["),
-            Some("100.100.100.100".parse().unwrap())
-        );
-        assert_eq!(
-            first_nameserver("# x\nnameserver 192.0.2.53\n", "nameserver "),
-            Some("192.0.2.53".parse().unwrap())
-        );
-        assert_eq!(first_nameserver("nothing", "nameserver "), None);
     }
 
     fn ans(rcode: u8, ips: &[&str]) -> Reply {

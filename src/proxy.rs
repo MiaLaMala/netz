@@ -109,7 +109,7 @@ pub fn messen() -> Result<ProxyBefund, String> {
         .map_err(|e| format!("`scutil` ließ sich nicht starten ({e}). Läuft das auf einem Mac?"))?;
     let mut b = parse_scutil(&String::from_utf8_lossy(&out.stdout));
     if let Ok(info) = hier::collect() {
-        b.wpad_dhcp = hier::wpad_dhcp(&info.interface);
+        b.wpad_dhcp = crate::plattform::wpad_dhcp(&info.interface);
         b.wpad_dns = wpad_per_dns(&info);
     }
     Ok(b)

@@ -29,6 +29,7 @@ pub mod optionen;
 pub mod ort;
 pub mod pfad;
 pub mod pfadspur;
+pub mod plattform;
 pub mod portal;
 pub mod portfreigaben;
 pub mod ports;
