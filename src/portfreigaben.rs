@@ -311,7 +311,8 @@ fn vergleichen(alt: Option<&Gespeichert>, neu: &mut [Freigabe]) -> Vec<(Klasse, 
         );
         if let (true, Some((_, name))) = (f.aktiv, RISKANT.iter().find(|r| r.0 == f.extern_port)) {
             out.push((Klasse::Alarm, format!("Der Router hat Port {} ({}) ins Internet geöffnet, weiter an {ziel}. Das ist der Port für {name}, und der wird aus dem Internet ständig angegriffen. Schließe ihn in der Router-Oberfläche, wenn du ihn nicht selbst brauchst.", f.extern_port, f.protokoll)));
-        } else if alt.is_some() && bekannt.is_none() {
+        } else if f.aktiv && alt.is_some() && bekannt.is_none() {
+            // A disabled mapping opens nothing, so a new one is no finding.
             out.push((Klasse::Auffaellig, format!("Neue Portfreigabe im Router: Port {} ({}) zeigt auf {ziel}. Sie ist seit dem letzten Besuch dazugekommen. Spielkonsolen und Programme legen so etwas oft selbst an; erwartest du es nicht, schau in der Router-Oberfläche nach.", f.extern_port, f.protokoll)));
         }
     }
