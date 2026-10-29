@@ -11,7 +11,8 @@
     neu: 'Ein Ziel mit „neu“ hat dein Rechner in diesem Netz noch nie angesprochen. Das ist nicht gefährlich, aber neu. Netzinfo sperrt nichts. Gemerkt wird nur in „meins“-Netzen oder mit dem Schalter „Merken“.',
     fremd: 'Programme anderer Nutzer und Systemdienste sind ohne Root nicht sichtbar.',
   };
-  const ART = { netz: 'Netz', lokal: 'lokal' };
+  const ART = { netz: 'im eigenen Netz', lokal: 'dieser Mac' };
+  const NAME_QUELLE = { PTR: 'Name per PTR', 'Gerät': 'Name aus „Geräte“' };
 
   const zustand = { nurNeue: false, merken: false };
   let ergebnis = null;
@@ -27,13 +28,16 @@
     return s;
   };
 
-  // „Woher?“: lädt die Startkette erst beim Aufklappen (Issue #56).
+  // „Woher?“: Aktion der Zeile; lädt die Startkette erst beim Aufklappen (Issue #56).
   const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
-  function woher(pid) {
-    const inhalt = el('div', { class: 'woher-inhalt' });
-    const d = el('details', { class: 'woher' }, el('summary', { text: 'Woher?' }), inhalt);
-    d.addEventListener('toggle', async () => {
-      if (!d.open || inhalt.childElementCount) return;
+  function woher(pid, programm) {
+    const inhalt = el('div', { class: 'woher-inhalt', hidden: true });
+    const knopf = el('button', { class: 'woher-knopf', type: 'button', text: 'Woher?', 'aria-expanded': 'false', 'aria-label': `Woher kommt ${programm}?` });
+    knopf.addEventListener('click', async () => {
+      const auf = inhalt.hidden;
+      inhalt.hidden = !auf;
+      knopf.setAttribute('aria-expanded', String(auf));
+      if (!auf || inhalt.childElementCount) return;
       try {
         const h = await Netz.invoke('woher_zeigen', { pid });
         inhalt.append(
@@ -45,19 +49,20 @@
         inhalt.append(meldung(Netz.text(f), 'rot'));
       }
     });
-    return d;
+    return [knopf, inhalt];
   }
 
+  // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
-    const ziel = v.name || v.ziel;
-    const fein = [`${v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel}:${v.ziel_port}`, v.dienst, ART[v.art], v.name_quelle && `Name laut ${v.name_quelle}`].filter(Boolean);
-    return el('div', { class: 'verbindung-eintrag' },
-      el('div', { class: 'netz-zeile' },
-        el('div', { class: 'text' },
-          el('div', { class: 'netz-name num', text: ziel }),
-          el('div', { class: 'fein', text: fein.join(' · ') })),
-        v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' }))),
-      woher(v.pid));
+    const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
+    const fein = [v.name && adresse, `Port ${v.ziel_port}`, v.dienst, ART[v.art], NAME_QUELLE[v.name_quelle]].filter(Boolean);
+    const [knopf, inhalt] = woher(v.pid, v.programm);
+    return el('div', { class: 'netz-zeile' },
+      el('div', { class: 'text' },
+        el('div', { class: 'netz-name num', text: v.name || adresse }),
+        el('div', { class: 'fein', text: fein.join(' · ') })),
+      v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })),
+      knopf, inhalt);
   }
 
   function liste(r) {
@@ -68,7 +73,7 @@
     const neu = r.gruppen.reduce((s, g) => s + g.neu, 0);
     const teile = [`${alle} Verbindungen von ${r.gruppen.length} Programmen`];
     if (r.netz_name && !r.erster_lauf) teile.push(`${neu} neu in „${r.netz_name}“`);
-    const kopf = status(alle ? 'gruen' : 'orange', teile.join(' · '));
+    const kopf = status(alle ? '' : 'orange', teile.join(' · '));
     const hinweis = !r.netz_name
       ? 'Dieses Netz ist nicht gemerkt: Es gibt kein „neu“ und nichts wird gespeichert.'
       : r.erster_lauf ? `Erster Lauf in „${r.netz_name}“: Das ist der Ausgangsstand, nichts ist „neu“.` : null;
@@ -104,8 +109,8 @@
   }
 
   function trafficAbschnitt() {
-    const ort = el('div', { class: 'traffic-liste', 'aria-live': 'polite' });
-    const messen = el('button', { class: 'knopf', type: 'button', text: 'Messen' });
+    const ort = el('div', { class: 'traffic-liste', 'aria-live': 'polite' }, el('p', { class: 'traffic-leer', text: 'Noch nicht gemessen.' }));
+    const messen = el('button', { class: 'knopf haupt', type: 'button', text: 'Messen' });
     let wiederholen = false;
     let laeuft = false;
     let timer = null;
@@ -132,8 +137,8 @@
       if (document.hidden) timer = setTimeout(takt, TRAFFIC_TAKT);
       else einmal();
     };
-    const sw = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': 'false' },
-      el('span', { class: 'spur' }), el('span', { text: 'Alle 30 Sekunden wiederholen, solange diese Ansicht offen ist' }));
+    const sw = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': 'false', title: 'Solange diese Ansicht offen ist' },
+      el('span', { class: 'spur' }), el('span', { text: 'Alle 30 Sekunden wiederholen' }));
     sw.addEventListener('click', () => {
       wiederholen = !wiederholen;
       sw.setAttribute('aria-checked', String(wiederholen));
@@ -142,9 +147,9 @@
     });
     messen.addEventListener('click', einmal);
     return Object.assign(gruppe('Wer sendet gerade', [
+      el('p', { class: 'traffic-text', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt (blau) und sendet (orange). Die Balken zeigen das Verhältnis zum lautesten Programm, gezählt werden alle Wege, auch zum Router.` }),
       el('div', { class: 'traffic-werkzeuge' }, messen, sw),
       ort,
-      el('p', { class: 'fuss', text: 'Die Werte sind Zähler seit Prozessstart, gezeigt wird die Differenz über 5 Sekunden. Blau: empfangen, orange: gesendet, Länge im Verhältnis zum lautesten Programm. Die Zahlen zählen alle Wege, auch zum eigenen Router.' }),
     ]), { className: 'gruppe traffic' });
   }
 
@@ -155,23 +160,48 @@
     async render(wurzel) {
       const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' });
       const zeichne = () => ort.replaceChildren(...liste(ergebnis).filter(Boolean));
-      const loeschen = el('button', { class: 'knopf', type: 'button', text: 'Gemerkte Daten dieses Netzes löschen' });
-      loeschen.addEventListener('click', async () => {
-        try {
-          await Netz.invoke('verbindungen_loeschen');
-          Netz.neuLaden();
-        } catch (f) {
-          ort.prepend(meldung(Netz.text(f), 'rot'));
-        }
-      });
+      const merkenGruppe = () => {
+        const fehler = el('div', { 'aria-live': 'polite' });
+        const loeschen = el('button', { class: 'knopf gefahr', type: 'button', text: 'Löschen …', 'aria-label': 'Gemerkte Daten dieses Netzes löschen' });
+        const zeileLoeschen = el('div', { class: 'netz-zeile' },
+          el('div', { class: 'text' },
+            el('div', { class: 'fein', text: 'Löscht, was Netzinfo über Verbindungen in diesem Netz kennt. Danach ist wieder jedes Ziel „neu“.' })),
+          loeschen);
+        loeschen.addEventListener('click', () => {
+          const nein = el('button', { class: 'knopf', type: 'button', text: 'Abbrechen' });
+          const ja = el('button', { class: 'knopf gefahr', type: 'button', text: 'Löschen' });
+          nein.addEventListener('click', () => { zeileLoeschen.replaceChildren(...zeileLoeschen0); loeschen.focus(); });
+          ja.addEventListener('click', async () => {
+            ja.disabled = true;
+            try {
+              await Netz.invoke('verbindungen_loeschen');
+              Netz.neuLaden();
+            } catch (f) {
+              fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
+              ja.disabled = false;
+            }
+          });
+          zeileLoeschen.replaceChildren(el('div', { class: 'bestaetigung', role: 'group', 'aria-label': 'Gemerkte Daten löschen?' },
+            el('p', { text: 'Alle gemerkten Verbindungen dieses Netzes löschen? Das lässt sich nicht rückgängig machen.' }), nein, ja));
+          nein.focus();
+        });
+        const zeileLoeschen0 = [...zeileLoeschen.childNodes];
+        return el('section', { class: 'gruppe', 'aria-labelledby': 'g-merken' },
+          el('h3', { id: 'g-merken', text: 'Gemerkte Daten' }),
+          el('div', { class: 'liste' },
+            el('div', { class: 'netz-zeile' },
+              el('div', { class: 'text' },
+                el('div', { class: 'fein', text: 'Speichert, welche Ziele dieses Netz kennt, damit neue auffallen. In „meins“-Netzen geschieht das immer, sonst nur mit diesem Schalter.' })),
+              schalter('Merken', 'merken', () => Netz.neuLaden())),
+            zeileLoeschen),
+          fehler);
+      };
       wurzel.append(
         el('div', { class: 'kopf' }, el('h2', { text: 'Verbindungen' }),
           el('p', { class: 'status' }, el('span', { text: 'Wer gerade mit wem spricht, nach Programm gruppiert.' }))),
-        el('div', { class: 'werkzeuge' },
-          schalter('Nur neue', 'nurNeue', () => ergebnis && zeichne()),
-          schalter('Merken', 'merken', () => Netz.neuLaden())),
+        el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => ergebnis && zeichne())),
         ort,
-        el('div', { class: 'aktion' }, loeschen),
+        merkenGruppe(),
         trafficAbschnitt(),
         Object.assign(gruppe('So entsteht die Liste', [
           zeile('Verbunden', 'nur ESTABLISHED', E.verbunden),

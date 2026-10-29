@@ -3,7 +3,7 @@
 (() => {
   const m = (s) => marken.includes(s);
   const v = (ziel, ziel_port, dienst, art, name, quelle, neu) => ({
-    protokoll: 'TCP', lokal: '192.168.178.20:50123', ziel, ziel_port, dienst, zustand: 'ESTABLISHED', pid: 4242,
+    protokoll: 'TCP', lokal: '192.0.2.20:50123', ziel, ziel_port, dienst, zustand: 'ESTABLISHED', pid: 4242,
     programm: '', pfad: null, art, name, name_quelle: quelle, neu,
   });
   const g = (programm, vs) => ({ programm, neu: vs.filter((x) => x.neu).length, verbindungen: vs.map((x) => ({ ...x, programm })) });
@@ -17,7 +17,8 @@
       v('203.0.113.40', 993, 'IMAPS', 'internet', 'imap.beispiel.example', 'PTR', false),
       v('203.0.113.41', 5223, 'Apple Push', 'internet', null, null, true),
     ]),
-    g('Finder', [v('192.168.178.9', 445, 'SMB', 'netz', 'drucker.fritz.box', 'Gerät', false)]),
+    g('Backup', [v('198.51.100.40', 443, 'HTTPS', 'internet', 'speicher.beispiel.example', 'PTR', false)]),
+    g('Systemeinstellungen', [v('192.0.2.9', 631, 'IPP', 'netz', 'drucker.fritz.box', 'Gerät', false)]),
   ];
   VORSCHAU.verbindungen_zeigen = async () => {
     if (m('verbindungen-leer')) return { gruppen: [], netz_name: 'WG', erster_lauf: false, gespeichert: true };
@@ -46,7 +47,7 @@ VORSCHAU.woher_zeigen = async () => ({
 (() => {
   const p = (programm, ein, aus) => ({ programm, ein, aus, rate_ein: ein / 5, rate_aus: aus / 5 });
   VORSCHAU.traffic_messen = async () => [
-    p('Backup', 2_000_000, 24_000_000), p('Safari', 9_500_000, 600_000), p('Mail', 120_000, 40_000), p('Finder', 0, 0),
+    p('Backup', 2_000_000, 24_000_000), p('Safari', 9_500_000, 600_000), p('Mail', 120_000, 40_000), p('Systemeinstellungen', 0, 0),
   ];
   if (marken.includes('verbindungen-traffic')) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => document.querySelector('.traffic .knopf')?.click(), 600));

@@ -5,16 +5,22 @@
 [data-ansicht='verbindungen'] .ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
 [data-ansicht='verbindungen'] .ergebnis .fuss { margin-bottom: 4px; }
 [data-ansicht='verbindungen'] .ergebnis { margin-top: 8px; }
-/* Empty list: the delete button sits centred under the centred empty state. */
-[data-ansicht='verbindungen'] .ergebnis:has(.leer-zustand) + .aktion { text-align: center; }
-[data-ansicht='verbindungen'] .woher { margin: 0 0 8px; font-size: 13px; }
-[data-ansicht='verbindungen'] .woher summary { cursor: pointer; opacity: 0.8; }
-[data-ansicht='verbindungen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; }
+/* „Woher?“ is an action of the row; its panel opens below the row. */
+[data-ansicht='verbindungen'] .woher-knopf { border: 0; background: none; color: var(--accent); font-size: 12px; padding: 3px 6px; margin-right: -6px; border-radius: 5px; }
+[data-ansicht='verbindungen'] .woher-knopf:hover { background: var(--knopf-aktiv); }
+[data-ansicht='verbindungen'] .woher-inhalt { flex-basis: 100%; }
+[data-ansicht='verbindungen'] .woher-inhalt[hidden] { display: none; }
+[data-ansicht='verbindungen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; font-size: 12px; }
+[data-ansicht='verbindungen'] .woher-inhalt .fein { margin: 0; }
+[data-ansicht='verbindungen'] .liste .netz-zeile .erklaeren-schalter { padding-right: 0; }
+[data-ansicht='verbindungen'] .liste .bestaetigung { padding: 2px 0; }
+[data-ansicht='verbindungen'] .liste .fein { margin: 0; }
 /* #58 „Wer sendet gerade“ */
-[data-ansicht='verbindungen'] .traffic-werkzeuge { display: flex; align-items: center; gap: 14px; padding: 12px 14px 8px; }
-[data-ansicht='verbindungen'] .traffic-werkzeuge .erklaeren-schalter { padding-left: 0; }
+[data-ansicht='verbindungen'] .traffic-text { margin: 12px 14px 10px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='verbindungen'] .traffic-werkzeuge { display: flex; align-items: center; gap: 14px; padding: 0 14px 4px; }
+[data-ansicht='verbindungen'] .traffic-leer { margin: 0; padding: 18px 14px 14px; text-align: center; font-size: 13px; color: var(--fg2); }
 [data-ansicht='verbindungen'] .traffic-zeile { padding: 6px 14px; }
-[data-ansicht='verbindungen'] .traffic .fuss { padding-bottom: 12px; }
+[data-ansicht='verbindungen'] .traffic-liste { padding-bottom: 8px; }
 [data-ansicht='verbindungen'] .traffic-balken span { min-width: 3px; }
 [data-ansicht='verbindungen'] .traffic-kopf { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 [data-ansicht='verbindungen'] .traffic-balken { display: flex; height: 8px; border-radius: 3px; background: var(--linie); overflow: hidden; }
