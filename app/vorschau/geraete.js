@@ -31,7 +31,7 @@
   const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, namen: [], besuche: 5, typ, symbol, anzeigename, namequelle: QUELLEN[anzeigename] || (/^\d/.test(anzeigename) ? '' : 'DNS (PTR)'), erklaerung, hinweise, ...extra });
   const QUELLEN = { 'Wohnzimmer-TV': 'Bonjour', 'Alter Laptop': 'von dir', 'MIAS-PC': 'NetBIOS' };
   const KARTEN = [
-    k(router, 'Router', '🌐', 'fritz.box', 'Netzinfo hält dieses Gerät für einen Router, weil es das Standardgateway deines Netzes ist.', [], { hersteller: 'Beispiel Netzwerktechnik GmbH', besuche: 40 }),
+    k(router, 'Router', '🌐', 'fritz.box', 'Netzinfo hält dieses Gerät für einen Router, weil es das Standardgateway deines Netzes ist.', [], { hersteller: 'Beispiel Netzwerktechnik GmbH', besuche: 40, gateway: true }),
     k(neu, 'Medien', '📺', 'wohnzimmer-tv.fritz.box', 'Netzinfo hält dieses Gerät für ein Medien-Gerät (Fernseher oder Lautsprecher), weil es den Bonjour-Dienst AirPlay (_airplay._tcp) anbietet.', ['wurde erst einmal gesehen'], { hersteller: 'Beispiel Elektronik Co.', besuche: 1, dienste: [dienst('_airplay._tcp', 'Wohnzimmer', 7000), dienst('_googlecast._tcp', 'Wohnzimmer-TV', 8009)] }),
     k(mac, 'Computer', '💻', 'mias-macbook.fritz.box', 'Netzinfo hält dieses Gerät für einen Computer, weil es SSH (Port 22) anbietet.', ['hatte früher 2 andere IP-Adresse(n)'], { hersteller: 'Beispiel Computer Inc.', besuche: 31, dienste: [dienst('_ssh._tcp', 'mias-macbook', 22), dienst('_smb._tcp', 'mias-macbook', 445)] }),
     k(drucker, 'Drucker', '🖨️', 'drucker.fritz.box', 'Netzinfo hält dieses Gerät für einen Drucker, weil es den Bonjour-Dienst für Drucken (_ipp._tcp) anbietet.', [], { hersteller: 'Beispiel Druck AG', besuche: 22, dienste: [dienst('_ipp._tcp', 'Flur-Drucker', 631)] }),
@@ -43,12 +43,27 @@
   // UPnP (issue #42): model and type of the TV, as `netzinfo upnp` stores them.
   KARTEN.find((x) => x.ip === neu.ip).upnp = { udn: 'uuid:0000-example', server: null, geraetetyp: 'urn:schemas-upnp-org:device:MediaRenderer:1', hersteller: 'Beispiel Elektronik Co.', modell: 'Bildschirm 55', name: 'Wohnzimmer-TV', location_pfad: '/desc.xml' };
 
+  // Router-Seite (#67): geraete-router (selbst ausgestellt, Klartext), geraete-router-umleitung, geraete-router-nichtmeins.
+  VORSCHAU.router_seite = async () => {
+    await warte(500);
+    if (m('geraete-router-nichtmeins')) throw { art: 'nicht_meins', text: nichtMeins.replace('geraete', 'router') };
+    const umleitung = m('geraete-router-umleitung');
+    return {
+      gateway: router.ip,
+      hinweise: umleitung ? [] : ['Die Router-Seite ist über http ohne Verschlüsselung erreichbar und führt nicht auf https. Wer im Heimnetz mitlesen kann, sieht dort eingegebene Passwörter.'],
+      seite: { http: 'offen', https: 'offen', umleitung, server: 'Beispiel-Router', titel: 'Beispiel Box',
+        zertifikat: { selbstsigniert: true, abgelaufen: false, gueltig_bis: '2033-05-14', aussteller: 'CN=box.example' } },
+    };
+  };
+
   // vorschau.html only knows the mark „geraete“; the other marks open the tab here. Search marks press „Suchen“.
+  const routermarken = ['router', 'router-umleitung', 'router-nichtmeins'].map((x) => `geraete-${x}`);
   const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche'].map((x) => `geraete-${x}`);
   if (marken.some((s) => s.startsWith('geraete'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-geraete')?.click();
       if (marken.some((s) => suchmarken.includes(s))) setTimeout(() => document.querySelector('.aktion button')?.click(), 250);
+      if (marken.some((s) => routermarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.karte-router button')][0]?.click(), 400);
       if (m('geraete-gefiltert')) setTimeout(() => [...document.querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Drucker'))?.click(), 400);
     }, 150));
   }

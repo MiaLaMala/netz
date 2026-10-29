@@ -25,3 +25,7 @@
 [data-ansicht='geraete'] .karte-formular input[type="text"] { flex: 1; min-width: 160px; }
 [data-ansicht='geraete'] .karte-formular > div:empty { display: none; }
 [data-ansicht='geraete'] .filter + .fuss { margin-left: 0; }
+
+/* Router-Seite (#67) */
+[data-ansicht='geraete'] .karte-router { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+[data-ansicht='geraete'] .router-seite:empty { display: none; }

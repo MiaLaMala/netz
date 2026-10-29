@@ -233,6 +233,8 @@ pub struct Karte {
     /// One German sentence: why this type (or why none).
     pub erklaerung: String,
     pub hinweise: Vec<String>,
+    /// Das Standardgateway des Netzes: nur dort bietet die App die Router-Seite an (#67).
+    pub gateway: bool,
 }
 
 fn typ_info(name: &str) -> (&'static str, &'static str, &'static str) {
@@ -350,6 +352,7 @@ pub fn karte(d: &Device, router: Option<Ipv4Addr>, jetzt: u64) -> Karte {
     geraet.besuche = geraet.besuche.max(1);
     Karte {
         hinweise: hinweise(&geraet, jetzt),
+        gateway: router == Some(d.ip),
         geraet,
         anzeigename,
         namequelle,

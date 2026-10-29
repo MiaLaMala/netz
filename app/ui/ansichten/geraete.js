@@ -80,6 +80,7 @@
       k.hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise' }, k.hinweise.map((h) => el('li', { text: h }))),
       el('div', { class: 'fein', text: `Zuerst gesehen ${zeit(k.first_seen)}, zuletzt gesehen ${zeit(k.last_seen)}, ${k.besuche} ${k.besuche === 1 ? 'Besuch' : 'Besuche'}` }),
       el('p', { class: 'erklaerung', text: k.erklaerung }),
+      k.gateway && routerBlock(),
       formular,
       el('div', { class: 'karte-aktion' }, el('button', {
         class: 'knopf', type: 'button', text: 'Name und Typ ändern',
@@ -89,6 +90,39 @@
           formular.querySelector('input').focus();
         },
       })));
+  }
+
+  // Router-Seite (Rust: router::Ergebnis): one read-only look at the gateway, shown inside the router card.
+  const E_ROUTER = 'Netzinfo ruft die Startseite des Routers einmal über http ab und lässt sich über https das Zertifikat zeigen. Gelesen wird nur die Kennung des Webservers, der Seitentitel und das Zertifikat. Es gibt kein Anmelden und kein Ausprobieren anderer Seiten. Ein selbst ausgestelltes Zertifikat ist bei Routern üblich und kein Zeichen für einen Angriff.';
+  const portStatus = (s) => (s === 'offen' ? 'erreichbar' : s === 'zu' ? 'geschlossen' : s?.fehler ?? 'unbekannt');
+  let routerErgebnis = null;
+  function routerBlock() {
+    const ort = el('div', { class: 'router-seite', 'aria-live': 'polite' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Router-Seite prüfen' });
+    const zeige = (r) => {
+      const s = r.seite;
+      const z = s.zertifikat;
+      ort.replaceChildren(
+        el('div', { class: 'fein', text: `http (80): ${portStatus(s.http)}${s.http === 'offen' ? (s.umleitung ? ', leitet auf https um' : ', ohne Umleitung auf https') : ''}` }),
+        el('div', { class: 'fein', text: `https (443): ${portStatus(s.https)}` }),
+        z && el('div', { class: 'fein', text: `Zertifikat bis ${z.gueltig_bis}${z.abgelaufen ? ' (abgelaufen)' : ''}${z.selbstsigniert ? ', selbst ausgestellt' : ''}` }),
+        s.server && el('div', { class: 'fein', text: `Server: ${s.server}` }),
+        s.titel && el('div', { class: 'fein', text: `Seitentitel: ${s.titel}` }),
+        r.hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise zur Router-Seite' }, r.hinweise.map((h) => el('li', { text: h }))),
+        el('p', { class: 'erklaerung', text: E_ROUTER }));
+    };
+    if (routerErgebnis) zeige(routerErgebnis);
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      try {
+        routerErgebnis = await Netz.invoke('router_seite');
+        zeige(routerErgebnis);
+      } catch (f) {
+        ort.replaceChildren(meldung(Netz.text(f), f?.art === 'nicht_meins' ? 'orange' : 'rot'));
+      }
+      knopf.disabled = false;
+    });
+    return el('div', { class: 'karte-router' }, el('div', { class: 'karte-aktion' }, knopf), ort);
   }
 
   const kartenOrt = el('div', { class: 'karten-ort' });
