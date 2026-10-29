@@ -1,0 +1,16 @@
+name: Idee oder Wunsch
+description: Netzinfo soll etwas können, das es noch nicht kann.
+labels: [idee]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Was willst du im Netz herausfinden?
+      description: Beschreib die Lage, nicht die Lösung, z. B. „Ich will wissen, ob der Gästebereich vom Firmennetz getrennt ist.“
+    validations:
+      required: true
+  - type: textarea
+    id: vorschlag
+    attributes:
+      label: Wie könnte Netzinfo helfen?
+      description: Optional. Ein Befehl, eine Ansicht oder ein Satz in der Ausgabe.

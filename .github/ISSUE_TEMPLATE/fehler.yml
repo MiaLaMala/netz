@@ -6,14 +6,14 @@ body:
     id: os
     attributes:
       label: Betriebssystem und Version
-      placeholder: macOS 15.2
+      placeholder: macOS 15.2 oder Debian 12
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: Netzinfo-Version
-      description: Ausgabe von `netzinfo --version`
+      description: Ausgabe von `netzinfo --version`; bei der App die Version aus „Über Netzinfo“
     validations:
       required: true
   - type: input
