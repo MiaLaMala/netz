@@ -700,6 +700,7 @@
 
   Netz.registriere({
     id: 'qualitaet',
+    teil: true,
     titel: 'Qualität',
     icon: Netz.icons.qualitaet,
     async render(wurzel) {

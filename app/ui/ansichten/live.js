@@ -166,6 +166,7 @@
 
   Netz.registriere({
     id: 'live',
+    teil: true,
     aktualisieren: false, // Die Ansicht misst von selbst, ⌘R hätte nichts zu tun.
     titel: 'Live',
     icon: Netz.icons.live,

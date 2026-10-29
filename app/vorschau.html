@@ -59,7 +59,9 @@
     } } };
 
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
-      const klick = (s) => document.querySelector(s)?.click();
+      // Teilansichten (teil: true) haben keinen Eintrag in der Seitenleiste: „tab-<id>“ zeigt sie dann direkt.
+      const klick = (s) => { const e = document.querySelector(s); if (e) e.click(); else if (s.startsWith('#tab-')) Netz.zeige(s.slice(5)); };
+      for (const m of marken) if (m.startsWith('tab-') && !document.getElementById(m)) Netz.zeige(m.slice(4));
       if (marken.includes('netze')) klick('#tab-gemerkte-netze');
       if (marken.includes('pruefung')) klick('#tab-pruefung');
       if (marken.includes('geraete')) klick('#tab-geraete');
@@ -83,6 +85,7 @@
   <script src="vorschau/verbindungen.js"></script>
   <script src="vorschau/offen.js"></script>
   <script src="vorschau/live.js"></script>
+  <script src="vorschau/engpass.js"></script>
   <script defer src="ui/bilder.js"></script>
   <script defer src="ui/app.js"></script>
   <script defer src="ui/ansichten/dieses-netz.js"></script>
@@ -93,6 +96,8 @@
   <script defer src="ui/ansichten/verbindungen.js"></script>
   <script defer src="ui/ansichten/offen.js"></script>
   <script defer src="ui/ansichten/live.js"></script>
+  <script defer src="ui/ansichten/uebersicht.js"></script>
+  <script defer src="ui/ansichten/tempo.js"></script>
 </head>
 <body>
   <nav class="seite" aria-label="Bereiche">
