@@ -75,7 +75,7 @@
     // Ohne Rückmeldung wüsste man nach „Von außen prüfen“ nicht, ob die Prüfung lief.
     const tcp = netz.filter((l) => l.protokoll === 'TCP');
     const geprueft = zustand.aussen && tcp.length ? el('p', { class: 'fuss', text: `Von außen geprüft: ${tcp.filter((l) => l.von_aussen).length} von ${tcp.length} TCP-Ports im Netz sind auch von außen offen.` }) : null;
-    ort.replaceChildren(geprueft, el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
+    ort.replaceChildren(geprueft ?? '', el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
       el('thead', {}, el('tr', {}, ['Reichweite', 'Programm', 'Port', 'Adresse'].map((t) => el('th', { scope: 'col', text: t })))),
       el('tbody', {}, gezeigt.map(zelle)))));
   }

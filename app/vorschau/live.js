@@ -41,7 +41,7 @@
 
   VORSCHAU.live_sonde = async ({ ziel }) => {
     if (m('live-fehler')) throw `Für „${ziel}“ gibt es keine IP-Adresse. Prüfe den Namen.`;
-    if (m('live-recht')) throw 'Kann keinen ICMP-Socket öffnen (Operation not permitted). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.';
+    if (m('live-recht')) throw 'Kann keinen ICMP-Socket öffnen (keine Berechtigung). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.';
     return ansicht(ziel, ['1.1.1.1', '9.9.9.9'].indexOf(ziel) === 1 ? 1 : 0);
   };
 
