@@ -32,6 +32,7 @@ Befehle:
   netzinfo pfad [Ziel]       Weg ins Internet Hop für Hop
   netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
   netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
+  netzinfo offen --aussen [--meins]  Dazu: Port auch von außen erreichbar? (wie ports)
   netzinfo bonjour           Dienste im Netz, die sich per Bonjour melden
   netzinfo diagnose [--json] Wo liegt das Problem? Schicht für Schicht eingrenzen
   netzinfo wlan [--json]     Funkverbindung, Signal und Sicherheit des WLANs
