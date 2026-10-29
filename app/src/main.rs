@@ -278,6 +278,12 @@ fn last_messen(trotz_hotspot: bool) -> Result<netzinfo::last::Lauf, Fehler> {
     netzinfo::last::messen_und_speichern(trotz_hotspot).map_err(Into::into)
 }
 
+/// Port mappings the router opened via UPnP, read-only and only in „meins“ networks, see issue #45.
+#[tauri::command(async)]
+fn portfreigaben() -> Result<netzinfo::portfreigaben::Anzeige, Fehler> {
+    netzinfo::portfreigaben::anzeige().map_err(Into::into)
+}
+
 /// Whether the app starts with the login, see issue #9.
 #[tauri::command]
 fn autostart_lesen() -> Result<bool, Fehler> {
@@ -345,6 +351,7 @@ fn main() {
             last_messen,
             autostart_lesen,
             autostart_setzen,
+            portfreigaben,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
