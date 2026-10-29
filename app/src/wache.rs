@@ -120,6 +120,7 @@ fn anzeigen(app: &AppHandle, z: Zustand, netz: &str, zuletzt: &str) {
     let m = app.state::<Menue>();
     // Cosmetic updates: a failure here must not stop the guard.
     let _ = m.tray.set_title(Some(z.symbol()));
+    // Der Tooltip nennt den Zustand in Worten (VoiceOver liest ihn als Hilfetext); im Titel steht nur das Kürzel.
     let _ = m.tray.set_tooltip(Some(format!("Netzinfo: {}", z.text())));
     let _ = m.netz.set_text(format!("{netz}: {}", z.text()));
     let _ = m.zuletzt.set_text(zuletzt);
@@ -211,6 +212,7 @@ pub fn starten(app: &mut App) -> tauri::Result<()> {
         .icon_as_template(true)
         .menu(&menue)
         .title(Zustand::Unbekannt.symbol())
+        .tooltip(format!("Netzinfo: {}", Zustand::Unbekannt.text()))
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             "jetzt" => {
                 let app = app.clone();
