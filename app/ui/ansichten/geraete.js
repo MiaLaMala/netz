@@ -96,17 +96,26 @@
     const hinweise = k.hinweise.filter((h) => !doppelt(k, h));
     const liste = angebote(k);
     // One grid: the symbol column runs through the whole card, so all text shares one left edge.
-    return el('article', { class: 'karte', 'aria-label': k.anzeigename },
+    const aendern = el('button', {
+      class: 'knopf leise', type: 'button', text: 'Name und Typ ändern',
+      onclick: (e) => {
+        e.currentTarget.hidden = true;
+        formular.replaceChildren(bearbeiten(k, () => { formular.replaceChildren(); e.currentTarget.hidden = false; }));
+        formular.querySelector('input').focus();
+      },
+    });
+    return el('article', { class: k.gateway ? 'karte karte-breit' : 'karte', 'aria-label': k.anzeigename },
       el('span', { class: 'karte-symbol', html: SYMBOLE[k.typ] ?? SYMBOLE.Unbekannt, 'aria-hidden': 'true' }),
       el('div', { class: 'karte-kopf' },
         el('div', { class: 'text' },
-          el('div', {}, el('span', { class: 'netz-name', text: k.anzeigename }),
-            k.namequelle && el('span', { class: 'marke', text: ` · ${k.namequelle}` })),
+          el('div', { class: 'netz-name', text: k.anzeigename }),
           el('div', { class: 'fein' },
             el('span', { text: k.hersteller || 'Hersteller unbekannt' }),
+            k.namequelle && el('span', { text: `Name: ${k.namequelle}` }),
             k.mac_zufaellig && el('span', { class: 'zufall' }, el('span', { html: ZUFALL }), el('span', { text: 'Zufällige Adresse' })))),
-        el('span', { class: 'karte-typ', text: k.typ }),
-        wort && el('span', { class: 'status geraet-status' }, el('span', { class: `punkt ${wort[0]}` }), el('span', { text: wort[1] }))),
+        el('div', { class: 'karte-rechts' },
+          el('span', { class: 'karte-typ', text: k.typ }),
+          wort && el('span', { class: 'status geraet-status' }, el('span', { class: `punkt ${wort[0]}` }), el('span', { text: wort[1] })))),
       el('div', { class: 'fein num', text: [k.ip, k.mac && `MAC ${k.mac}`].filter(Boolean).join(' · ') }),
       k.upnp && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
       k.router && el('div', { class: 'fein', text: `${k.router.nur_router ? 'Nur vom Router bekannt' : 'Router'}: ${[k.router.verbindung !== 'unbekannt' && k.router.verbindung, k.router.aktiv ? 'aktiv' : 'nicht verbunden'].filter(Boolean).join(', ')}` }),
@@ -115,17 +124,9 @@
         liste.map(([port, name, wer]) => el('li', {}, el('span', { class: 'num', text: port }), el('span', {}, name, wer && el('span', { class: 'marke', text: ` · ${wer}` }))))),
       hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise' }, hinweise.map((h) => el('li', { text: h }))),
       el('p', { class: 'erklaerung', text: k.erklaerung }),
-      el('div', { class: 'karte-aktionen' },
-        k.gateway && routerKnoepfe(),
-        el('button', {
-          class: 'knopf leise', type: 'button', text: 'Name und Typ ändern',
-          onclick: (e) => {
-            e.currentTarget.hidden = true;
-            formular.replaceChildren(bearbeiten(k, () => { formular.replaceChildren(); e.currentTarget.hidden = false; }));
-            formular.querySelector('input').focus();
-          },
-        })),
+      k.gateway ? el('div', { class: 'karte-aktionen' }, routerKnoepfe()) : null,
       k.gateway && routerOrt,
+      el('div', { class: 'karte-aktionen' }, aendern),
       formular);
   }
 
@@ -264,10 +265,10 @@
       if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), 'rot'));
     } else {
       const zeile = el('div', { class: 'karte-aktionen' },
-        el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen }),
         el('button', { class: 'knopf leise', type: 'button', text: 'Zugang ändern', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } }),
-        el('button', { class: 'knopf leise fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => fritzEntfernen(zeile) }));
-      teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund` }), zeile);
+        el('button', { class: 'knopf leise gefahr fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => fritzEntfernen(zeile) }));
+      teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund` }),
+        el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen })));
       if (fritz.laeuft) teile.push(el('div', { class: 'fein', text: 'Lese die Liste …' }));
       else if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), fritz.fehler?.art === 'nicht_meins' ? 'orange' : 'rot'));
       else if (e?.zustand === 'ok') {
@@ -276,6 +277,7 @@
       } else if (e && FRITZ_ZUSTAND[e.zustand]) {
         teile.push(status(...FRITZ_ZUSTAND[e.zustand]), el('div', { class: 'fein', text: e.satz }));
       }
+      teile.push(zeile);
     }
     teile.push(el('p', { class: 'erklaerung', text: E.fritz }));
     fritzOrt.replaceChildren(...teile);
@@ -334,7 +336,7 @@
       if (fritz.erkannt && !fritz.geladen) await fritzLaden();
       else fritzZeichne();
     } catch (f) {
-      kartenOrt.replaceChildren(meldung(Netz.text(f), 'rot'));
+      kartenOrt.replaceChildren(Netz.fehlerKarte(Netz.text(f), ladeKarten));
     }
   }
 
@@ -374,7 +376,7 @@
           if (fritz.erkannt && fritz.benutzer) await fritzLesen(); // der Zugang ist eingerichtet: die Liste des Routers dazu
         } catch (f) {
           const nein = abgelehnt(f);
-          ort.replaceChildren(...[meldung(Netz.text(f), nein ? 'orange' : 'rot'),
+          ort.replaceChildren(...[nein ? meldung(Netz.text(f), 'orange') : Netz.fehlerKarte(Netz.text(f), suche),
             nein && el('div', { class: 'aktion' }, el('button', {
               class: 'knopf', type: 'button', text: 'Zu „Gemerkte Netze“',
               onclick: () => document.getElementById('tab-gemerkte-netze')?.click(),
