@@ -1,6 +1,5 @@
 /* Styles for the view „qualitaet“ only. */
 /* Raster: 8-px-Schritte. Karten innen 16 px, Abstand Gruppe zu Gruppe 24 px, Titel zur Karte 8 px. */
-[data-ansicht='qualitaet'] { max-width: 720px; }
 [data-ansicht='qualitaet'] .gruppe { margin-top: 24px; }
 [data-ansicht='qualitaet'] .gruppe > h3 { margin: 0 0 8px 16px; }
 [data-ansicht='qualitaet'] .gruppe > .karte, [data-ansicht='qualitaet'] .gruppe .karte { margin-top: 0; padding: 16px; }
@@ -27,7 +26,7 @@
 [data-ansicht='qualitaet'] .kurve .gitter.senkrecht, [data-ansicht='qualitaet'] .wlan-kurve .gitter.senkrecht { stroke: color-mix(in srgb, var(--fg) 6%, transparent); }
 [data-ansicht='qualitaet'] .kurve .gitter.basis, [data-ansicht='qualitaet'] .wlan-kurve .gitter.basis { stroke: color-mix(in srgb, var(--fg) 30%, transparent); }
 [data-ansicht='qualitaet'] .kurve .achse, [data-ansicht='qualitaet'] .wlan-kurve .achse { fill: var(--fg2); font-size: 11px; font-variant-numeric: tabular-nums; }
-[data-ansicht='qualitaet'] .wlan-kurve .achse.signal { fill: color-mix(in srgb, var(--accent) 65%, var(--fg)); }
+[data-ansicht='qualitaet'] .wlan-kurve .achse.signal { fill: var(--accent-lesbar); }
 [data-ansicht='qualitaet'] .wlan-kurve .achse.rate { fill: color-mix(in srgb, var(--gruen) 70%, var(--fg)); }
 [data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
 [data-ansicht='qualitaet'] .kurve .verlust { stroke-width: 2.5; stroke-linecap: round; }

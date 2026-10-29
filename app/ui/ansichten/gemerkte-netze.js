@@ -79,7 +79,7 @@
     }).catch(() => {});
 
     // Verbunden: Der Status steht schon oben, der Platz bleibt leer, damit die Felder in allen Zeilen untereinander stehen.
-    const fein = () => [...(hier ? [el('div', { 'aria-hidden': 'true' })] : [feld('Zuletzt hier', zeit(n.last_seen))]), feld('Gemerkt seit', tag(n.first_seen)),
+    const fein = () => [feld('Zuletzt hier', hier ? 'jetzt' : zeit(n.last_seen)), feld('Gemerkt seit', tag(n.first_seen)),
       feld('Router', n.fingerprint.router), feld('Domain', n.fingerprint.domain || 'ohne Domain', null, !n.fingerprint.domain)];
     const normal = () => {
       ort.classList.remove('bearbeiten');
