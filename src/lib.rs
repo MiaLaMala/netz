@@ -2,6 +2,7 @@
 //!
 //! Library used by the command line tool (src/main.rs) and the app (app/).
 
+pub mod ausfall;
 pub mod bonjour;
 pub mod diagnose;
 pub mod dns;
