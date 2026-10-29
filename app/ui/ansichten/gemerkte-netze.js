@@ -265,4 +265,10 @@
         start, fritz);
     },
   });
+
+  // „Zugang eintragen“ aus Geräte und Tempo: Einstellungen zeigen und das Fritz!Box-Formular gleich öffnen.
+  Netz.fritzEintragen = async () => {
+    await Netz.zeige('gemerkte-netze');
+    document.querySelector("[data-ansicht='gemerkte-netze'] .fritz-einrichten")?.click();
+  };
 })();

@@ -112,8 +112,8 @@
       el('li', {}, el('span', { class: 'muster band-muster' }), 'P5 bis P95 (60 s)'),
     ];
     const ampeln = ['Videoanrufe', 'Spiele', 'Streaming'].map((n) => [n, status('gruen', 'gut')]);
-    const eignungKopf = el('h3', { class: 'unter', text: 'Eignung' });
-    const eignungListe = el('dl', { class: 'liste' }, ampeln.map(([n, st]) => el('div', { class: 'zeile' },
+    const eignungKopf = el('h3', { class: 'unter eignung', text: 'Eignung' });
+    const eignungListe = el('dl', { class: 'liste eignung' }, ampeln.map(([n, st]) => el('div', { class: 'zeile' },
       el('dt', { class: 'label', text: n }), el('dd', { class: 'wert' }, st))));
     const zMedian = zeile('Median'), zP95 = zeile('P95'), zMax = zeile('Maximum');
     const fuss = el('p', { class: 'fuss' });
@@ -174,7 +174,7 @@
   });
   Netz.live = { bauen };
 
-  // `kompakt` (aus tempo.js): ohne Kopf und Erklärgruppe, pro Ziel nur Kennzahlen und Kurve; Eignung und die Liste der letzten 60 s fehlen.
+  // `kompakt` (aus tempo.js): ohne Kopf und Erklärgruppe, pro Ziel Kennzahlen, Kurve und Eignung; die Liste der letzten 60 s fehlt.
   async function bauen(wurzel, kompakt) {
       if (kompakt) wurzel.classList.add('kompakt');
       const HINWEIS = 'Name oder Adresse, mehrere mit Leerzeichen getrennt, bis zu vier.';

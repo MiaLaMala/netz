@@ -164,6 +164,9 @@ input[aria-invalid='true'] { border-color: var(--rot); }
 .kopf h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
 .status { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--fg); }
 .punkt { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--grau); }
+/* Antwort oben in jeder Ansicht (#208): Statuspunkt und Satz sind die Überschrift. Der Punkt ist Zugabe, das Wort steht im Satz. */
+.kopf h2.antwort { display: flex; align-items: baseline; gap: 10px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.25; text-wrap: balance; }
+.kopf h2.antwort .punkt { width: 11px; height: 11px; transform: translateY(-1px); }
 .punkt.gruen { background: var(--gruen); }
 .punkt.orange { background: var(--orange); }
 .punkt.rot { background: var(--rot); }

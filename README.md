@@ -27,8 +27,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/dieses-netz-dunkel.png">
-    <img src="docs/bilder/dieses-netz-hell.png" width="820" alt="Netzinfo-Fenster mit der Ansicht „Dieses Netz“: Das Netz „WG“ ist wiedererkannt, darunter Adresse, Router, DHCP, DNS und Proxy">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/uebersicht-dunkel.png">
+    <img src="docs/bilder/uebersicht-hell.png" width="820" alt="Netzinfo-Fenster mit der Ansicht „Übersicht“: oben der Satz „Das ist WG, wie beim letzten Besuch“, darunter Netz, Adresse, Router, DNS und Signal, der Knopf „Jetzt prüfen“ und die eingeklappten Details">
   </picture>
 </p>
 
@@ -43,17 +43,17 @@ Die App hat vier Ansichten. Jede beantwortet oben eine Frage, alles Weitere lieg
 Drei Dinge sind der Kern:
 
 - **Das Netz wiedererkennen und warnen.** Netzinfo vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und der Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
-- **Den Engpass finden.** Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Die kleinste Zahl ist der Engpass, dazu ein Satz Rat.
+- **Den Engpass finden.** Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Netzinfo sagt in einem Satz, welche der drei bremst, und was dagegen hilft. Fehlt eine Zahl, steht dort warum, geraten wird nicht.
 - **Ein Störungsprotokoll für die Hotline.** Netzinfo hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
 
 <table>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Übersicht“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert, darunter die Gruppen Netz, Sperren und Umleitungen und Zertifikate"></picture><br><sub>Übersicht: Ist das noch mein Netz?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Tempo“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Kennzahlen, darunter „Wo hakt es?“ und die Ausfälle der letzten 7 Tage als Zeitleiste mit Liste und dem Knopf „Text für den Anbieter kopieren“"></picture><br><sub>Tempo: Bekomme ich, wofür ich zahle, und wo bremst es?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/uebersicht-alarm-dunkel.png"><img src="docs/bilder/uebersicht-alarm-hell.png" width="400" alt="Ansicht „Übersicht“ mit Alarm: Oben der Satz „Vielleicht nicht mehr WG“, darunter fünf Unterschiede zum letzten Besuch, vom Weg ins Internet bis zum Zertifikat von github.com, und die fünf Werte des Netzes"></picture><br><sub>Übersicht: Ist das noch mein Netz?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/tempo-dunkel.png"><img src="docs/bilder/tempo-hell.png" width="400" alt="Ansicht „Tempo“: Leitung laut Router 116 Mbit/s bei 100 gebuchten, WLAN 43 Mbit/s als Engpass markiert, am Mac 38 Mbit/s, darunter der Rat, näher an den Router zu gehen, und die Störungen der letzten 7 Tage"></picture><br><sub>Tempo: Bekomme ich, wofür ich zahle, und wo bremst es?</sub></td>
   </tr>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router, Fernseher, Mac und Drucker mit Hersteller, Ports und Diensten, darüber Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Live-Kurve in der Ansicht „Tempo“: Antwortzeit, Jitter und Verlust zu 1.1.1.1 als Kacheln und Kurve, dazu die Eignung für Videoanrufe, Spiele und Streaming"></picture><br><sub>Tempo, Live-Kurve: Reicht die Leitung gerade für einen Anruf?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Geräte im Netz mit Typ, Hersteller und Ports, Filter nach Gerätetyp, Namen aus der Geräteliste der Fritz!Box"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/verbindungen-dunkel.png"><img src="docs/bilder/verbindungen-hell.png" width="400" alt="Ansicht „Verbindungen“: Oben der Satz „8 Verbindungen von 5 Programmen, 2 neu“, darunter der Umschalter Ausgehend und Lauschend und die Verbindungen nach Programm"></picture><br><sub>Verbindungen: Wer redet mit wem, und wer lauscht?</sub></td>
   </tr>
 </table>
 

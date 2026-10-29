@@ -3,7 +3,7 @@
 // darunter das Störungsprotokoll und die Live-Kurve, alles Übrige unter „Details“ (der Rest von „Qualität“, qualitaet.js).
 // Das CSS dieser Ansicht steht am Ende von qualitaet.css: index.html bindet kein eigenes tempo.css ein.
 (() => {
-  const { el, status } = Netz;
+  const { el, meldung } = Netz;
   const mbit = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
   const AMPEL = { keiner: 'gruen', wlan: 'orange', leitung: 'orange', router: 'orange', unklar: 'grau' };
   // Wo man am Router die Zahl der Leitung freischaltet; ohne Router (kein_router) gibt es nichts zu tun.
@@ -30,7 +30,7 @@
 
   // Wie es weitergeht, wenn der Router keine Zahl nennt: je `art` ein Ausweg.
   function ausweg(f) {
-    if (f?.art === 'anmeldung') return el('p', { class: 'engpass-ausweg' }, el('button', { class: 'knopf', type: 'button', text: 'Zugang eintragen', onclick: () => Netz.zeige('gemerkte-netze') }));
+    if (f?.art === 'anmeldung') return el('p', { class: 'engpass-ausweg' }, el('button', { class: 'knopf', type: 'button', text: 'Zugang eintragen', onclick: () => Netz.fritzEintragen() }));
     if (f?.art === 'upnp') return el('p', { class: 'engpass-ausweg fuss', text: UPNP });
     return '';
   }
@@ -40,7 +40,10 @@
     titel: 'Tempo',
     icon: Netz.icons.qualitaet,
     async render(wurzel) {
-      const kopfStatus = el('div', { 'aria-live': 'polite' }, status('grau', 'Lädt …'));
+      // Die Antwort ist die Überschrift, wie in Übersicht und Verbindungen.
+      const antwort = el('h2', { class: 'antwort' });
+      const antworte = (farbe, satz) => antwort.replaceChildren(el('span', { class: `punkt ${farbe}`, 'aria-hidden': 'true' }), el('span', { text: satz }));
+      antworte('grau', 'Lädt …');
       const zahlenOrt = el('div');
       const rat = el('p', { class: 'engpass-rat', hidden: true });
       const ort = el('div', { 'aria-live': 'polite' });
@@ -52,12 +55,12 @@
       async function lies() {
         try {
           const e = await Netz.invoke('engpass_lesen', { macDownMbit: mac });
-          kopfStatus.replaceChildren(status(AMPEL[e.engpass] ?? 'grau', e.satz));
+          antworte(AMPEL[e.engpass] ?? 'grau', e.satz);
           zahlenOrt.replaceChildren(zahlen(e), ausweg(e.leitung_fehlt));
           rat.textContent = e.rat ?? '';
           rat.hidden = !e.rat;
         } catch (f) {
-          kopfStatus.replaceChildren(status('rot', 'Das Tempo ist gerade nicht lesbar'));
+          antworte('rot', 'Das Tempo ist gerade nicht lesbar');
           zahlenOrt.replaceChildren(Netz.fehlerKarte(Netz.text(f), lies));
           rat.hidden = true;
         }
@@ -76,7 +79,11 @@
           el('div', { class: 'engpass-aktion' }, knopf, hinweis), ort,
           el('details', { class: 'details verlauf-details' }, el('summary', { text: 'Frühere Messungen' }), verlauf),
           el('p', { class: 'fuss' }, 'Das ersetzt nicht die Breitbandmessung der Bundesnetzagentur, die für eine Minderung zählt: ',
-            el('a', { href: 'https://breitbandmessung.de', target: '_blank', rel: 'noopener', text: 'breitbandmessung.de' }), '.')));
+            // Tauri öffnet target=_blank nicht: Die App öffnet die feste Adresse selbst im Browser.
+            el('a', { href: 'https://breitbandmessung.de', text: 'breitbandmessung.de', onclick: (e) => {
+              e.preventDefault();
+              Netz.invoke('breitbandmessung_oeffnen').catch((f) => e.target.closest('.fuss').after(meldung(Netz.text(f), 'rot')));
+            } }), '.')));
 
       // „Details“ zuerst bauen: das Störungsprotokoll gehört zu „Qualität“, steht aber hier oben.
       const gemeinsam = { ausfall: null };
@@ -86,7 +93,7 @@
       await Netz.live.bauen(live, true);
 
       wurzel.append(
-        el('div', { class: 'kopf' }, el('h2', { text: 'Tempo' }), kopfStatus),
+        el('div', { class: 'kopf', 'aria-live': 'polite' }, antwort),
         karte,
         gemeinsam.ausfall ? el('div', { class: 'eingebettet', 'data-ansicht': 'qualitaet' }, gemeinsam.ausfall) : '',
         el('section', { class: 'gruppe', 'aria-labelledby': 'g-live-kurve' }, el('h3', { id: 'g-live-kurve', text: 'Live-Kurve' }), live),

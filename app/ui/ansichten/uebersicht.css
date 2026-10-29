@@ -1,7 +1,4 @@
 /* Styles for the view „uebersicht“ only. Liste der Unterschiede und Details tragen ihre eigene data-ansicht. */
-/* Antwort: ein großer Satz mit Statuspunkt, der Punkt ist nur Zugabe (das Wort steht im Satz). */
-[data-ansicht='uebersicht'] .kopf h2 { display: flex; align-items: baseline; gap: 10px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.25; text-wrap: balance; }
-[data-ansicht='uebersicht'] .kopf h2 .punkt { width: 11px; height: 11px; transform: translateY(-1px); }
 [data-ansicht='uebersicht'] .kopf > * + * { margin-top: 8px; }
 [data-ansicht='uebersicht'] .kopf .erklaerung { margin-left: 21px; }
 [data-ansicht='uebersicht'] .kopf .fuss { margin-left: 21px; }

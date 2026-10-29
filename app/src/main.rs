@@ -91,19 +91,37 @@ fn diagnose() -> Result<netzinfo::diagnose::DiagnoseErgebnis, Fehler> {
     netzinfo::diagnose::diagnose_daten().map_err(Into::into)
 }
 
-/// Opens the portal login page in the default browser. Fixed URL on purpose: the UI passes nothing.
-#[tauri::command]
-fn portal_im_browser_oeffnen() -> Result<(), String> {
+/// Opens a fixed address in the default browser. The UI never passes a URL, so it cannot open anything else.
+fn im_browser(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
-            .arg("http://captive.apple.com")
+            .arg(url)
             .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Der Browser ließ sich nicht öffnen ({}). Öffne http://captive.apple.com von Hand.", netzinfo::io_satz(&e)))
+            .map_err(|e| {
+                format!(
+                    "Der Browser ließ sich nicht öffnen ({}). Öffne {url} von Hand.",
+                    netzinfo::io_satz(&e)
+                )
+            })
     }
     #[cfg(not(target_os = "macos"))]
-    Err("Den Browser öffnet nur die Mac-App. Öffne http://captive.apple.com von Hand.".into())
+    Err(format!(
+        "Den Browser öffnet nur die Mac-App. Öffne {url} von Hand."
+    ))
+}
+
+/// Opens the portal login page in the default browser.
+#[tauri::command]
+fn portal_im_browser_oeffnen() -> Result<(), String> {
+    im_browser("http://captive.apple.com")
+}
+
+/// Opens the broadband measurement of the Bundesnetzagentur (Tempo view, #207).
+#[tauri::command]
+fn breitbandmessung_oeffnen() -> Result<(), String> {
+    im_browser("https://breitbandmessung.de")
 }
 
 /// Clock check against NTP and an HTTPS `Date` header, see issue #69.
@@ -367,6 +385,7 @@ fn main() {
             portal_pruefen,
             diagnose,
             portal_im_browser_oeffnen,
+            breitbandmessung_oeffnen,
             dns_verschluesselt,
             wlan_lesen,
             verbindungen_zeigen,

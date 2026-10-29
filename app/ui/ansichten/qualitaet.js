@@ -688,10 +688,10 @@
       const x = (t) => `${Math.min(100, Math.max(0, ((t - von) / TAGE7) * 100))}%`;
       knopf.hidden = liste.length === 0;
       if (liste.length === 0) {
-        ort.replaceChildren(status('gruen', 'Keine Ausfälle in den letzten 7 Tagen'), aus.length ? el('p', { class: 'fuss', text: `${aus.length} kurze Aussetzer, jeweils unter 15 Sekunden` }) : '');
+        ort.replaceChildren(status('gruen', 'Keine Ausfälle in den letzten 7 Tagen'), aus.length ? el('p', { class: 'fuss', text: `${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')}, jeweils unter 15 Sekunden` }) : '');
         return;
       }
-      const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${liste.length} Ausfälle und ${aus.length} kurze Aussetzer in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
+      const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${anzahl(liste.length, 'Ausfall', 'Ausfälle')} und ${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')} in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
         aus.map((t) => { const a = el('span', { class: 'strich', title: `Aussetzer, ${zeit(t)}` }); a.style.left = x(t); return a; }),
         liste.map((e) => { const b = el('span', { class: 'ausfall-balken', title: `Ausfall, ${zeit(e.beginn)}, ${dauer(e.dauer_s)}, ${ORT[e.schicht]}` }); b.style.left = x(e.beginn); b.style.width = `max(4px, ${(e.dauer_s / TAGE7) * 100}%)`; return b; }));
       ort.replaceChildren(leiste,

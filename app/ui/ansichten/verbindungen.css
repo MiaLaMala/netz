@@ -32,8 +32,6 @@
 [data-ansicht='verbindungen'] .traffic-balken .ein, [data-ansicht='verbindungen'] .traffic-legende .ein::before { background: var(--accent-lesbar); }
 
 /* #208 Antwort-Satz und Segmentsteuerung (Ausgehend / Lauschend) */
-[data-ansicht='verbindungen'] .kopf h2.satz { display: flex; align-items: baseline; gap: 10px; font-size: 22px; line-height: 1.25; }
-[data-ansicht='verbindungen'] .kopf h2.satz .punkt { position: relative; top: -2px; }
 [data-ansicht='verbindungen'] .segmente { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; max-width: 280px; margin: 16px 0 0; padding: 2px; border-radius: 8px; background: var(--linie); }
 [data-ansicht='verbindungen'] .segment { min-height: 24px; padding: 2px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--fg); font: inherit; font-weight: 500; text-align: center; transition: background-color 150ms ease-out; }
 [data-ansicht='verbindungen'] .segment[aria-selected='true'] { background: var(--knopf); box-shadow: 0 0 0 0.5px var(--rand); }

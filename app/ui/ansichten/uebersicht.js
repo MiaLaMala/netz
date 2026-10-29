@@ -4,10 +4,6 @@
 (() => {
   const { el, zeit, gruppe, zeile, meldung, status } = Netz;
 
-  // ponytail: index.html und vorschau.html gehören dem Gerüst und kennen uebersicht.css noch nicht; bis dort der <link> steht, hängt die Ansicht ihn selbst an.
-  const skript = document.currentScript?.src;
-  if (skript) document.head.append(el('link', { rel: 'stylesheet', href: skript.replace(/\.js(\?.*)?$/, '.css') }));
-
   // Thema des wichtigsten Unterschieds (aus pruefung.js) als Satzteil.
   const SATZ = {
     'DHCP-Server': 'ein anderer DHCP-Server verteilt Adressen',
@@ -111,7 +107,7 @@
         const hatteFokus = kopf.contains(document.activeElement);
         const erg = z.erg;
         kopf.replaceChildren(...[
-          el('h2', { tabindex: '-1' }, el('span', { class: `punkt ${l.farbe}`, 'aria-hidden': 'true' }), el('span', { text: l.satz })),
+          el('h2', { class: 'antwort', tabindex: '-1' }, el('span', { class: `punkt ${l.farbe}`, 'aria-hidden': 'true' }), el('span', { text: l.satz })),
           d.hinweis && meldung(d.hinweis, 'orange'),
           l.portal && el('p', { class: 'fuss', text: 'Solange du dich nicht angemeldet hast, sind die übrigen Ergebnisse unzuverlässig.' }),
           l.portal && el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', 'aria-label': `Im Browser öffnen, Anmeldeseite${l.portal.ziel_host ? ` von ${l.portal.ziel_host}` : ''}`,

@@ -270,7 +270,7 @@
       ergebnis = verb.status === 'fulfilled' ? verb.value : null;
       const s = satz(ergebnis, lausch.status === 'fulfilled' ? lausch.value : null);
       const kopf = el('div', { class: 'kopf' },
-        el('h2', { class: 'satz' }, el('span', { class: `punkt ${s.farbe}`, 'aria-hidden': 'true' }), el('span', { text: s.text })));
+        el('h2', { class: 'antwort' }, el('span', { class: `punkt ${s.farbe}`, 'aria-hidden': 'true' }), el('span', { text: s.text })));
 
       const fl = el('div', { id: 'seg-flaeche', role: 'tabpanel', tabindex: '-1' });
       let aktiv;
