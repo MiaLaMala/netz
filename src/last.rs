@@ -111,7 +111,13 @@ fn starten(programm: &str, args: &[&str], frist: Duration) -> Result<String, Str
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| {
-            format!("{programm} ließ sich nicht starten ({e}). networkQuality gibt es ab macOS 12.")
+            if e.kind() == std::io::ErrorKind::NotFound {
+                format!("{programm} fehlt. networkQuality gibt es ab macOS 12.")
+            } else {
+                format!(
+                    "{programm} ließ sich nicht starten ({e}). networkQuality gibt es ab macOS 12."
+                )
+            }
         })?;
     let lesen = |mut p: Box<dyn Read + Send>| {
         std::thread::spawn(move || {
@@ -260,7 +266,7 @@ pub fn abschnitt(netzname: &str) -> Option<String> {
 }
 
 fn mbit(bps: Option<f64>) -> String {
-    bps.map_or("-".into(), |b| format!("{:.0} Mbit/s", b / 1e6))
+    bps.map_or("-".into(), |b| format!("{:.0} MBit/s", b / 1e6))
 }
 
 fn ms(v: Option<f64>) -> String {

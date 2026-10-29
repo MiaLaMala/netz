@@ -739,7 +739,12 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
             });
         std::fs::write(file, report_markdown(&r) + &w).map_err(|e| {
             format!(
-                "Die Datei {file} ließ sich nicht schreiben ({e}). Prüfe den Pfad und versuche es noch mal."
+                "Die Datei {file} ließ sich nicht schreiben ({}). Prüfe den Pfad und versuche es noch mal.",
+                match e.kind() {
+                    std::io::ErrorKind::NotFound => "der Ordner existiert nicht".into(),
+                    std::io::ErrorKind::PermissionDenied => "keine Berechtigung".into(),
+                    _ => e.to_string(),
+                }
             )
         })?;
         println!("\nMarkdown-Bericht geschrieben: {file}");

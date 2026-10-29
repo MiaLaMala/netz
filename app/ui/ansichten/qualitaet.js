@@ -286,6 +286,7 @@
     const ort = el('div', { 'aria-live': 'polite' });
     const k = el('section', { class: 'gruppe wlan-karte', 'aria-labelledby': 'g-wlan' }, el('h3', { id: 'g-wlan', text: 'WLAN-Verlauf' }), el('div', { class: 'karte' }, ort));
     let timer = null;
+    ort.replaceChildren(status('grau', 'Liest das WLAN …'));
 
     function zeichne(a) {
       if (!a.verbunden && a.proben.every((q) => !q.verbunden)) {
@@ -483,7 +484,7 @@
       try {
         const a = await Netz.invoke('egress_pruefen', { ziel: feld.value.trim() || null });
         ort.replaceChildren(gruppe(`Ausgehende Ports zu ${a.ziel}`,
-          a.ports.map((p) => zeile(`${p.port} ${p.name}`, `${WORT[p.status]} (${p.ms} ms)`, p.satz)), a.hinweise.join(' ')));
+          a.ports.map((p) => zeile(`${p.port} ${p.name}`, p.status === 'offen' || p.status === 'abgelehnt' ? `${WORT[p.status]} (${p.ms} ms)` : `${WORT[p.status]} (keine Antwort)`, p.satz)), a.hinweise.join(' ')));
       } catch (e) {
         ort.replaceChildren(meldung(Netz.text(e)));
       }
@@ -538,7 +539,7 @@
   }
 
   // ---- Karte „Unter Last“ (`netzinfo last`, src/last.rs): misst nur auf Klick, belastet die Leitung ----
-  const mbit = (b) => (b == null ? '-' : `${fmt(b / 1e6, 0)} Mbit/s`);
+  const mbit = (b) => (b == null ? '-' : `${fmt(b / 1e6, 0)} MBit/s`);
   const einstufung = (r) => (r >= 800 ? 'sehr reaktionsfähig' : r >= 200 ? 'gut' : r >= 100 ? 'mäßig' : 'schlecht');
   function lastZahlen(e) {
     const rpm = e.rpm;
@@ -567,9 +568,11 @@
       try {
         const l = await Netz.invoke('last_messen', { trotzHotspot: trotz });
         ort.replaceChildren(el('dl', { class: 'liste' }, lastZahlen(l.ergebnis)));
+        knopf.textContent = 'Noch einmal messen';
         zeigeVerlauf((await Netz.invoke('last_vorab')).verlauf);
       } catch (e) {
         ort.replaceChildren(meldung(Netz.text(e)));
+        knopf.textContent = 'Noch einmal versuchen';
       }
       knopf.disabled = false;
     }
@@ -605,6 +608,7 @@
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Text für den Anbieter kopieren' });
     const rueck = el('span', { class: 'fuss', role: 'status' });
     let d = null;
+    ort.replaceChildren(status('grau', 'Lädt die Ausfälle …'));
     knopf.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(d.text);
@@ -659,8 +663,8 @@
         const t = Netz.text(e);
         const unbekannt = e?.art === 'nicht_gemerkt';
         wurzel.append(
-          el('div', { class: 'kopf' }, el('h2', { text: unbekannt ? 'Unbekanntes Netz' : 'Keine Messung möglich' }),
-            status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Messungen gehören zu einem gemerkten Netz' : 'Fehler')),
+          el('div', { class: 'kopf' }, el('h2', { text: 'Qualität' }),
+            status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Netz nicht gemerkt, deshalb keine Messung' : 'Messen gerade nicht möglich')),
           meldung(t, unbekannt ? 'orange' : 'rot'));
         return;
       }
@@ -689,17 +693,22 @@
 
       function zeichne() {
         const leer = b.ziele.length === 0;
+        const letzte = Math.max(0, ...b.reihen.map((r) => r.punkte.at(-1)?.zeit ?? 0));
         stat.replaceChildren(leer
           ? status('grau', 'Noch keine Messungen')
-          : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : 'Misst gerade nicht, Schalter „Messen“ einschalten'));
+          : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : `Misst gerade nicht${letzte ? `, letzte Messung ${zeit(letzte)}` : ''}. Schalte „Messen“ ein`));
         kopieren.disabled = leer;
+        kopieren.title = leer ? 'Erst nach der ersten Messung möglich' : '';
         ausfaelle.misst(zustand.an);
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
           kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.'));
           zahlen.replaceChildren();
           return;
         }
-        kurvenOrt.replaceChildren(kurve(b.reihen, std, Math.floor(Date.now() / 1000)), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']));
+        const jetzt = Math.floor(Date.now() / 1000);
+        const leerer = !b.reihen.some((r) => r.punkte.some((p) => p.zeit >= jetzt - std * 3600));
+        kurvenOrt.replaceChildren(kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
+          leerer ? el('p', { class: 'fuss', text: `Im gewählten Zeitraum gibt es keine Messung.${std === 1 ? ' Wähle 6 Stunden oder schalte' : ' Schalte'} „Messen“ ein, dann wächst die Kurve.` }) : '');
         zahlen.replaceChildren(kennzahlen(b));
       }
 
