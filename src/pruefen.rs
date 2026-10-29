@@ -294,7 +294,7 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     let path = netze::data_path()?;
     let known = netze::load(&path)?;
     let Some(i) = netze::find(&known, &fp) else {
-        return Err("Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netzinfo merken <Name>` und prüfe dann noch mal.".into());
+        return Err(netze::NICHT_GEMERKT_PRUEFEN.into());
     };
     let store_path = path.with_file_name("pruefungen.json");
     let mut store: Store = netze::load_json(&store_path)?;

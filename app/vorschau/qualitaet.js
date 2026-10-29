@@ -41,7 +41,7 @@
 
   VORSCHAU.bericht = async () => {
     if (marken.includes('qualitaet-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
-    if (marken.includes('qualitaet-unbekannt')) throw 'Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.';
+    if (marken.includes('qualitaet-unbekannt')) throw { art: 'nicht_gemerkt', text: 'Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.' };
     if (marken.includes('qualitaet-leer')) return { netz: 'WG', von: 0, bis: 0, ziele: [], reihen: [] };
     return bericht();
   };

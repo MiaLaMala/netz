@@ -22,8 +22,8 @@
   let letztes = null; // last result, so a tab change does not lose it
   let laufend = null; // running search; a re-render (⌘R) waits for it instead of starting a second scan
 
-  // The kernel refuses with one fixed sentence; this is the only part of it the view looks at.
-  const abgelehnt = (f) => typeof f === 'string' && f.includes('als „meins“ markiert');
+  // The kernel names the refusal in `art`; the view never reads the sentence.
+  const abgelehnt = (f) => f?.art === 'nicht_meins';
 
   // Card = one stored device (Rust: geraetekarte::Karte). All texts about the device come from the core.
   const TYPEN = ['Router', 'Drucker', 'Medien', 'Smart Home', 'Computer', 'Handy', 'Unbekannt'];

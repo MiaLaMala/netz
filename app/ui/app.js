@@ -38,9 +38,11 @@
   const zeit = (sekunden) =>
     new Date(sekunden * 1000).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
-  // Fehler aus dem Kern sind deutsche Sätze. Alles andere ist ein Fehler der Oberfläche.
+  // Fehler aus dem Kern sind deutsche Sätze, entweder pur oder als { art, text } (art: nicht_gemerkt,
+  // nicht_meins, sonstiges). Ansichten fragen `f?.art`, nie den Satz. Alles andere ist ein Fehler der Oberfläche.
   const text = (fehler) =>
-    typeof fehler === 'string' ? fehler : 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
+    typeof fehler === 'string' ? fehler : typeof fehler?.text === 'string' ? fehler.text
+      : 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
 
   // Core sentences name CLI commands in `backticks`: show them as code, not as raw marks.
   const mitCode = (satz) => satz.split('`').map((t, i) => (i % 2 ? el('code', { text: t }) : t));

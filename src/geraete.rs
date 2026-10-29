@@ -540,6 +540,11 @@ mod tests {
         s.parse().unwrap()
     }
 
+    #[test]
+    fn refusal_is_nicht_meins() {
+        assert_eq!(netze::fehlerart(&refusal()), netze::Fehlerart::NichtMeins);
+    }
+
     fn net() -> Subnet {
         subnetz::calc(ip("192.168.178.20"), 24).unwrap()
     }

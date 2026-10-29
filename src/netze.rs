@@ -10,6 +10,50 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Kind of a core error, for the app (`{ art, text }`). The CLI keeps plain sentences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Fehlerart {
+    /// The current or the named network is not stored (`netzinfo merken`).
+    NichtGemerkt,
+    /// The network is not marked „meins“, so nothing is sent.
+    NichtMeins,
+    Sonstiges,
+}
+
+/// Error of an app command: the sentence plus its kind, so the UI never reads the sentence.
+/// Lives here because the app crate has no serde of its own.
+#[derive(Debug, Serialize)]
+pub struct AppFehler {
+    pub art: Fehlerart,
+    pub text: String,
+}
+
+impl From<String> for AppFehler {
+    fn from(text: String) -> Self {
+        AppFehler {
+            art: fehlerart(&text),
+            text,
+        }
+    }
+}
+
+/// Sentences the app views depend on, see `fehlerart`.
+pub const NICHT_GEMERKT_PRUEFEN: &str = "Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netzinfo merken <Name>` und prüfe dann noch mal.";
+pub const NICHT_GEMERKT_MESSEN: &str = "Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.";
+
+/// The one place that maps a core error sentence to its kind. The sentences keep these words;
+/// the tests in `netze`, `geraete` and `bonjour` fail when one of them drops them.
+pub fn fehlerart(satz: &str) -> Fehlerart {
+    if satz.contains("nicht gemerkt") {
+        Fehlerart::NichtGemerkt
+    } else if satz.contains("als „meins“ markiert") {
+        Fehlerart::NichtMeins
+    } else {
+        Fehlerart::Sonstiges
+    }
+}
+
 /// What identifies a network: the DHCP data the router hands out.
 // ponytail: two networks with the same factory router (two FRITZ!Boxes on 192.168.178.1 with
 // domain fritz.box) look identical. Upgrade path: also compare the DNS/TLS results from #6
@@ -497,6 +541,19 @@ mod tests {
                 .unwrap_err()
                 .contains("nicht gemerkt")
         );
+        assert_eq!(
+            fehlerart(&rename(&mut list, "Nix", "X").unwrap_err()),
+            Fehlerart::NichtGemerkt
+        );
+        for satz in [NICHT_GEMERKT_PRUEFEN, NICHT_GEMERKT_MESSEN] {
+            assert_eq!(fehlerart(satz), Fehlerart::NichtGemerkt);
+        }
+        let f = AppFehler::from("Kein Netz gefunden.".to_string());
+        assert_eq!(
+            serde_json::to_string(&f).unwrap(),
+            r#"{"art":"sonstiges","text":"Kein Netz gefunden."}"#
+        );
+        assert_eq!(fehlerart("Kein Netz gefunden."), Fehlerart::Sonstiges);
         // same name is fine; renaming keeps meins and fingerprint
         let n = rename(&mut list, "WG", "Zuhause").unwrap();
         assert!(n.meins && n.name == "Zuhause");
