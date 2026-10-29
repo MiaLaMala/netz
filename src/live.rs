@@ -337,6 +337,11 @@ fn wort(s: Stufe) -> &'static str {
     }
 }
 
+/// Zahl mit einer Nachkommastelle und deutschem Komma.
+fn eine(x: f64) -> String {
+    format!("{x:.1}").replace('.', ",")
+}
+
 fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
     let Some(k) = s.kennzahlen(jetzt_ms()) else {
         return [
@@ -344,16 +349,29 @@ fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
             String::new(),
         ];
     };
-    let ms = |v: Option<f64>| v.map_or("-".into(), |x| format!("{x:.1} ms"));
+    if k.median_ms.is_none() {
+        return [
+            format!(
+                "{ziel:<16} {}  keine Antwort auf {} Pakete",
+                kurve(&s.proben, 40),
+                k.gesendet
+            ),
+            format!(
+                "{:<16} Prüfe die Verbindung; manche Ziele beantworten Ping nicht.",
+                ""
+            ),
+        ];
+    }
+    let ms = |v: Option<f64>| v.map_or("-".into(), |x| format!("{} ms", eine(x)));
     let e = einstufen(&k);
     [
         format!(
-            "{ziel:<16} {}  Median {}  P95 {}  Jitter {}  Verlust {:.1} %",
+            "{ziel:<16} {}  Median {}  P95 {}  Jitter {}  Verlust {} %",
             kurve(&s.proben, 40),
             ms(k.median_ms),
             ms(k.p95_ms),
             ms(k.jitter_ms),
-            k.verlust_prozent
+            eine(k.verlust_prozent)
         ),
         format!(
             "{:<16} Videoanruf: {}  ·  Spiele: {}  ·  Streaming: {}",
@@ -397,7 +415,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         sender.push((*z, ip, Icmp::open(ip)?));
     }
     println!(
-        "Messe {sekunden} s lang alle {intervall} ms. × heißt: keine Antwort. Ende mit Strg-C."
+        "Messe {sekunden} s lang alle {intervall} ms. × heißt: keine Antwort. Vorzeitig beenden mit Strg-C."
     );
     explain(
         explain_on,
@@ -615,6 +633,19 @@ mod tests {
         assert_eq!(l.len(), 1440);
         anhaengen(&mut l, f(1_000_000 + 8 * tag));
         assert_eq!(l.len(), 1); // alles vom ersten Tag ist älter als sieben Tage
+    }
+
+    #[test]
+    fn zeilen_mit_komma_und_ohne_antwort() {
+        let jetzt = |w: &[Option<f64>]| {
+            let mut s = Serie::default();
+            w.iter().for_each(|&x| s.push(jetzt_ms(), x));
+            s
+        };
+        let s = jetzt(&[Some(10.0), Some(20.0)]);
+        assert!(zeilen("z", &s)[0].contains("Median 15,0 ms"));
+        let s = jetzt(&[None, None]);
+        assert!(zeilen("z", &s)[0].contains("keine Antwort auf 2 Pakete"));
     }
 
     #[test]
