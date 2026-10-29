@@ -290,7 +290,7 @@
 
     function zeichne(a) {
       if (!a.verbunden && a.proben.every((q) => !q.verbunden)) {
-        return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Kein WLAN. Am Kabel oder bei ausgeschaltetem WLAN gibt es keinen Funkverlauf zu zeigen.'));
+        return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Kein WLAN. Am Kabel oder bei ausgeschaltetem WLAN gibt es keinen Funkverlauf zu zeigen.', 'kein-wlan'));
       }
       const b = a.besuch;
       const arten = [...new Set(a.ereignisse.map((e) => e.art))];
@@ -701,7 +701,7 @@
         kopieren.title = leer ? 'Erst nach der ersten Messung möglich' : '';
         ausfaelle.misst(zustand.an);
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
-          kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.'));
+          kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.', 'keine-messungen'));
           zahlen.replaceChildren();
           return;
         }

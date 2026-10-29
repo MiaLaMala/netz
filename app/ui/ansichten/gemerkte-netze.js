@@ -149,7 +149,7 @@
       const start = await autostart();
       if (start) wurzel.append(start);
       if (!liste.length) {
-        wurzel.append(Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. Unter „Dieses Netz“ merkst du das aktuelle.'));
+        wurzel.append(Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. Unter „Dieses Netz“ merkst du das aktuelle.', 'gemerkte-netze'));
         return;
       }
       const titel = `${liste.length} ${liste.length === 1 ? 'Netz' : 'Netze'}`;

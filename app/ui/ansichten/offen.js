@@ -69,7 +69,7 @@
     if (!gezeigt.length) {
       ort.replaceChildren(leerZustand(Netz.icons.offen,
         !alle.length ? 'Keine lauschenden Programme von dir gefunden. Programme anderer Nutzer sind ohne Root nicht sichtbar.'
-          : 'Kein Programm lauscht im Netz. Der Rest erreicht nur dieser Mac oder das VPN.'));
+          : 'Kein Programm lauscht im Netz. Der Rest erreicht nur dieser Mac oder das VPN.', 'offen'));
       return;
     }
     // Ohne Rückmeldung wüsste man nach „Von außen prüfen“ nicht, ob die Prüfung lief.

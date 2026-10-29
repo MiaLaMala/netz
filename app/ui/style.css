@@ -201,6 +201,8 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 /* Meldung und leerer Zustand */
 .meldung { display: flex; gap: 8px; align-items: baseline; margin-top: 16px; font-size: 14px; line-height: 1.45; color: var(--fg); }
 .meldung .punkt { transform: translateY(-1px); }
+.fehler-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.fehler-karte .meldung { margin-top: 16px; }
 .meldung code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
 .leer-zustand {
   padding: 40px 0;
@@ -211,6 +213,12 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 .ansicht:has(> .leer-zustand) { display: flex; flex-direction: column; min-height: 100%; }
 .ansicht > .leer-zustand { flex: 1; justify-content: center; padding: 0 0 8vh; }
 .leer-zustand svg { width: 32px; height: 32px; }
+/* Strichbilder (ui/bilder.js): .grund trägt die Farbe der Fläche darunter, sonst gibt es im Dunkelmodus helle Flecken. */
+.leer-zustand .leer-bild svg { width: 112px; height: 112px; }
+.leer-bild .strich { fill: var(--fg2); }
+.leer-bild .grund { fill: var(--bg); }
+:is(.karte, .liste, .kachel) .leer-bild .grund { fill: var(--gruppe); }
+.leer-bild .akzent { fill: var(--accent); }
 .leer-zustand p { max-width: 340px; }
 
 @media (prefers-reduced-motion: reduce) {
