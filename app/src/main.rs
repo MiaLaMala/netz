@@ -302,6 +302,11 @@ fn autostart_hinweis() -> Option<String> {
     wache::autostart_hinweis()
 }
 
+#[tauri::command(async)]
+fn ausfaelle() -> Result<netzinfo::messen::Ausfaelle, Fehler> {
+    netzinfo::messen::ausfall_daten(None).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -360,6 +365,7 @@ fn main() {
             autostart_setzen,
             portfreigaben,
             autostart_hinweis,
+            ausfaelle,
         ])
         .build(tauri::generate_context!())
         .map(|app| {

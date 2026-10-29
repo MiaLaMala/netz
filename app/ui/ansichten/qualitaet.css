@@ -109,3 +109,12 @@
 [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: none; }
 .erklaeren [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: table-row; }
 [data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 6px; }
+
+/* Gruppe „Ausfälle“ (#51): Zeitleiste, rote Balken und graue Striche; Farbe nie allein (Form, Titel, Liste) */
+[data-ansicht='qualitaet'] .ausfall-leiste { position: relative; height: 28px; border-radius: 6px; background: var(--seite-solid); overflow: hidden; }
+[data-ansicht='qualitaet'] .ausfall-balken { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--rot); }
+[data-ansicht='qualitaet'] .ausfall-leiste .strich { position: absolute; bottom: 0; width: 2px; height: 10px; background: var(--fg2); }
+[data-ansicht='qualitaet'] .ausfall-achse { display: flex; justify-content: space-between; margin: 4px 0 10px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .ausfall-karte .karte > p:first-child:empty { display: none; }
+[data-ansicht='qualitaet'] .ausfall-fuss { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+[data-ansicht='qualitaet'] .ausfall-fuss .knopf[hidden] { display: none; }

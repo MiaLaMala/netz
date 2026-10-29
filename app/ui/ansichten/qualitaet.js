@@ -589,6 +589,61 @@
       el('div', { class: 'karte' }, hinweis, knopf, ort, verlauf));
   }
 
+  // ---- Gruppe „Ausfälle“ (src/ausfall.rs, issue #51): Zeitleiste der letzten 7 Tage und Text für den Anbieter ----
+  const TAGE7 = 7 * 86400;
+  const ORT = { router_oder_wlan: 'Router oder WLAN', anbieter_oder_weiter: 'Anbieter oder weiter weg', nur_dns: 'nur DNS', unklar: 'nicht zuzuordnen' };
+  const ERKL = {
+    router_oder_wlan: 'Der Router war nicht erreichbar. Das spricht für ein Problem im WLAN oder am Router.',
+    anbieter_oder_weiter: 'Der Router war erreichbar, das Internet nicht. Das spricht für eine Störung beim Anbieter oder weiter weg.',
+    nur_dns: 'Nur die Namensauflösung fiel aus, eine direkte Verbindung ging. Das liegt am DNS-Server, nicht an der Leitung.',
+    unklar: 'Der Router lässt sich in diesem Netz nicht messen, deshalb ist die Ursache nicht zuzuordnen.',
+  };
+  function ausfallKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const hinweis = el('p', { class: 'fuss' });
+    const fuss = el('div', { class: 'ausfall-fuss' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Text für den Anbieter kopieren' });
+    const rueck = el('span', { class: 'fuss', role: 'status' });
+    let d = null;
+    knopf.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(d.text);
+        rueck.textContent = 'Kopiert';
+        setTimeout(() => { rueck.textContent = ''; }, 2000);
+      } catch {
+        rueck.textContent = 'Das Kopieren ging nicht. Erlaube der App den Zugriff auf die Zwischenablage.';
+      }
+    });
+    function zeichne() {
+      if (!d) return;
+      const bis = Math.floor(Date.now() / 1000);
+      const von = bis - TAGE7;
+      const liste = d.liste.filter((e) => e.beginn >= von);
+      const aus = d.aussetzer.filter((t) => t >= von);
+      const x = (t) => `${Math.min(100, Math.max(0, ((t - von) / TAGE7) * 100))}%`;
+      knopf.hidden = liste.length === 0;
+      if (liste.length === 0) {
+        ort.replaceChildren(el('p', { text: 'Keine Ausfälle in den letzten 7 Tagen' }), aus.length ? el('p', { class: 'fuss', text: `${aus.length} kurze Aussetzer, jeweils unter 15 Sekunden` }) : '');
+        return;
+      }
+      const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${liste.length} Ausfälle und ${aus.length} kurze Aussetzer in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
+        aus.map((t) => { const a = el('span', { class: 'strich', title: `Aussetzer, ${zeit(t)}` }); a.style.left = x(t); return a; }),
+        liste.map((e) => { const b = el('span', { class: 'ausfall-balken', title: `Ausfall, ${zeit(e.beginn)}, ${dauer(e.dauer_s)}, ${ORT[e.schicht]}` }); b.style.left = x(e.beginn); b.style.width = `max(4px, ${(e.dauer_s / TAGE7) * 100}%)`; return b; }));
+      ort.replaceChildren(leiste,
+        el('div', { class: 'ausfall-achse' }, el('span', { text: 'vor 7 Tagen' }), el('span', { text: 'jetzt' })),
+        el('dl', { class: 'liste' }, [...liste].reverse().map((e) => zeile(zeit(e.beginn), `Ausfall, ${dauer(e.dauer_s)}`, `${ORT[e.schicht]}${e.aussetzer ? `, ${e.aussetzer} Aussetzer dabei` : ''}`, ERKL[e.schicht]))),
+        el('p', { class: 'fuss', text: `Strich = Aussetzer unter 15 Sekunden (${aus.length}), roter Balken = Ausfall. Die Zuordnung ist eine Vermutung aus der Messung.` }));
+    }
+    const lade = () => Netz.invoke('ausfaelle').then((r) => { d = r; zeichne(); }, (f) => ort.replaceChildren(meldung(Netz.text(f))));
+    lade();
+    return {
+      lade,
+      wurzel: el('section', { class: 'gruppe ausfall-karte', 'aria-labelledby': 'g-ausfall' }, el('h3', { id: 'g-ausfall', text: 'Ausfälle' }),
+        el('div', { class: 'karte' }, hinweis, ort, el('div', { class: 'ausfall-fuss' }, knopf, rueck))),
+      misst(an) { hinweis.textContent = an ? '' : 'Ausfälle werden nur gezählt, solange gemessen wird.'; },
+    };
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -614,6 +669,7 @@
       let timer = null;
       let seit = 0; // probes since the last full report
       const zustand = { wurzel, an: false, stop: () => { zustand.an = false; clearTimeout(timer); document.removeEventListener('visibilitychange', sicht); } };
+      const ausfaelle = ausfallKarte();
       const stat = el('div', { 'aria-live': 'polite' });
       const kurvenOrt = el('div', { class: 'karte' });
       const zahlen = el('div');
@@ -637,6 +693,7 @@
           ? status('grau', 'Noch keine Messungen')
           : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : 'Misst gerade nicht, Schalter „Messen“ einschalten'));
         kopieren.disabled = leer;
+        ausfaelle.misst(zustand.an);
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
           kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.'));
           zahlen.replaceChildren();
@@ -656,7 +713,7 @@
             (b.reihen[k] ??= { ziel: w.ziel, punkte: [] }).punkte.push({ zeit: p.zeit, ms: w.ms, verlust: w.verlust });
           });
           // ponytail: Kennzahlen are reread on the first and every 6th probe, the chart grows locally
-          if (b.ziele.length === 0 || ++seit % 6 === 0) b = { ...(await Netz.invoke('bericht', { name: null })), reihen: b.reihen };
+          if (b.ziele.length === 0 || ++seit % 6 === 0) { b = { ...(await Netz.invoke('bericht', { name: null })), reihen: b.reihen }; ausfaelle.lade(); }
         } catch (e) {
           fehler.replaceChildren(meldung(Netz.text(e)));
         }
@@ -682,7 +739,7 @@
 
       wurzel.append(el('div', { class: 'kopf' }, el('h2', { text: b.netz })), stat,
         el('div', { class: 'werkzeuge' }, schalter, zeitraum, kopieren), fehler, kurvenOrt, zahlen);
-      wurzel.append(diagnoseKarte());
+      wurzel.append(diagnoseKarte(), ausfaelle.wurzel);
       zeichne();
       wurzel.append(wegKarte());
       wurzel.append(wlanKarte());

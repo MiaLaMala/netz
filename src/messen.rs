@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 const TARGETS: [&str; 3] = ["Router (DNS)", "1.1.1.1 (DNS)", "1.1.1.1 (TCP 443)"];
 /// Sentinels inside `Sample::v`; everything else is the time in microseconds.
-const LOSS: u32 = u32::MAX;
-const SKIP: u32 = u32::MAX - 1;
+pub(crate) const LOSS: u32 = u32::MAX;
+pub(crate) const SKIP: u32 = u32::MAX - 1;
 /// Raw samples older than this are merged into hourly values.
 const RAW_KEEP_SECS: u64 = 48 * 3600;
 /// A pause longer than this between two samples ends an outage run (the measuring had stopped).
@@ -21,11 +21,11 @@ const GAP_SECS: u64 = 120;
 const TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Sample {
+pub(crate) struct Sample {
     /// Unix seconds.
-    t: u64,
+    pub(crate) t: u64,
     /// Per target in `TARGETS` order: microseconds, `LOSS` or `SKIP` (not measured).
-    v: [u32; 3],
+    pub(crate) v: [u32; 3],
 }
 
 /// One hour of one network, all targets. Median does not merge, so it keeps the sum for a mean.
@@ -375,7 +375,7 @@ fn pct(p: f64) -> String {
     format!("{p:.1} %").replace('.', ",")
 }
 
-fn dur(secs: u64) -> String {
+pub(crate) fn dur(secs: u64) -> String {
     match secs {
         0 => "keiner".into(),
         1..=59 => format!("{secs} s"),
@@ -482,6 +482,11 @@ fn router_of(info: &hier::NetInfo) -> Option<IpAddr> {
         .map(IpAddr::V4)
 }
 
+/// Gegenprobe des Ausfallprotokolls: geht eine TCP-Verbindung zu 1.1.1.1:443?
+fn gegenprobe() -> bool {
+    TcpStream::connect_timeout(&SocketAddr::new(IpAddr::from([1, 1, 1, 1]), 443), TIMEOUT).is_ok()
+}
+
 /// Measures once and appends the sample to the store under `key`.
 fn ablegen_messung(path: &Path, key: &str, router: Option<IpAddr>) -> Result<Sample, String> {
     let s = Sample {
@@ -489,6 +494,7 @@ fn ablegen_messung(path: &Path, key: &str, router: Option<IpAddr>) -> Result<Sam
         v: measure(router),
     };
     ablegen(path, key, &s)?;
+    crate::ausfall::verarbeiten(&path.with_file_name("ausfall.json"), key, &s, &gegenprobe)?;
     Ok(s)
 }
 
@@ -519,23 +525,47 @@ pub fn messen_einmal() -> Result<Probe, String> {
     })
 }
 
+/// Name and storage key of the named network, or of the current one.
+fn net_und_key(name: Option<&str>) -> Result<(String, String), String> {
+    let net = match name {
+        Some(n) => {
+            let list = netze::load(&netze::data_path()?)?;
+            list.into_iter().find(|x| x.name == n).ok_or_else(|| {
+                format!("Ein Netz „{n}“ ist nicht gemerkt. `netzinfo netze` zeigt die Liste.")
+            })?
+        }
+        None => current_net()?.0,
+    };
+    Ok((net.name.clone(), net.fingerprint.key()))
+}
+
 /// Statistics and the 6 h curve of the named network, or of the current one.
 /// No measurements yet: `ziele` is empty.
 pub fn bericht_daten(name: Option<&str>) -> Result<Bericht, String> {
-    let (net_name, key) = match name {
-        Some(n) => {
-            let list = netze::load(&netze::data_path()?)?;
-            let net = list.iter().find(|x| x.name == n).ok_or_else(|| {
-                format!("Ein Netz „{n}“ ist nicht gemerkt. `netzinfo netze` zeigt die Liste.")
-            })?;
-            (net.name.clone(), net.fingerprint.key())
-        }
-        None => {
-            let (net, _) = current_net()?;
-            (net.name.clone(), net.fingerprint.key())
-        }
-    };
+    let (net_name, key) = net_und_key(name)?;
     bericht_aus(&store_path()?, &net_name, &key, netze::now())
+}
+
+/// Ausfallprotokoll des Netzes (issue #51), Zeiten in Unix-Sekunden.
+#[derive(Debug, Serialize)]
+pub struct Ausfaelle {
+    pub liste: Vec<crate::ausfall::Eintrag>,
+    /// Tabelle und Wochensummen als Markdown, leer ohne Einträge.
+    pub abschnitt: String,
+    pub aussetzer: Vec<u64>,
+    /// Text für den Anbieter, fertig zum Kopieren.
+    pub text: String,
+}
+
+pub fn ausfall_daten(name: Option<&str>) -> Result<Ausfaelle, String> {
+    let (_, key) = net_und_key(name)?;
+    let d = crate::ausfall::laden(&store_path()?.with_file_name("ausfall.json"), &key)?;
+    Ok(Ausfaelle {
+        text: crate::ausfall::text_fuer_anbieter(&d, netze::now()),
+        abschnitt: crate::ausfall::abschnitt(&d).unwrap_or_default(),
+        liste: d.liste,
+        aussetzer: d.aussetzer,
+    })
 }
 
 fn bericht_aus(path: &Path, name: &str, key: &str, now: u64) -> Result<Bericht, String> {
@@ -643,6 +673,15 @@ fn explain_numbers(on: bool) {
     );
 }
 
+fn zeige_ausfall(a: &Option<Ausfaelle>) {
+    if let Some(a) = a {
+        println!(
+            "\nAusfälle\n{}\nMeldung an den Anbieter\n{}",
+            a.abschnitt, a.text
+        );
+    }
+}
+
 pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     crate::optionen::nur(args, &["--markdown"], "bericht")?;
     let mut name = None;
@@ -664,6 +703,9 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     let r = bericht_daten(name)?;
     let wlan = crate::wlanverlauf::abschnitt(&r.netz);
     let last = crate::last::abschnitt(&r.netz);
+    let ausfall = ausfall_daten(Some(&r.netz))
+        .ok()
+        .filter(|a| !a.liste.is_empty());
     if r.ziele.is_empty() {
         println!(
             "Für „{}“ gibt es noch keine Messungen. Starte `netzinfo messen`, am besten für mehrere Stunden mit `--minuten 240`.",
@@ -675,6 +717,7 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
         if let Some(l) = &last {
             println!("\nUnter Last\n{l}");
         }
+        zeige_ausfall(&ausfall);
         return Ok(());
     }
     print!("{}", report_text(&r));
@@ -684,9 +727,16 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     if let Some(l) = &last {
         println!("\nUnter Last\n{l}");
     }
+    zeige_ausfall(&ausfall);
     if let Some(file) = md {
         let w = wlan.map_or(String::new(), |w| format!("\n## WLAN\n\n{w}"))
-            + &last.map_or(String::new(), |l| format!("\n## Unter Last\n\n{l}"));
+            + &last.map_or(String::new(), |l| format!("\n## Unter Last\n\n{l}"))
+            + &ausfall.map_or(String::new(), |a| {
+                format!(
+                    "\n## Ausfälle\n\n{}\n## Meldung an den Anbieter\n\n{}\n",
+                    a.abschnitt, a.text
+                )
+            });
         std::fs::write(file, report_markdown(&r) + &w).map_err(|e| {
             format!(
                 "Die Datei {file} ließ sich nicht schreiben ({e}). Prüfe den Pfad und versuche es noch mal."

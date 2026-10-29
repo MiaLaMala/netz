@@ -288,3 +288,22 @@
   VORSCHAU.last_vorab = async () => ({ hinweis: 'Misst Download, Upload und die Antwortzeit unter Last. Die Leitung ist dabei etwa 30 Sekunden voll ausgelastet.', hotspot: false, hotspot_frage: '', verlauf: [] });
   VORSCHAU.last_messen = async () => ({ zeit: 1793050200, ergebnis: { down_bps: 480e6, up_bps: 48e6, ruhe_ms: 14, last_down_ms: 60, last_up_ms: 210, rpm: 420, dauer_s: 30 } });
 })();
+
+// Gruppe „Ausfälle“ (#51). Marken: ,ausfaelle (zwei Ausfälle, mehrere Aussetzer) ,ausfaelle-leer. Alle Werte erfunden.
+(() => {
+  const jetzt = () => Math.floor(Date.now() / 1000);
+  VORSCHAU.ausfaelle = async () => {
+    const t = jetzt();
+    if (marken.includes('ausfaelle-leer')) return { liste: [], aussetzer: [t - 4 * 86400], abschnitt: '', text: 'In den letzten 7 Tagen wurde kein Ausfall gemessen.' };
+    if (!marken.includes('ausfaelle')) return { liste: [], aussetzer: [], abschnitt: '', text: '' };
+    return {
+      liste: [
+        { beginn: t - 5 * 86400 - 3600, ende: t - 5 * 86400 - 3600 + 360, dauer_s: 360, schicht: 'anbieter_oder_weiter', aussetzer: 1 },
+        { beginn: t - 2 * 86400 - 7200, ende: t - 2 * 86400 - 7200 + 45, dauer_s: 45, schicht: 'router_oder_wlan', aussetzer: 0 },
+      ],
+      aussetzer: [t - 6 * 86400, t - 5 * 86400 - 9000, t - 3 * 86400, t - 3 * 86400 + 4000, t - 86400 * 1.5, t - 40000],
+      abschnitt: '',
+      text: 'Störungsmeldung (Vorschau)',
+    };
+  };
+})();
