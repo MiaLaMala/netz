@@ -1,6 +1,7 @@
 // Fake answers for the view „pruefung“ in vorschau.html.
 // Marks: pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
-// pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“).
+// pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“),
+// sni-filter, sni-fremd, sni-unklar (Karte „Webfilter am Servernamen“, sonst: kein Name gestört).
 (() => {
   const vorher = {
     time: 1793050200 - 86400 * 3,
@@ -51,6 +52,14 @@
     if (marken.includes('pruefung-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
     const key = ['ok', 'nm', 'erst', 'alarm'].find((k) => marken.includes(`pruefung-${k}`));
     return fall[key ?? 'auffaellig'];
+  };
+
+  VORSCHAU.sni_pruefen = async () => {
+    const ok = [['bbc.com', 'ok'], ['youtube.com', 'ok'], ['telegram.org', 'ok']];
+    if (marken.includes('sni-unklar')) return { kontrolle: 'zeitueberschreitung', namen: [], gestoert: [], unklar: true };
+    if (marken.includes('sni-fremd')) return { kontrolle: 'ok', namen: [ok[0], ['youtube.com', 'fremdes_zertifikat'], ok[2]], gestoert: ['youtube.com'], unklar: false };
+    if (marken.includes('sni-filter')) return { kontrolle: 'ok', namen: [ok[0], ['youtube.com', 'zurueckgesetzt'], ['telegram.org', 'zurueckgesetzt']], gestoert: ['youtube.com', 'telegram.org'], unklar: false };
+    return { kontrolle: 'ok', namen: ok, gestoert: [], unklar: false };
   };
 
   VORSCHAU.portal_pruefen = async () => ({

@@ -12,6 +12,7 @@
     tls: 'Bei github.com und apple.com baue ich eine TLS-Verbindung auf und prüfe, ob das Zertifikat von einer öffentlich bekannten Stelle stammt. Sonst liest vielleicht jemand mit (SSL-Inspection, wie in Firmennetzen oder bei einem Angreifer). Zusätzlich merke ich mir den Fingerabdruck der ausstellenden Stelle.',
     ip: 'Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.',
     portal: 'Ein Captive Portal ist die Anmeldeseite in Hotel-, Café- oder Gäste-WLAN. Ich rufe dazu feste Testseiten von Apple, Google und Firefox auf, die immer dieselbe Antwort geben. Kommt etwas anderes zurück, fängt das Netz die Anfrage ab. Die App lädt die Portalseite nie selbst: Der Browser öffnet sie.',
+    sni: 'Beim Verbindungsaufbau steht der Name der Seite im Klartext (SNI). Ich verbinde mich mit 1.1.1.1 einmal mit einem neutralen Namen als Kontrolle, dann mit drei Beispielnamen. Bricht das Netz nur bei einem Namen ab, ist das ein Webfilter, kein Fehler deines Geräts. In Schulen und Firmen ist er gewollt.',
     erst: 'Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.',
   };
   const KLASSE = {
@@ -25,7 +26,7 @@
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
-  const z = { laeuft: false, erg: null, fehler: null, art: null, portal: null };
+  const z = { laeuft: false, erg: null, fehler: null, art: null, portal: null, sni: null };
   let ui = null;
 
   // One row: current value right, the old one below it when it differs.
@@ -79,6 +80,23 @@
     ];
   }
 
+  // Card „Webfilter am Servernamen“ (`netzinfo sni`, #52). `null`: not measured yet or failed, no card.
+  const SNI_WORT = { ok: 'ok', zurueckgesetzt: 'Verbindung abgebrochen', zeitueberschreitung: 'Zeitüberschreitung', fremdes_zertifikat: 'fremdes Zertifikat' };
+  const sniKarte = () => {
+    const s = z.sni;
+    if (!s) return null;
+    const zeile = (label, wert, farbe, erkl) => el('div', { class: 'zeile' },
+      el('dt', { class: 'label klasse' }, farbe && el('span', { class: `punkt ${farbe}` }), label),
+      el('dd', { class: 'wert', text: wert }),
+      erkl && el('dd', { class: 'erklaerung', text: erkl }));
+    if (s.unklar) return gruppe('Webfilter am Servernamen', [zeile('Urteil', 'unklar', 'grau', 'Schon die Kontrolle kam nicht durch. Der Testserver ist nicht erreichbar oder das Netz ist gestört, ein Urteil wäre geraten.')]);
+    const farbe = (st) => (st === 'ok' ? 'gruen' : st === 'fremdes_zertifikat' ? 'rot' : 'orange');
+    return gruppe('Webfilter am Servernamen', [
+      zeile('Urteil', s.gestoert.length ? `gestört für ${s.gestoert.join(', ')}` : 'kein Name gestört', s.gestoert.length ? 'orange' : 'gruen', E.sni),
+      ...s.namen.map(([n, st]) => zeile(n, SNI_WORT[st], farbe(st))),
+    ]);
+  };
+
   // Shown above everything else when the login-page check (`netzinfo portal`) suspects a captive portal.
   const portalHinweis = () => z.portal?.status === 'PortalVermutet' && el('section', { class: 'portal-hinweis', role: 'alert' },
     el('h3', { text: 'Anmeldung nötig' }),
@@ -110,6 +128,7 @@
         erg.erster_besuch && el('p', { class: 'fuss erklaerung', text: E.erst }),
         !erg.erster_besuch && erg.unterschiede.length > 0 && unterschiede(erg),
         ...werte(erg),
+        sniKarte(),
       ] : []));
   }
 
@@ -120,6 +139,7 @@
     z.art = null;
     zeichne();
     const portal = Netz.invoke('portal_pruefen').catch(() => null); // runs alongside, a failed check just shows no hint
+    const sni = Netz.invoke('sni_pruefen').catch(() => null); // same: a failed filter check just shows no card
     try {
       z.erg = await Netz.invoke('pruefen');
     } catch (e) {
@@ -127,6 +147,7 @@
       z.fehler = Netz.text(e);
       z.art = e?.art;
     }
+    z.sni = await sni;
     z.portal = await portal;
     z.laeuft = false;
     zeichne();

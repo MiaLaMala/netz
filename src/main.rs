@@ -2,7 +2,7 @@
 
 use netzinfo::{
     bonjour, diagnose, dns, geraete, hier, live, messen, netze, offen, pfad, portal, ports,
-    pruefen, tls, verbindungen, wlan, woher,
+    pruefen, sni, tls, verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -16,6 +16,7 @@ Befehle:
   netzinfo dns <Name>        DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen
   netzinfo dns --verschluesselt
                              Verschlüsseltes DNS (DoT, DoH) prüfen
+  netzinfo sni               Filtert das Netz Seiten am Servernamen (SNI)?
   netzinfo tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
   netzinfo ports <Host>      Offene Ports eines eigenen Geräts
   netzinfo merken <Name> [--meins]
@@ -73,6 +74,7 @@ fn main() -> ExitCode {
         "mtu" => netzinfo::mtu::run(rest, explain_on),
         "portal" => portal::run(rest, explain_on),
         "offen" => offen::run(rest, explain_on),
+        "sni" => sni::run(rest, explain_on),
         "bonjour" => bonjour::run(rest, explain_on),
         "diagnose" => diagnose::run(rest, explain_on),
         "wlan" => wlan::run(rest, explain_on),
