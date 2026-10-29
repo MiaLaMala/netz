@@ -17,6 +17,7 @@ Befehle:
   netzinfo dns --verschluesselt
                              Verschlüsseltes DNS (DoT, DoH) prüfen
   netzinfo sni               Filtert das Netz Seiten am Servernamen (SNI)?
+  netzinfo dns --tempo       Wer antwortet am schnellsten? Dein DNS gegen 1.1.1.1, 8.8.8.8, 9.9.9.9
   netzinfo tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
   netzinfo ports <Host>      Offene Ports eines eigenen Geräts
   netzinfo merken <Name> [--meins]
