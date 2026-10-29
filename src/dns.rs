@@ -523,6 +523,10 @@ fn show(a: &Reply) -> String {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    if args.iter().any(|a| a == "--tempo") {
+        let rest: Vec<String> = args.iter().filter(|a| *a != "--tempo").cloned().collect();
+        return crate::dnstempo::run(&rest, explain_on);
+    }
     if args.iter().any(|a| a == "--verschluesselt") {
         let rest: Vec<String> = args
             .iter()
