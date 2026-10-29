@@ -13,6 +13,7 @@
     ip: 'Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.',
     portal: 'Ein Captive Portal ist die Anmeldeseite in Hotel-, Café- oder Gäste-WLAN. Ich rufe dazu feste Testseiten von Apple, Google und Firefox auf, die immer dieselbe Antwort geben. Kommt etwas anderes zurück, fängt das Netz die Anfrage ab. Die App lädt die Portalseite nie selbst: Der Browser öffnet sie.',
     sni: 'Beim Verbindungsaufbau steht der Name der Seite im Klartext (SNI). Ich verbinde mich mit 1.1.1.1 einmal mit einem neutralen Namen als Kontrolle, dann mit drei Beispielnamen. Bricht das Netz nur bei einem Namen ab, ist das ein Webfilter, kein Fehler deines Geräts. In Schulen und Firmen ist er gewollt.',
+    weg: 'Ich messe den Weg zu 1.1.1.1 und 9.9.9.9 Station für Station. Führt er später über andere Stationen, sage ich es. Das passiert nur in Netzen, die als „meins“ gelten.',
     erst: 'Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.',
   };
   const KLASSE = {
@@ -21,8 +22,27 @@
     Harmlos: ['gruen', 'Harmlos', 'Harmlos heißt: kommt im Alltag vor.'],
   };
 
+  let aktErg = null;
+  const KLASSE_RANG = { Harmlos: 0, Auffaellig: 1, Alarm: 2 };
   const ja = (v) => (v == null ? null : v ? 'ja' : 'nein');
   const tlsWort = (x, host) => ({ Normal: 'normal', Aufgebrochen: 'aufgebrochen' })[x.tls.find((t) => t.host === host)?.verdict] ?? null;
+
+  // Findings from pfadspur.rs arrive as sentences only. „Unverändert“ and „nicht beurteilbar“ are the
+  // quiet ones: they belong to the row „Weg ins Internet“, not to the list of differences.
+  // ponytail: matches the sentence start, so a rewording in src/pfadspur.rs needs a change here; upgrade: a field in PruefErgebnis.
+  const istWeg = (u) => /^(Der Weg zu |Zwischen Router und Anbieter steht auf dem Weg zu )/.test(u.text);
+  const wegRuhig = (u) => istWeg(u) && u.klasse === 'Harmlos' && /dieselben Stationen|nicht beurteilbar/.test(u.text);
+  const THEMA = [
+    [/DHCP/, () => 'DHCP-Server'],
+    [/Zertifikat von ([\w.-]+)/, (m) => `Zertifikat von ${m[1]}`],
+    [/erfindet|falsche Namen/, () => 'Umleitung'],
+    [/DNS/, () => 'DNS'],
+    [/^(Der Weg zu |Zwischen Router)/, () => 'Weg ins Internet'],
+    [/blockiert/, () => 'Sperre'],
+    [/öffentliche IP/, () => 'Öffentliche IP'],
+    [/WLAN|Wi-Fi/, () => 'WLAN'],
+  ];
+  const thema = (t) => { for (const [re, f] of THEMA) { const m = t.match(re); if (m) return f(m); } return 'Netz'; };
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
@@ -33,50 +53,77 @@
   const reihe = (label, m, o, wert, erkl) => {
     const neu = wert(m);
     const alt = o ? wert(o) : null;
+    // The changed row wears the severity of its sentence above.
+    const t = /DHCP/.test(label) ? 'DHCP-Server' : /^DNS/.test(label) ? 'DNS' : /^Erfundene/.test(label) ? 'Umleitung'
+      : /blockiert/.test(label) ? 'Sperre' : label === 'Öffentliche IP' ? label : `Zertifikat von ${label}`;
+    const rang = Math.max(-1, ...aktErg.unterschiede.filter((u) => thema(u.text) === t).map((u) => KLASSE_RANG[u.klasse]));
+    const farbe = ['orange', 'orange', 'rot'][rang < 0 ? 1 : rang] ?? 'orange';
     return el('div', { class: 'zeile' },
       el('dt', { class: 'label', text: label }),
       el('dd', { class: `wert${neu == null ? ' leer' : ''}` },
         neu ?? 'nicht messbar',
-        alt != null && alt !== neu && el('span', { class: 'alt', text: `vorher ${alt}` })),
+        neu != null && alt != null && alt !== neu && el('span', { class: 'alt' }, el('span', { class: `punkt ${farbe}` }), 'geändert')),
       erkl && el('dd', { class: 'erklaerung', text: erkl }));
   };
 
   function urteil(erg) {
-    const worst = erg.unterschiede[0]?.klasse;
+    const worst = diffs(erg)[0]?.klasse;
     const seit = `Seit dem letzten Besuch am ${zeit(erg.vorher.time)}`;
-    if (worst === 'Alarm') return status('rot', `Alarm. ${seit} hat sich etwas geändert, das du klären solltest.`);
+    if (worst === 'Alarm') return el('div', { class: 'urteil' }, el('span', { class: 'punkt rot' }),
+      el('div', {}, el('strong', { text: 'Alarm' }), el('p', { text: `${seit} hat sich etwas geändert, das du klären solltest.` })));
     if (worst === 'Auffaellig') return status('orange', `Auffällig. ${seit} ist etwas anders, schau nach, ob das so gewollt ist.`);
     return status('gruen', `Nichts Auffälliges. ${seit} ist alles im Rahmen.`);
   }
 
+  const diffs = (erg) => erg.unterschiede.filter((u) => !wegRuhig(u));
+
+  // Leads: topic and severity (dot plus word) on top, the sentence below. The detail groups only mark the changed row.
   function unterschiede(erg) {
-    return gruppe('Unterschiede', erg.unterschiede.map((u) => {
+    return gruppe('Unterschiede', diffs(erg).map((u) => {
       const [farbe, wort, erkl] = KLASSE[u.klasse];
       return el('div', { class: 'zeile' },
-        el('dt', { class: 'label klasse' }, el('span', { class: `punkt ${farbe}` }), wort),
+        el('dt', { class: 'label thema', text: thema(u.text) }),
+        el('dd', { class: 'wert klasse' }, el('span', { class: `punkt ${farbe}` }), wort),
         el('dd', { class: 'wert text', text: u.text }),
         el('dd', { class: 'erklaerung', text: erkl }));
     }));
   }
 
+  // Row „Weg ins Internet“ (#66): unchanged, changed, alarm, from the findings of pfadspur.
+  function wegZeile(erg) {
+    const w = erg.unterschiede.filter(istWeg);
+    const laut = w.filter((u) => !wegRuhig(u)).sort((a, b) => KLASSE_RANG[b.klasse] - KLASSE_RANG[a.klasse])[0];
+    const [farbe, wort] = laut ? (laut.klasse === 'Harmlos' ? ['gruen', 'leicht geändert'] : [KLASSE[laut.klasse][0], laut.klasse === 'Alarm' ? 'Alarm' : 'geändert'])
+      : w.some((u) => /dieselben Stationen/.test(u.text)) ? ['gruen', 'unverändert']
+      : w.length ? ['grau', 'nicht beurteilbar'] : [null, 'nicht gemessen'];
+    return el('div', { class: 'zeile' },
+      el('dt', { class: 'label', text: 'Weg ins Internet' }),
+      el('dd', { class: `wert klasse${farbe ? '' : ' leer'}` }, farbe && el('span', { class: `punkt ${farbe}` }), wort),
+      el('dd', { class: 'erklaerung', text: E.weg }));
+  }
+
   function werte(erg) {
+    aktErg = erg;
     const m = erg.messung;
     const o = erg.vorher;
     const r = (label, wert, erkl) => reihe(label, m, o, wert, erkl);
     const n = erg.nicht_messbar;
     return [
-      gruppe('Router und DHCP', [r('Router', (x) => x.router, E.router), r('DHCP-Server', (x) => x.dhcp_server, E.dhcp)]),
-      gruppe('DNS', [r('DNS-Server vom Netz', (x) => (x.dhcp_dns.length ? x.dhcp_dns.join(', ') : 'keine'), E.dns)]),
+      gruppe('Netz', [
+        r('Router', (x) => x.router, E.router),
+        r('DHCP-Server', (x) => x.dhcp_server, E.dhcp),
+        r('DNS-Server vom Netz', (x) => (x.dhcp_dns.length ? x.dhcp_dns.join(', ') : 'keine'), E.dns),
+        r('Öffentliche IP', (x) => x.public_ip, E.ip),
+        wegZeile(erg),
+      ], n > 0 && (n === 1
+        ? 'Eine Prüfung ließ sich nicht messen (Internet? Zeitüberschreitung?). Sie zählt nicht als Änderung.'
+        : `${n} Prüfungen ließen sich nicht messen (Internet? Zeitüberschreitung?). Sie zählen nicht als Änderung.`)),
       gruppe('Sperren und Umleitungen', [
         r('github.com blockiert, im Netz', (x) => ja(x.blocked_local), E.sperre),
         r('github.com blockiert, bei 1.1.1.1', (x) => ja(x.blocked_public)),
         r('Erfundene Antworten für falsche Namen', (x) => ja(x.hijack), E.umleitung),
       ]),
       gruppe('Zertifikate', m.tls.map((t, i) => r(t.host, (x) => tlsWort(x, t.host), i === 0 ? E.tls : null))),
-      gruppe('Öffentliche IP', [r('Öffentliche IP', (x) => x.public_ip, E.ip)],
-        n > 0 && (n === 1
-          ? 'Eine Prüfung ließ sich nicht messen (Internet? Zeitüberschreitung?). Sie zählt nicht als Änderung.'
-          : `${n} Prüfungen ließen sich nicht messen (Internet? Zeitüberschreitung?). Sie zählen nicht als Änderung.`)),
     ];
   }
 
@@ -126,7 +173,7 @@
       ] : []),
       ...(erg ? [
         erg.erster_besuch && el('p', { class: 'fuss erklaerung', text: E.erst }),
-        !erg.erster_besuch && erg.unterschiede.length > 0 && unterschiede(erg),
+        !erg.erster_besuch && diffs(erg).length > 0 && unterschiede(erg),
         ...werte(erg),
         sniKarte(),
       ] : []));
@@ -165,6 +212,7 @@
 
   Netz.registriere({
     id: 'pruefung',
+    aktualisieren: false, // ⌘R is „Jetzt prüfen“ here
     titel: 'Prüfung',
     icon: Netz.icons.pruefung,
     render(wurzel) {
