@@ -1,5 +1,5 @@
 // Fake answers for the view „pruefung“ in vorschau.html.
-// Marks: pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
+// Marks (die Übersicht nutzt dieselben, nur nicht das bloße `pruefung`): pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
 // pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“),
 // pruefung-misst (Webfilter misst noch), sni-filter, sni-fremd, sni-unklar (Karte „Webfilter am Servernamen“, sonst: kein Name gestört).
 (() => {

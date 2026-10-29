@@ -47,7 +47,7 @@
     return z;
   };
   // Nach dem Neuzeichnen steht der Fokus an der neuen Überschrift (sonst im Nichts am Seitenanfang).
-  const zumKopf = () => document.querySelector("[data-ansicht='dieses-netz'] h2")?.focus();
+  const zumKopf = () => document.querySelector("[data-ansicht='dieses-netz'] h2, [data-ansicht='uebersicht'] h2")?.focus();
   // Seltene Werte hinter ein Aufklappen (`details` ist mit der Tastatur bedienbar).
   const mehr = (titel, zeilen) => el('details', { class: 'mehr' }, el('summary', { text: titel }), el('dl', {}, zeilen));
 
@@ -123,7 +123,7 @@
     Wep: 'WEP gilt seit Jahren als geknackt, es schützt kaum. Stelle den Router auf WPA2 oder WPA3 um.',
     Wpa: 'WPA (die erste Version) ist veraltet. Stelle den Router auf WPA2 oder WPA3 um.',
   };
-  const wlanKarte = (w) => {
+  const wlanKarte = (w, eingebettet) => {
     const sicher = w.sicherheit ? SICHER[w.sicherheit] : null;
     const staerke = staerkeVon(w.rssi_dbm);
     const signal = bewertet(zeile('Signal', staerke && `${w.rssi_dbm} dBm, ${staerke}`,
@@ -132,8 +132,8 @@
     const sz = bewertet(zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || (sicher && w.sicherheit !== 'Unbekannt' ? 'Die Verschlüsselung ist zeitgemäß.' : 'Die Art der Verschlüsselung ließ sich nicht auslesen.')),
       ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) && 'schlecht');
     const g = gruppe('WLAN', [
-      ...(w.ssid ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
-      signal,
+      ...(w.ssid && !eingebettet ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
+      ...(eingebettet ? [] : [signal]),
       sz,
       zeile('Senderate', w.rate_mbit == null ? null : `${Math.round(w.rate_mbit)} MBit/s`, 'Die Senderate ist das, was Mac und Router gerade aushandeln, nicht die echte Geschwindigkeit. Echt kommt meist die Hälfte oder weniger an.'),
     ]);
@@ -179,7 +179,7 @@
           knopfEl.textContent = 'Standort freigeben …';
           knopfEl.focus();
         }
-      }, 'Netzinfo darf den Standort nutzen: Freigabe anfragen')
+      }, 'Standort freigeben: Netzinfo darf den Standort nutzen, Freigabe anfragen')
       : status === 'Abgelehnt'
         ? aktion('Systemeinstellungen öffnen', () => Netz.invoke('ort_einstellungen_oeffnen').catch((err) => fehler.replaceChildren(meldung(Netz.text(err)))), 'Systemeinstellungen öffnen, Ortungsdienste')
         : null;
@@ -243,6 +243,9 @@
         : 'In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal.'));
   }
 
+  // Für die Übersicht: das Merken-Formular und die Schwellen sind dieselben.
+  Netz.dieses = { offenKnopf, staerkeVon, E };
+
   Netz.registriere({
     id: 'dieses-netz',
     teil: true,
@@ -253,20 +256,24 @@
       const i = d.info;
       const s = i.subnet;
       const vpn = i.interface.startsWith('utun');
+      // Eingebettet (Übersicht): Kopf, Hinweis und „Merken“ stehen oben. Was die Prüfung unter „Details“ schon zeigt
+      // (Router, DHCP-Server, DNS vom DHCP), und was oben steht (IP-Adresse), kommt nicht noch einmal.
+      const eingebettet = wurzel.classList.contains('eingebettet');
+      const doppelt = eingebettet && !!d.netz;
       const magic = i.system_dns.includes('100.100.100.100');
 
-      wurzel.append(kopf(d, funk));
-      if (d.hinweis) wurzel.append(meldung(d.hinweis, 'orange'));
-      if (!d.netz && !d.erkennung_fehler) {
+      if (!eingebettet) wurzel.append(kopf(d, funk));
+      if (d.hinweis && !eingebettet) wurzel.append(meldung(d.hinweis, 'orange'));
+      if (!d.netz && !d.erkennung_fehler && !eingebettet) {
         wurzel.append(el('div', { class: 'neues-netz' },
           Netz.leerZustand('', 'Merk dir das Netz, dann erkennt Netzinfo es beim nächsten Mal wieder.', 'erster-start'),
           el('div', { class: 'aktion' }, offenKnopf())));
       }
-      if (d.erkennung_fehler) wurzel.append(el('p', { class: 'fuss', text: d.erkennung_fehler }));
+      if (d.erkennung_fehler && !eingebettet) wurzel.append(el('p', { class: 'fuss', text: d.erkennung_fehler }));
 
       const adresse = gruppe('Adresse', [
         zeile('Schnittstelle', i.interface, E.schnittstelle(vpn)),
-        zeile('IP-Adresse', i.ip, E.ip(i.dhcp_server != null)),
+        ...(eingebettet ? [] : [zeile('IP-Adresse', i.ip, E.ip(i.dhcp_server != null))]),
         ...(s ? [zeile('Maske', `${s.mask} (/${s.prefix})`, E.maske)] : []),
       ]);
       if (s) {
@@ -279,9 +286,9 @@
       wurzel.append(adresse);
 
       const dhcp = i.dhcp_server != null;
-      const dienste = gruppe('Router und Dienste', [
-        zeile('Router', i.router, E.router),
-        ...(dhcp ? [
+      const dienste = gruppe(doppelt ? 'DNS und Dienste' : 'Router und Dienste', [
+        ...(eingebettet ? [] : [zeile('Router', i.router, E.router)]),
+        ...(dhcp && !doppelt ? [
           zeile('DHCP-Server', i.dhcp_server, E.dhcp),
           stapel('DNS vom DHCP', i.dhcp_dns, E.dhcpDns),
         ] : []),
@@ -336,7 +343,7 @@
       if (funk) {
         const ort = ortKarte(await Netz.invoke('ort_status').catch(() => 'Erlaubt'));
         if (ort) wurzel.append(ort);
-        wurzel.append(wlanKarte(funk));
+        wurzel.append(wlanKarte(funk, eingebettet));
       }
       await v6;
     },
