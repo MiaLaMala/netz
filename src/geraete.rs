@@ -330,7 +330,7 @@ fn show(d: &Device, tag: &str) {
         )
     };
     println!(
-        "  {:<15}  {:<5} {:<17}  {:<24}  {}  {}",
+        "  {:<15}  {:<5} {:<17}  {:<24}  {}",
         d.ip.to_string(),
         tag,
         d.mac.as_deref().unwrap_or("-"),
@@ -338,8 +338,9 @@ fn show(d: &Device, tag: &str) {
         crate::namen::bester(d)
             .map(|n| format!("{} ({})", n.name, n.quelle.bezeichnung()))
             .unwrap_or_else(|| "-".into()),
-        ports
     );
+    // Ports unter dem Namen: so bleibt die Tabellenzeile unter 100 Zeichen.
+    println!("{:<2}{:<15}  {ports}", "", "");
 }
 
 /// Searches devices in the current network. Refuses unless the network is marked „meins“, the

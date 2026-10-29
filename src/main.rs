@@ -202,7 +202,7 @@ fn help() -> String {
     for (titel, zeilen) in GRUPPEN {
         s += &format!("\n{titel}:\n");
         for (aufruf, text) in *zeilen {
-            s += &format!("  {aufruf:<breite$}  {text}\n");
+            s += &spalten("  ", aufruf, breite, text);
         }
     }
     s += "\nOptionen:\n";
@@ -217,21 +217,34 @@ fn help() -> String {
             "Diese Hilfe; `netzinfo <Befehl> --help` zeigt nur die Zeilen dieses Befehls",
         ),
     ] {
-        s += &format!("  {o:<breite$}  {t}\n");
+        s += &spalten("  ", o, breite, t);
     }
-    s += "\nExit-Code: 0 = geklappt, 1 = Fehler beim Ausführen, 2 = falscher Aufruf.\n";
+    s += "\nExit-Code:\n";
+    for (c, t) in [
+        ("0", "geklappt"),
+        ("1", "Fehler beim Ausführen"),
+        ("2", "falscher Aufruf"),
+    ] {
+        s += &spalten("  ", c, 1, t);
+    }
     s += "\nBeispiele:\n";
+    let w = BEISPIELE
+        .iter()
+        .map(|(a, _)| a.chars().count())
+        .max()
+        .unwrap_or(0);
     for (a, t) in BEISPIELE {
-        s += &format!(
-            "  netzinfo {a:<w$}  {t}\n",
-            w = BEISPIELE
-                .iter()
-                .map(|(a, _)| a.chars().count())
-                .max()
-                .unwrap_or(0)
-        );
+        s += &spalten("  netzinfo ", a, w, t);
     }
     s
+}
+
+/// Eine Tabellenzeile `vor`, linke Spalte auf `breite` Zeichen, rechte Spalte umgebrochen und
+/// unter sich eingerückt. Endet mit Zeilenumbruch.
+fn spalten(vor: &str, links: &str, breite: usize, text: &str) -> String {
+    let erste = format!("{vor}{links:<breite$}  ");
+    let folge = " ".repeat(erste.chars().count());
+    netzinfo::umbruch(text, &erste, &folge) + "\n"
 }
 
 /// Hilfe für einen Befehl: seine Zeilen aus `GRUPPEN`, sonst `None`.
@@ -244,9 +257,15 @@ fn befehlshilfe(name: &str) -> Option<String> {
     let breite = zeilen.iter().map(|(a, _)| a.chars().count()).max()?;
     let mut s = String::from("Aufruf:\n");
     for (a, t) in zeilen {
-        s += &format!("  netzinfo {a:<breite$}  {t}\n");
+        s += &spalten("  netzinfo ", a, breite, t);
     }
-    s += "\n`--erklaer` erklärt bei jedem Schritt, was im Netz passiert. `netzinfo --help` zeigt alle Befehle.\n";
+    s += "\n";
+    s += &netzinfo::umbruch(
+        "`--erklaer` erklärt bei jedem Schritt, was im Netz passiert. `netzinfo --help` zeigt alle Befehle.",
+        "",
+        "",
+    );
+    s += "\n";
     Some(s)
 }
 
@@ -510,6 +529,15 @@ mod tests {
             }
         }
         assert!(geprueft > 20, "Hilfe nicht gelesen: {geprueft}");
+    }
+
+    #[test]
+    fn hilfe_bleibt_unter_100_zeichen() {
+        let mut alle = vec![help()];
+        alle.extend(befehle().into_iter().filter_map(befehlshilfe));
+        for z in alle.iter().flat_map(|h| h.lines()) {
+            assert!(z.chars().count() <= netzinfo::ZEILE_MAX, "{z}");
+        }
     }
 
     #[test]

@@ -52,8 +52,35 @@ pub mod zeit;
 /// Prints a German explanation line when `--erklaer` is on.
 pub fn explain(on: bool, text: &str) {
     if on {
-        println!("  ↳ {text}");
+        println!("{}", umbruch(text, "  ↳ ", "    "));
     }
+}
+
+/// Maximale Zeilenbreite der Terminal-Ausgabe, gezählt in Zeichen.
+pub const ZEILE_MAX: usize = 100;
+
+/// Bricht `text` an Wortgrenzen auf `ZEILE_MAX` Zeichen um. Die erste Zeile beginnt mit `erste`,
+/// jede weitere mit `folge` (gleich breit, damit der Text bündig bleibt). Zählt `chars()`, nicht
+/// Bytes, damit Umlaute die Breite nicht verfälschen. Ein einzelnes Wort bleibt ungekürzt.
+pub fn umbruch(text: &str, erste: &str, folge: &str) -> String {
+    let mut aus = String::new();
+    let mut zeile = erste.to_string();
+    let mut leer = true;
+    for wort in text.split_whitespace() {
+        let neu = zeile.chars().count() + 1 + wort.chars().count();
+        if !leer && neu > ZEILE_MAX {
+            aus += &zeile;
+            aus.push('\n');
+            zeile = folge.to_string();
+            leer = true;
+        }
+        if !leer {
+            zeile.push(' ');
+        }
+        zeile += wort;
+        leer = false;
+    }
+    aus + &zeile
 }
 
 /// Fehler des Betriebssystems auf Deutsch: `{e}` käme englisch („No route to host (os error 65)“).
@@ -117,5 +144,19 @@ mod io_satz_tests {
         assert_eq!(io_satz(&e), format!("Systemfehler {}", i32::MAX));
         // ohne Code bleibt der Originaltext
         assert_eq!(io_satz(&Error::other("kaputt")), "kaputt");
+    }
+
+    #[test]
+    fn umbruch_zaehlt_zeichen_und_rueckt_ein() {
+        let wort = "Größe ";
+        let text = wort.repeat(40);
+        let u = crate::umbruch(&text, "  ↳ ", "    ");
+        let zeilen: Vec<&str> = u.lines().collect();
+        assert!(zeilen.len() > 1);
+        assert!(zeilen.iter().all(|z| z.chars().count() <= crate::ZEILE_MAX));
+        assert!(zeilen[0].starts_with("  ↳ Größe") && zeilen[1].starts_with("    Größe"));
+        assert_eq!(crate::umbruch("kurz", "- ", "  "), "- kurz");
+        let lang = "x".repeat(150);
+        assert_eq!(crate::umbruch(&lang, "", ""), lang);
     }
 }
