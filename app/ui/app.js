@@ -60,6 +60,11 @@
   const meldung = (satz, farbe = 'rot') =>
     el('p', { class: 'meldung', role: 'alert' }, el('span', { class: `punkt ${farbe}` }), el('span', {}, mitCode(satz)));
 
+  // Fehler mit Ausweg: Satz plus „Erneut versuchen“ (lädt die Ansicht neu). `nochmal` ersetzt das Neuladen, z. B. für eine einzelne Messung.
+  const fehlerKarte = (satz, nochmal) =>
+    el('div', { class: 'fehler-karte' }, meldung(satz, 'rot'),
+      el('button', { class: 'knopf', type: 'button', text: 'Erneut versuchen', onclick: () => (nochmal ?? neuLaden)() }));
+
   const status = (farbe, wort) =>
     el('p', { class: 'status' }, el('span', { class: `punkt ${farbe}` }), el('span', { text: wort }));
 
@@ -84,8 +89,12 @@
       erklaerung && el('dd', { class: 'erklaerung', text: erklaerung }));
   }
 
-  function leerZustand(icon, satz) {
-    return el('div', { class: 'leer-zustand' }, el('span', { html: icon }), el('p', { text: satz }));
+  // `bild` (optional) ist ein Name aus ui/bilder.js und ersetzt das kleine Symbol durch ein Strichbild.
+  function leerZustand(icon, satz, bild) {
+    const gross = bild && window.NETZ_BILDER?.[bild];
+    return el('div', { class: 'leer-zustand' },
+      gross ? el('span', { class: 'leer-bild', html: gross }) : el('span', { html: icon }),
+      el('p', { text: satz }));
   }
 
   // „Woher?“: Aktion einer Zeile, lädt die Startkette des Prozesses erst beim Aufklappen (#56).
@@ -196,7 +205,7 @@
       await a.render(wurzel);
     } catch (e) {
       console.error(e);
-      wurzel.replaceChildren(meldung(text(e)));
+      wurzel.replaceChildren(fehlerKarte(text(e)));
     }
     clearTimeout(wartet);
     if (nr !== zaehler) return; // inzwischen woanders hingeklickt
@@ -239,7 +248,7 @@
   }
 
   window.Netz = {
-    invoke, el, icons, zeit, text, meldung, status, gruppe, zeile, leerZustand, neuLaden, woher, bestaetigung,
+    invoke, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, woher, bestaetigung,
     registriere: (a) => ansichten.push(a),
   };
   document.addEventListener('DOMContentLoaded', start);

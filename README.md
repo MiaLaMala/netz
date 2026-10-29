@@ -225,6 +225,7 @@ testdata/       Aufgezeichnete Antworten für die Tests
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
 - Unter Linux liest Netzinfo Default-Route, Adresse und DHCP ohne Root (`/proc/net/route`, `getifaddrs`, systemd-networkd oder NetworkManager), danach laufen `hier`, `dns`, `pruefen`, `merken`, `messen`, `diagnose`, `mtu`, `pfad`, `bonjour`, `upnp`, `router` und `wlan` (mit `iw`). `geraete` läuft ohne `--nachbarn`.
 - Nur auf dem Mac gehen `offen`, `verbindungen`, `woher`, `traffic`, `last`, `wlan --umfeld`, `geraete --nachbarn`, `proxy`, `fritzbox` (Schlüsselbund) und die Standortfreigabe, weil sie libproc, CoreWLAN, `nettop`, `networkQuality` oder `scutil` brauchen. Sie melden das mit einem klaren Satz. Die Linux-Fassung ist bisher nur in der CI und im Release-Probelauf gelaufen, nicht von Hand auf einem Server oder Raspberry Pi.
+- Die Strichbilder der leeren Zustände sind mit Higgsfield (Recraft V4.1) erzeugt, als ein einziges Bild, damit der Strich überall gleich ist. Danach sind sie von Hand zerlegt und bekommen ihre Farben aus dem CSS, damit sie im Dunkelmodus passen.
 
 Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
 

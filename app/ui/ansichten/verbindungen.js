@@ -82,7 +82,7 @@
         !alle ? 'Keine aktiven Verbindungen von dir gefunden. Öffne eine Webseite oder ein Programm, dann erscheint es hier.'
           : !r.netz_name ? 'Ohne gemerktes Netz gibt es kein „neu“. Merke das Netz unter „Gemerkte Netze“.'
           : r.erster_lauf ? 'Beim ersten Lauf ist nichts „neu“. Schau beim nächsten Mal wieder nach.'
-          : 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.')];
+          : 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.', 'verbindungen')];
     }
     return [kopf, fuss, ...gruppen.map((g) => {
       const n = g.verbindungen.length;

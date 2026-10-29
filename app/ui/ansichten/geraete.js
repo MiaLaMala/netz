@@ -316,7 +316,7 @@
       text: t === null ? `Alle ${karten.length}` : `${t} ${karten.filter((k) => k.typ === t).length}`,
     });
     if (!karten.length) {
-      kartenOrt.replaceChildren(leerZustand(Netz.icons.geraete, 'Noch keine Geräte gemerkt. „Netz absuchen“ legt für jedes gefundene Gerät eine Karte an.'));
+      kartenOrt.replaceChildren(leerZustand(Netz.icons.geraete, 'Noch keine Geräte gemerkt. „Netz absuchen“ legt für jedes gefundene Gerät eine Karte an.', 'geraete'));
       return;
     }
     kartenOrt.replaceChildren(
