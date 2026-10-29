@@ -7,6 +7,8 @@
   --fg: #1d1d1f;
   --fg2: #626267;
   --linie: rgba(0, 0, 0, 0.1);
+  --rand: rgba(0, 0, 0, 0.2);
+  --icon: var(--accent);
   --knopf: #fff;
   --knopf-aktiv: #ececef;
   --seite-solid: #e8e8ea;
@@ -30,6 +32,8 @@
     --fg: #f5f5f7;
     --fg2: #aeaeb2;
     --linie: rgba(255, 255, 255, 0.12);
+    --rand: rgba(255, 255, 255, 0.22);
+    --icon: color-mix(in srgb, var(--accent) 60%, #fff);
     --knopf: #3a3a3c;
     --knopf-aktiv: #4a4a4d;
     --seite-solid: #2c2c2e;
@@ -72,16 +76,18 @@ button, input, select { font: inherit; color: inherit; }
   .seite { background: var(--seite-solid); }
 }
 .ziehen { position: absolute; inset: 0 0 auto 0; height: 52px; }
-.menue { display: flex; flex-direction: column; gap: 14px; }
+.menue { display: flex; flex-direction: column; gap: 20px; }
 .abschnitt { display: flex; flex-direction: column; gap: 2px; }
-.abschnitt-titel { padding: 0 10px 2px; font-size: 11px; font-weight: 600; color: var(--fg2); }
+.abschnitt-titel { padding: 0 10px 4px; font-size: 11px; font-weight: 600; color: var(--fg2); }
 .eintrag {
   display: flex; align-items: center; gap: 8px;
   height: 30px; padding: 0 10px;
   border: 0; border-radius: 6px; background: none;
   text-align: left; width: 100%;
 }
-.eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.eintrag svg { width: 16px; height: 16px; flex: none; color: var(--icon); }
+.eintrag:hover:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.eintrag:focus-visible { outline-offset: -1px; }
 /* Selection: system accent while the window is active, grey otherwise (html.inaktiv, set in app.js). */
 .eintrag[aria-selected="true"] { background: var(--accent); color: var(--auf-accent); }
 .eintrag[aria-selected="true"] svg { color: inherit; }
@@ -105,15 +111,16 @@ button, input, select { font: inherit; color: inherit; }
 .leiste h1 { font-size: 15px; font-weight: 600; flex: 1; min-width: 0; line-height: 24px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .leiste > * { position: relative; }
 .leiste .ziehen { height: 100%; position: absolute; }
+.erklaeren-schalter:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
 .erklaeren-schalter { display: flex; align-items: center; gap: 8px; height: 24px; margin-right: 6px; border: 0; background: none; padding: 0 4px; border-radius: 6px; white-space: nowrap; }
 .spur {
   width: 28px; height: 16px; border-radius: 8px; flex: none;
-  background: color-mix(in srgb, var(--fg) 22%, transparent);
+  background: color-mix(in srgb, var(--fg) 30%, transparent);
   position: relative; transition: background 0.15s ease-out;
 }
 .spur::after {
   content: ""; position: absolute; top: 2px; left: 2px;
-  width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease-out;
 }
 [aria-checked="true"] > .spur { background: var(--accent); }
@@ -122,13 +129,17 @@ button, input, select { font: inherit; color: inherit; }
 
 .knopf {
   height: 24px; padding: 0 12px; border-radius: 6px;
-  border: 0.5px solid var(--linie); background: var(--knopf);
+  border: 0.5px solid var(--rand); background: var(--knopf);
   display: inline-flex; align-items: center; gap: 6px;
 }
 .knopf[hidden] { display: none; }
-.knopf:active { background: var(--knopf-aktiv); }
+/* Der Kopf bleibt stehen, wenn eine Ansicht ⌘R selbst belegt: Schalter und Titel wandern nicht. */
+#aktualisieren[hidden] { display: inline-flex; visibility: hidden; }
+.knopf:hover:not(:disabled) { background: color-mix(in srgb, var(--knopf) 92%, var(--fg)); }
+.knopf:active:not(:disabled) { background: var(--knopf-aktiv); }
 .knopf.haupt { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
-.knopf.haupt:active { filter: brightness(0.88); }
+.knopf.haupt:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.knopf.haupt:active:not(:disabled) { background: var(--accent); filter: brightness(0.88); }
 .knopf:disabled { opacity: 0.5; }
 .knopf .kbd { color: var(--fg2); font-size: 12px; }
 
@@ -144,11 +155,11 @@ button, input, select { font: inherit; color: inherit; }
 .punkt.gruen { background: var(--gruen); }
 .punkt.orange { background: var(--orange); }
 .punkt.rot { background: var(--rot); }
-.aktion { margin-top: 14px; }
+.aktion { margin-top: 16px; }
 
 /* Gruppen wie in den Systemeinstellungen */
-.gruppe { margin-top: 22px; }
-.gruppe > h3 { margin: 0 0 6px 14px; font-size: 12px; font-weight: 600; color: var(--fg2); }
+.gruppe { margin-top: 24px; }
+.gruppe > h3 { margin: 0 0 8px 14px; font-size: 12px; font-weight: 600; color: var(--fg2); }
 .liste { background: var(--gruppe); border-radius: 10px; border: 0.5px solid var(--linie); }
 .zeile { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 14px; padding: 8px 0; }
 .zeile + .zeile { border-top: 0.5px solid var(--linie); }
@@ -157,13 +168,14 @@ button, input, select { font: inherit; color: inherit; }
 .wert.leer { color: var(--fg2); }
 .erklaerung { display: none; flex-basis: 100%; font-size: 12px; color: var(--fg2); line-height: 1.4; }
 .erklaeren .erklaerung { display: block; }
-.fuss { margin: 6px 14px 0; font-size: 12px; color: var(--fg2); }
+.fuss { margin: 8px 14px 0; font-size: 12px; color: var(--fg2); }
 
 /* Auswahl- und Textfelder sehen aus wie ein .knopf; Formulare in Listen überschreiben das unten. */
 select, input[type="text"], input[type="password"] {
   height: 24px; padding: 0 8px; border-radius: 6px;
-  border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg);
+  border: 0.5px solid var(--rand); background: var(--knopf); color: var(--fg);
 }
+select:focus-visible, input[type="text"]:focus-visible, input[type="password"]:focus-visible { outline-offset: 0; border-color: var(--accent); }
 input[type="text"], input[type="password"] { -webkit-user-select: text; user-select: text; }
 input[type="text"]::placeholder, input[type="password"]::placeholder { color: var(--fg2); }
 select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { opacity: 0.5; }
@@ -201,8 +213,8 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 /* Meldung und leerer Zustand */
 .meldung { display: flex; gap: 8px; align-items: baseline; margin-top: 16px; font-size: 14px; line-height: 1.45; color: var(--fg); }
 .meldung .punkt { transform: translateY(-1px); }
-.fehler-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
-.fehler-karte .meldung { margin-top: 16px; }
+.fehler-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 14px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+.fehler-karte .meldung { margin-top: 0; }
 .meldung code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
 .leer-zustand {
   padding: 40px 0;

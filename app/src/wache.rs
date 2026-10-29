@@ -34,7 +34,7 @@ impl Zustand {
             Self::KeinNetz => "○",
             Self::Unauffaellig => "✓",
             Self::Auffaellig => "!",
-            Self::Alarm => "‼",
+            Self::Alarm => "!!",
         }
     }
 
