@@ -63,7 +63,11 @@
   // Fehler mit Ausweg: Satz plus „Erneut versuchen“ (lädt die Ansicht neu). `nochmal` ersetzt das Neuladen, z. B. für eine einzelne Messung.
   const fehlerKarte = (satz, nochmal) =>
     el('div', { class: 'fehler-karte' }, meldung(satz, 'rot'),
-      el('button', { class: 'knopf', type: 'button', text: 'Erneut versuchen', onclick: () => (nochmal ?? neuLaden)() }));
+      el('button', {
+        class: 'knopf', type: 'button', text: 'Erneut versuchen',
+        // Zeichnet der Versuch den Inhalt neu, hängt der Fokus sonst am entfernten Knopf.
+        onclick: async () => { await (nochmal ?? neuLaden)(); if (document.activeElement === document.body) zumKopf(); },
+      }));
 
   const status = (farbe, wort) =>
     el('p', { class: 'status' }, el('span', { class: `punkt ${farbe}` }), el('span', { text: wort }));
@@ -147,7 +151,9 @@
     const eintrag = (a) => el('button', {
       class: 'eintrag', role: 'tab', id: `tab-${a.id}`, 'data-id': a.id,
       'aria-selected': 'false', tabindex: '-1',
-      onclick: () => zeige(a.id),
+      // Ein Klick holt den Fokus in die Seitenleiste (WebKit tut das bei Knöpfen nicht), sonst gehen die Pfeiltasten ins Leere.
+      onclick: () => zeige(a.id, { fokus: true }),
+      title: `${a.titel} (⌘${reihe.indexOf(a) + 1})`, 'aria-keyshortcuts': `Meta+${reihe.indexOf(a) + 1}`,
     }, el('span', { html: a.icon }), el('span', { text: a.titel }));
     const rest = new Set(ansichten);
     const bloecke = abschnitte.map(([titel, ids]) => {
@@ -166,7 +172,7 @@
     }
     menue.addEventListener('keydown', (e) => {
       const schritt = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[e.key];
-      if (!schritt) return;
+      if (!schritt || e.metaKey || e.ctrlKey || e.altKey) return;
       e.preventDefault();
       const i = reihe.findIndex((a) => a.id === aktuell);
       const n = Math.max(0, Math.min(reihe.length - 1, i + schritt));
@@ -187,16 +193,18 @@
       if (an && fokus) b.focus();
     }
     document.getElementById('titel').textContent = a.titel;
+    const feld = document.getElementById('scroll');
+    const knopf = document.getElementById('aktualisieren');
+    // Fokus merken, bevor „Lädt …“ oder das Sperren des Knopfs ihn wegnehmen.
+    const imInhalt = feld.contains(document.activeElement);
+    const amKnopf = document.activeElement === knopf;
     // A view that owns ⌘R itself (aktualisieren: false) hides the shared button.
     document.getElementById('aktualisieren').hidden = a.aktualisieren === false;
-    const feld = document.getElementById('scroll');
-    feld.setAttribute('aria-labelledby', `tab-${id}`);
     const nr = ++zaehler;
     // data-ansicht scopes a view's CSS file: all views share one document.
     const wurzel = el('div', { class: `ansicht${wechsel ? ' neu' : ''}`, 'data-ansicht': id });
     feld.setAttribute('aria-busy', 'true');
     // Dauert das Laden, steht beim Wechsel nicht die alte Ansicht unter dem neuen Titel.
-    const knopf = document.getElementById('aktualisieren');
     knopf.disabled = true;
     const wartet = wechsel && setTimeout(() => {
       if (nr === zaehler) feld.replaceChildren(el('div', { class: 'ansicht' }, leerZustand('', 'Lädt …')));
@@ -214,6 +222,17 @@
     feld.replaceChildren(wurzel);
     feld.scrollTop = oben;
     feld.removeAttribute('aria-busy');
+    // Wo der Fokus im alten Inhalt stand, steht er jetzt an der Überschrift des neuen (nicht im Nichts).
+    if (imInhalt || feld.contains(document.activeElement)) zumKopf();
+    else if (amKnopf) knopf.focus();
+  }
+
+  // Fokus an die Überschrift der Ansicht (tabindex -1), sonst an „Erneut versuchen“, sonst ans Inhaltsfeld.
+  function zumKopf() {
+    const feld = document.getElementById('scroll');
+    const ziel = feld.querySelector('h2') ?? feld.querySelector('.fehler-karte .knopf') ?? feld;
+    if (!ziel.matches('button')) ziel.tabIndex = -1;
+    ziel.focus({ preventScroll: true });
   }
 
   const neuLaden = () => zeige(aktuell, { neuLaden: true });
@@ -239,16 +258,16 @@
     erklaermodus();
     document.getElementById('aktualisieren').addEventListener('click', neuLaden);
     document.addEventListener('keydown', (e) => {
-      if (e.metaKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        neuLaden();
-      }
+      if (!e.metaKey || e.shiftKey || e.altKey) return;
+      // ⌘1 bis ⌘8: Ansichten in der Reihenfolge der Seitenleiste.
+      if (/^[1-8]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement.closest('#menue') }); }
+      else if (e.key.toLowerCase() === 'r') { e.preventDefault(); neuLaden(); }
     });
     zeige(reihe[0].id);
   }
 
   window.Netz = {
-    invoke, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, woher, bestaetigung,
+    invoke, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, zumKopf, woher, bestaetigung,
     registriere: (a) => ansichten.push(a),
   };
   document.addEventListener('DOMContentLoaded', start);

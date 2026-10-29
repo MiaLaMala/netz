@@ -7,7 +7,8 @@
   --fg: #1d1d1f;
   --fg2: #626267;
   --linie: rgba(0, 0, 0, 0.1);
-  --rand: rgba(0, 0, 0, 0.2);
+  --rand: #8a8a8e;  /* Rand von Knöpfen und Feldern, Schalterspur: 3:1 gegen Seite, Gruppe und Knopf */
+  --fokus: #0a62e8;  /* Fokusring: 3:1 gegen Seite, Gruppe und Knopf */
   --accent-lesbar: var(--accent);  /* Akzent für Symbole, Kurven und Linien, im Dunkeln aufgehellt */
   --knopf: #fff;
   --knopf-aktiv: #ececef;
@@ -15,6 +16,7 @@
   --gruen: #1f7a36;
   --orange: #a35200;
   --rot: #d70015;
+  --rot-text: var(--rot);  /* roter Knopftext, im Dunkeln auf dem Knopfgrund 4,5:1 */
   --grau: #8e8e93;
   --accent: #0a62e8;
   --auf-accent: #fff;
@@ -32,7 +34,8 @@
     --fg: #f5f5f7;
     --fg2: #aeaeb2;
     --linie: rgba(255, 255, 255, 0.12);
-    --rand: rgba(255, 255, 255, 0.22);
+    --rand: #8e8e93;
+    --fokus: #5aa0ff;
     --accent-lesbar: color-mix(in srgb, var(--accent) 60%, #fff);
     --knopf: #3a3a3c;
     --knopf-aktiv: #4a4a4d;
@@ -40,6 +43,7 @@
     --gruen: #30d158;
     --orange: #ff9f0a;
     --rot: #ff6961;
+    --rot-text: #ff8a84;
     --accent: #0070f0;
   }
 }
@@ -58,10 +62,11 @@ body {
 dd, .meldung, .wert { -webkit-user-select: text; user-select: text; }
 h1, h2, p, dl, dd, ul { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
-:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset: 1px;
-}
+:focus-visible { outline: 2px solid var(--fokus); outline-offset: 2px; }
+/* Überschrift und Inhaltsfeld nimmt der Fokus nach dem Neuzeichnen (app.js, zumKopf): ohne eigenen Ring. */
+.scroll:focus { outline: none; }
+/* Gekürzter Text: eine Zeile mit Auslassung. Der volle Text bleibt im DOM, VoiceOver liest ihn. */
+.kuerzen { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .num, .wert { font-variant-numeric: tabular-nums; }
 
 /* Seitenleiste: läuft bis ganz nach oben, Material kommt vom Fenster */
@@ -87,7 +92,9 @@ button, input, select { font: inherit; color: inherit; }
 }
 .eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent-lesbar); }
 .eintrag:hover:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 7%, transparent); }
-.eintrag:focus-visible { outline-offset: -1px; }
+.eintrag:focus-visible { outline-offset: -2px; }
+.eintrag[aria-selected="true"]:focus-visible { outline-color: var(--auf-accent); }
+.inaktiv .eintrag[aria-selected="true"]:focus-visible { outline-color: var(--fokus); }
 /* Selection: system accent while the window is active, grey otherwise (html.inaktiv, set in app.js). */
 .eintrag[aria-selected="true"] { background: var(--accent); color: var(--auf-accent); }
 .eintrag[aria-selected="true"] svg { color: inherit; }
@@ -115,7 +122,7 @@ button, input, select { font: inherit; color: inherit; }
 .erklaeren-schalter { display: flex; align-items: center; gap: 8px; height: 24px; margin-right: 6px; border: 0; background: none; padding: 0 4px; border-radius: 6px; white-space: nowrap; }
 .spur {
   width: 28px; height: 16px; border-radius: 8px; flex: none;
-  background: color-mix(in srgb, var(--fg) 30%, transparent);
+  background: var(--rand);
   position: relative; transition: background 0.15s ease-out;
 }
 .spur::after {
@@ -129,7 +136,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .knopf {
   height: 24px; padding: 0 12px; border-radius: 6px;
-  border: 0.5px solid var(--rand); background: var(--knopf);
+  border: 1px solid var(--rand); background: var(--knopf);
   display: inline-flex; align-items: center; gap: 6px;
 }
 .knopf[hidden] { display: none; }
@@ -173,11 +180,11 @@ button, input, select { font: inherit; color: inherit; }
 /* Auswahl- und Textfelder sehen aus wie ein .knopf; Formulare in Listen überschreiben das unten. */
 select, input[type="text"], input[type="password"] {
   height: 24px; padding: 0 8px; border-radius: 6px;
-  border: 0.5px solid var(--rand); background: var(--knopf); color: var(--fg);
+  border: 1px solid var(--rand); background: var(--knopf); color: var(--fg);
 }
-select:focus-visible, input[type="text"]:focus-visible, input[type="password"]:focus-visible { outline-offset: 0; border-color: var(--accent); }
+select:focus-visible, input[type="text"]:focus-visible, input[type="password"]:focus-visible { outline-offset: 0; border-color: var(--fokus); }
 input[type="text"], input[type="password"] { -webkit-user-select: text; user-select: text; }
-input[type="text"]::placeholder, input[type="password"]::placeholder { color: var(--fg2); }
+input[type="text"]::placeholder, input[type="password"]::placeholder { color: var(--fg2); opacity: 1; }
 select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { opacity: 0.5; }
 
 /* Formular */
@@ -201,7 +208,7 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 .bestaetigung { flex-basis: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .bestaetigung { padding: 2px 0; }
 .bestaetigung p { flex: 1; min-width: 200px; font-size: 12px; color: var(--fg2); }
-.knopf.gefahr { color: var(--rot); }
+.knopf.gefahr { color: var(--rot-text); }
 
 /* „Woher?“ (Netz.woher): Aktion der Zeile, das Feld öffnet sich darunter. Die Textfarbe hält 4,5:1 auch im dunklen Modus. */
 .woher-knopf { border: 0; background: none; color: color-mix(in srgb, var(--accent) 65%, var(--fg)); font-size: 12px; padding: 3px 6px; margin: 0 -6px 0 0; border-radius: 5px; }
@@ -234,7 +241,7 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 .leer-zustand p { max-width: 340px; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 .formular .liste { padding: 8px 0; }
 .formular .zeile { padding: 12px 0; }
