@@ -160,20 +160,14 @@ fn netz_vergessen(name: String) -> Result<(), Fehler> {
 
 /// Last stored DNS measurement of a remembered network, sends nothing, see issue #88.
 #[tauri::command(async)]
-fn dns_gespeichert(name: String) -> Result<Option<netzinfo::dnsverschl::Gespeichert>, String> {
-    netzinfo::dnsverschl::gespeichert(&name)
+fn dns_gespeichert(name: String) -> Result<Option<netzinfo::dnsverschl::Gespeichert>, Fehler> {
+    netzinfo::dnsverschl::gespeichert(&name).map_err(Into::into)
 }
 
 /// One Wi-Fi sample into the running visit, see issue #36. Stores only in remembered networks.
 #[tauri::command(async)]
-fn wlan_verlauf_abtasten() -> Result<netzinfo::wlanverlauf::Ansicht, String> {
-    netzinfo::wlanverlauf::abtasten()
-}
-
-/// Stored visits and events of the current network, see issue #36.
-#[tauri::command(async)]
-fn wlan_besuche() -> Result<netzinfo::wlanverlauf::NetzVerlauf, String> {
-    netzinfo::wlanverlauf::besuche_jetzt()
+fn wlan_verlauf_abtasten() -> Result<netzinfo::wlanverlauf::Ansicht, Fehler> {
+    netzinfo::wlanverlauf::abtasten().map_err(Into::into)
 }
 
 fn main() {
@@ -203,8 +197,7 @@ fn main() {
             ort_anfragen,
             ort_einstellungen_oeffnen,
             dns_gespeichert,
-            wlan_verlauf_abtasten,
-            wlan_besuche
+            wlan_verlauf_abtasten
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

@@ -325,15 +325,6 @@ fn ablegen(ziel: &Ziel, v: &Verlauf) -> Result<Option<Besuch>, String> {
     Ok(Some(b))
 }
 
-/// Gespeicherte Besuche und Ereignisse des aktuellen Netzes. Ungemerkt: leer.
-pub fn besuche_jetzt() -> Result<NetzVerlauf, String> {
-    let Some((pfad, key)) = ziel_suchen() else {
-        return Ok(NetzVerlauf::default());
-    };
-    let mut store: Store = netze::load_json(&pfad)?;
-    Ok(store.remove(&key).unwrap_or_default())
-}
-
 struct Stand {
     verlauf: Verlauf,
     ziel: Ziel,
