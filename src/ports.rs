@@ -125,7 +125,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         r.offen, r.geschlossen, r.gefiltert
     );
     if r.gefiltert > 0 && r.gefiltert == r.ports.len() {
-        println!("Alles gefiltert: Eine Firewall verwirft die Pakete, oder das Gerät ist aus.");
+        crate::satz("Alles gefiltert: Eine Firewall verwirft die Pakete, oder das Gerät ist aus.");
     }
     Ok(())
 }

@@ -492,8 +492,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     let Some(f) = f else {
         if !json {
-            println!(
-                "Keine Funkverbindung. Der Mac hängt nicht per WLAN im Netz, z. B. weil er am Kabel hängt."
+            crate::satz(
+                "Keine Funkverbindung. Der Mac hängt nicht per WLAN im Netz, z. B. weil er am Kabel hängt.",
             );
         }
         return Ok(());
@@ -571,8 +571,8 @@ fn zeigen(f: &Funkverbindung, on: bool) {
     zeile("Kennung (BSSID)", f.bssid.clone());
     if f.ssid.is_none() {
         println!("Standort: {}", crate::ort::status().satz());
-        println!(
-            "Hinweis: Name und Kennung zeigt macOS nur Apps mit Standortfreigabe. Die Kommandozeile hat ohne App-Bündel und Signatur keine, die Netzinfo-App zeigt beides."
+        crate::satz(
+            "Hinweis: Name und Kennung zeigt macOS nur Apps mit Standortfreigabe. Die Kommandozeile hat ohne App-Bündel und Signatur keine, die Netzinfo-App zeigt beides.",
         );
     }
     explain(

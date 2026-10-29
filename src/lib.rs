@@ -52,8 +52,19 @@ pub mod zeit;
 /// Prints a German explanation line when `--erklaer` is on.
 pub fn explain(on: bool, text: &str) {
     if on {
-        println!("{}", umbruch(text, "  ↳ ", "    "));
+        println!(
+            "{}",
+            umbruch(text, ERKLAERUNG, &" ".repeat(ERKLAERUNG.chars().count()))
+        );
     }
+}
+
+/// Beginn jeder Erklärzeile. Ein Wort statt eines Pfeils: Screenreader lesen Symbole als „Pfeil“.
+const ERKLAERUNG: &str = "  Erklärung: ";
+
+/// Gibt Fließtext umgebrochen aus (ein Satz oder mehrere, ohne Einrückung).
+pub fn satz(text: &str) {
+    println!("{}", umbruch(text, "", ""));
 }
 
 /// Maximale Zeilenbreite der Terminal-Ausgabe, gezählt in Zeichen.
@@ -150,11 +161,14 @@ mod io_satz_tests {
     fn umbruch_zaehlt_zeichen_und_rueckt_ein() {
         let wort = "Größe ";
         let text = wort.repeat(40);
-        let u = crate::umbruch(&text, "  ↳ ", "    ");
+        let u = crate::umbruch(&text, "  Erklärung: ", "              ");
         let zeilen: Vec<&str> = u.lines().collect();
         assert!(zeilen.len() > 1);
         assert!(zeilen.iter().all(|z| z.chars().count() <= crate::ZEILE_MAX));
-        assert!(zeilen[0].starts_with("  ↳ Größe") && zeilen[1].starts_with("    Größe"));
+        assert!(
+            zeilen[0].starts_with("  Erklärung: Größe")
+                && zeilen[1].starts_with("              Größe")
+        );
         assert_eq!(crate::umbruch("kurz", "- ", "  "), "- kurz");
         let lang = "x".repeat(150);
         assert_eq!(crate::umbruch(&lang, "", ""), lang);

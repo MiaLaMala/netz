@@ -302,9 +302,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "Gespeichert in geraete.json bei dem gemerkten Gerät mit dieser IP. Die Seriennummer lese ich nicht.",
         );
         if ohne > 0 {
-            println!(
+            crate::satz(&format!(
                 "{ohne} Geräte sind noch nicht gemerkt. Starte `netzinfo geraete` und danach `netzinfo upnp` noch einmal."
-            );
+            ));
         }
     }
     e(

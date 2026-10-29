@@ -508,13 +508,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     let r = suchen_mit(cidr, gross, nachbarn)?;
     e("Erlaubt: Das Netz ist „meins“, und der Bereich liegt ganz im eigenen Subnetz.");
-    println!(
+    crate::satz(&format!(
         "Suche Geräte in {} (Adressen: {}, Ports je Adresse: {}, Timeout {} ms)",
         r.bereich,
         r.adressen,
         PORTS.len(),
         TIMEOUT.as_millis()
-    );
+    ));
     e(
         "Bei jeder Adresse versuche ich einen TCP-Verbindungsaufbau auf ein paar gängige Ports (SSH, DNS, Web, Dateifreigabe, Drucker, AirPlay, iPhone-Sync). Dafür braucht es keine Root-Rechte.",
     );
@@ -556,10 +556,12 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         show(d, if is_new { "neu" } else { "" });
     }
     if r.geraete.is_empty() {
-        println!("Keine Geräte gefunden. Geräte, die jedes Paket verwerfen, bleiben unsichtbar.");
+        crate::satz(
+            "Keine Geräte gefunden. Geräte, die jedes Paket verwerfen, bleiben unsichtbar.",
+        );
     }
     if r.erster_lauf {
-        println!("Erster Lauf in diesem Netz: alles ist der Ausgangsstand, nichts ist „neu“.");
+        crate::satz("Erster Lauf in diesem Netz: alles ist der Ausgangsstand, nichts ist „neu“.");
     } else {
         println!("{} neu seit dem letzten Mal.", r.neu.len());
     }

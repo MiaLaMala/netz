@@ -175,10 +175,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     let aktiv: Vec<_> = liste.iter().filter(|v| v.ein + v.aus > 0).collect();
     if aktiv.is_empty() {
-        println!("In {sekunden} Sekunden hat kein Programm Daten übertragen.");
+        crate::satz(&format!(
+            "In {sekunden} Sekunden hat kein Programm Daten übertragen."
+        ));
         return Ok(());
     }
-    println!("Letzte {sekunden} Sekunden, je Programm (ein = empfangen, aus = gesendet):");
+    crate::satz(&format!(
+        "Letzte {sekunden} Sekunden, je Programm (ein = empfangen, aus = gesendet):"
+    ));
     for v in aktiv.iter().take(15) {
         println!(
             "  {:<28} ein {:>9}  aus {:>9}   ({}/s ein, {}/s aus)",

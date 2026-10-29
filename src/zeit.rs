@@ -375,7 +375,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             ),
         }
     }
-    println!("{}", e.satz);
+    crate::satz(&e.satz);
     explain(
         explain_on,
         "Unter 2 Sekunden Abweichung ist harmlos, bis 60 Sekunden auffällig. Geht die Uhr des Netzes mehr als 60 Sekunden anders als die öffentlichen Quellen, schlägt `netzinfo pruefen` Alarm, weil Zertifikate dann zu früh oder zu spät gelten würden.",

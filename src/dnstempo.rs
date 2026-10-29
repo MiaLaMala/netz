@@ -309,13 +309,13 @@ fn ausgeben(e: &Ergebnis, gekuerzt: bool, explain_on: bool) {
         );
     }
     if gekuerzt {
-        println!(
+        crate::satz(&format!(
             "Hinweis: Wegen der Obergrenze von {MAX_ABFRAGEN} Abfragen je Server zählen nur die ersten {MAX_NAMEN} Namen."
-        );
+        ));
     }
-    println!("{}", datenschutz());
+    crate::satz(&datenschutz());
     let (satz, erklaerung) = urteil(e);
-    println!("{satz}");
+    crate::satz(&satz);
     explain(explain_on, erklaerung);
 }
 

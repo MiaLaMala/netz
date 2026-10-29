@@ -570,10 +570,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         println!("{label}: {}", show(&r));
         replies.push(r);
     }
-    println!(
-        "{}",
-        verdict(&replies[0], &[&replies[1], &replies[2]], qtype)
-    );
+    crate::satz(&verdict(&replies[0], &[&replies[1], &replies[2]], qtype));
     Ok(())
 }
 

@@ -684,7 +684,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "Das Passwort fragt Netzinfo im Terminal ab und legt es im macOS-Schlüsselbund ab. Es steht nie in einer Datei und nie als Argument in der Prozessliste.",
         );
         zugang_speichern(benutzer, &passwort_fragen()?)?;
-        println!("Der Zugang für „{benutzer}“ liegt im Schlüsselbund.");
+        crate::satz(&format!(
+            "Der Zugang für „{benutzer}“ liegt im Schlüsselbund."
+        ));
         return Ok(());
     }
     if let Some(a) = args.iter().find(|a| !a.starts_with("--")) {
@@ -700,17 +702,17 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     let r = abrufen(zugang_lesen)?;
     match r.zustand {
-        Zustand::Ok => println!(
+        Zustand::Ok => crate::satz(&format!(
             "{} {} vom Router gelesen, {} davon neu in deiner Liste.",
             r.gefunden,
             if r.gefunden == 1 { "Gerät" } else { "Geräte" },
             r.neu
-        ),
-        _ => println!("{}", r.satz),
+        )),
+        _ => crate::satz(&r.satz),
     }
     if r.zustand == Zustand::KeinZugang {
-        println!(
-            "Lege ihn an mit `netzinfo fritzbox --zugang <Benutzer>`. Der Benutzer braucht in der Fritz!Box das Recht „FRITZ!Box Einstellungen“."
+        crate::satz(
+            "Lege ihn an mit `netzinfo fritzbox --zugang <Benutzer>`. Der Benutzer braucht in der Fritz!Box das Recht „FRITZ!Box Einstellungen“.",
         );
     }
     Ok(())

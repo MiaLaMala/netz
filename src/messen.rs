@@ -612,15 +612,15 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
     let key = net.fingerprint.key();
     let router = router_of(&info);
     if router.is_none() {
-        println!(
-            "Der Router ist nicht einer der DNS-Server dieses Netzes. Ich überspringe die DNS-Messung zum Router und messe nur 1.1.1.1."
+        crate::satz(
+            "Der Router ist nicht einer der DNS-Server dieses Netzes. Ich überspringe die DNS-Messung zum Router und messe nur 1.1.1.1.",
         );
     }
     let total = (minutes * 60 / takt).max(1);
-    println!(
+    crate::satz(&format!(
         "Messe im Netz „{}“: {total} Messungen, alle {takt} s. Mit Ctrl-C brichst du ab, bisherige Werte bleiben gespeichert.",
         net.name
-    );
+    ));
     explain(
         explain_on,
         "Pro Messung stelle ich eine DNS-Anfrage an den Router und eine an 1.1.1.1 und baue eine TCP-Verbindung zu 1.1.1.1 auf Port 443 auf. Ich messe nur, wie lange die Antwort dauert. Kommt innerhalb von 2 Sekunden nichts zurück, zählt das als Verlust.",
@@ -648,7 +648,7 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
         hours: vec![],
     };
     if let Some(r) = build_report(&net.name, &d, netze::now()) {
-        println!("\nZusammenfassung dieser Messung\n{}", report_text(&r));
+        println!("\nZusammenfassung dieser Messung:\n{}", report_text(&r));
     }
     explain(
         explain_on,
@@ -709,25 +709,25 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
         .ok()
         .filter(|a| !a.liste.is_empty());
     if r.ziele.is_empty() {
-        println!(
+        crate::satz(&format!(
             "Für „{}“ gibt es noch keine Messungen. Starte `netzinfo messen`, am besten für mehrere Stunden mit `--minuten 240`.",
             r.netz
-        );
+        ));
         if let Some(w) = &wlan {
-            println!("\nWLAN\n{w}");
+            println!("\nWLAN:\n{w}");
         }
         if let Some(l) = &last {
-            println!("\nUnter Last\n{l}");
+            println!("\nUnter Last:\n{l}");
         }
         zeige_ausfall(&ausfall);
         return Ok(());
     }
     print!("{}", report_text(&r));
     if let Some(w) = &wlan {
-        println!("\nWLAN\n{w}");
+        println!("\nWLAN:\n{w}");
     }
     if let Some(l) = &last {
-        println!("\nUnter Last\n{l}");
+        println!("\nUnter Last:\n{l}");
     }
     zeige_ausfall(&ausfall);
     if let Some(file) = md {

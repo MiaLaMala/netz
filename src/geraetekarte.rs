@@ -448,7 +448,7 @@ pub fn zeigen(explain_on: bool) -> Result<(), String> {
     );
     let liste = karten_jetzt()?;
     if liste.is_empty() {
-        println!("Noch keine Geräte gemerkt. Suche zuerst mit `netzinfo geraete --nachbarn`.");
+        crate::satz("Noch keine Geräte gemerkt. Suche zuerst mit `netzinfo geraete --nachbarn`.");
         return Ok(());
     }
     println!("Gerätekarten: {}", liste.len());

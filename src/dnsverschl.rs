@@ -386,7 +386,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             println!("Verschlüsselter Resolver im Netz (DDR):");
             v.iter().for_each(|e| println!("  {e}"));
         }
-        None => println!("Verschlüsselter Resolver im Netz (DDR): keiner angeboten"),
+        None => crate::satz("Verschlüsselter Resolver im Netz (DDR): keiner angeboten"),
     }
     match m.dot {
         Status::Erreichbar => explain(
@@ -403,8 +403,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         ),
     }
     match (&r.netz, &r.vorher) {
-        (None, _) => println!(
-            "Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert. Merke es mit `netzinfo merken <Name>`."
+        (None, _) => crate::satz(
+            "Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert. Merke es mit `netzinfo merken <Name>`.",
         ),
         (Some(n), Some(v)) => println!(
             "Netz „{n}“, letzte Messung am {}: DoT {}, DoH {}.",
@@ -412,9 +412,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             wort(v.dot),
             wort(v.doh)
         ),
-        (Some(n), None) => {
-            println!("Netz „{n}“: erste Messung, sie ist ab jetzt die Vergleichsbasis.")
-        }
+        (Some(n), None) => crate::satz(&format!(
+            "Netz „{n}“: erste Messung, sie ist ab jetzt die Vergleichsbasis."
+        )),
     }
     Ok(())
 }

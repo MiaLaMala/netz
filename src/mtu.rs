@@ -473,7 +473,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     let ziel = ziel.unwrap_or("1.1.1.1");
-    println!("Messe die größte Paketgröße zu {ziel}. Das dauert meist unter 15 Sekunden.");
+    crate::satz(&format!(
+        "Messe die größte Paketgröße zu {ziel}. Das dauert meist unter 15 Sekunden."
+    ));
     explain(
         explain_on,
         "Jedes Netzgerät hat eine Obergrenze, wie große Pakete es weitergibt (MTU). Ich schicke Ping-Pakete mit dem Zeichen „Nicht zerlegen“. Ist ein Paket zu groß, wird es nicht zerlegt, sondern abgewiesen. Das braucht kein sudo.",
@@ -483,12 +485,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Ich probiere nicht alle Größen aus, sondern halbiere den Bereich von 576 bis 1500 Byte immer wieder: kam das Paket an, geht es nach oben, sonst nach unten. Nach etwa zehn Schritten steht die Grenze fest. Nennt ein Router seine Grenze selbst, springe ich direkt dorthin.",
     );
     let r = mtu_daten(ziel)?;
-    println!("Ziel {}", r.ziel_ip);
+    println!("Ziel: {}", r.ziel_ip);
     println!("Größte Paketgröße ohne Zerlegen: {} Byte", r.pfad_mtu);
     if let Some(l) = r.lokale_mtu {
         println!("Grenze deiner Schnittstelle zum Ziel: {l} Byte");
     }
-    println!("\n{}", r.satz);
+    println!();
+    crate::satz(&r.satz);
     match (&r.netz, r.vorher) {
         (Some(n), Some(v)) if v != r.pfad_mtu => println!(
             "\nGespeichert für „{n}“. Beim letzten Besuch waren es {v} Byte, das ist anders."

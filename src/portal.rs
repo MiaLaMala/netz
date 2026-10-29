@@ -283,30 +283,30 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         println!("{} ({}): {code}, {u}{to}", q.quelle, q.host);
     }
     if let Some(d) = r.dns_verdaechtig {
-        println!(
+        crate::satz(&format!(
             "captive.apple.com zeigt auf eine private Adresse: {}",
             if d { "ja" } else { "nein" }
-        );
+        ));
     }
     match r.status {
         Status::Frei => {
-            println!("Kein Captive Portal. Das Netz lässt die Prüfseiten unverändert durch.")
+            crate::satz("Kein Captive Portal. Das Netz lässt die Prüfseiten unverändert durch.")
         }
         Status::PortalVermutet => {
             let wohin = r
                 .ziel_host
                 .as_deref()
                 .map_or(String::new(), |h| format!(" (Ziel: {h})"));
-            println!(
+            crate::satz(&format!(
                 "Portal vermutet{wohin}: Anmeldung nötig. Öffne eine Webseite im Browser und melde dich an."
-            );
+            ));
         }
-        Status::Unklar => println!(
-            "Unklar: zu wenige Antworten, um ein Portal auszuschließen. Ist das Internet erreichbar?"
+        Status::Unklar => crate::satz(
+            "Unklar: zu wenige Antworten, um ein Portal auszuschließen. Ist das Internet erreichbar?",
         ),
     }
     if r.status == Status::Frei && r.quellen.iter().any(|q| q.urteil != Urteil::Erwartet) {
-        println!("Hinweis: Eine Quelle weicht ab, vielleicht ist sie in diesem Netz gesperrt.");
+        crate::satz("Hinweis: Eine Quelle weicht ab, vielleicht ist sie in diesem Netz gesperrt.");
     }
     explain(
         explain_on,

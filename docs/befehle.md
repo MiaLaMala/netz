@@ -6,6 +6,10 @@ Ergänzt die Übersicht im [README](../README.md). Jeder Befehl erklärt mit `--
 
 `netzinfo --help` listet alle Befehle nach Thema, `netzinfo <Befehl> --help` (auch `netzinfo hilfe <Befehl>`) nur die Zeilen dieses Befehls. Was es nur auf dem Mac gibt, steht in der Hilfe als „(nur Mac)“ oder unter „Dieser Mac“; unter Linux antwortet der Befehl mit einem Satz, warum er dort nicht geht. Exit-Code 0: geklappt. 1: Der Befehl lief, aber etwas ging schief (kein Netz, Zeitüberschreitung, Gerät nicht erreichbar). 2: falscher Aufruf (unbekannter Befehl oder unbekannte Option, fehlendes Argument). `pruefen` meldet Abweichungen im Text, nicht im Exit-Code.
 
+## Ausgabe lesen (auch mit Screenreader)
+
+Jede Ausgabe ist reiner Text, eine Zeile nach der anderen. Kopfzeilen haben die Form `Name: Wert` (`Netz: WG`, `Router: 192.0.2.1`, `Ziel: 203.0.113.5`), Abschnitte stehen als Zeile mit Doppelpunkt (`Ereignisse:`), die Zeilen darunter sind eingerückt. Erklärungen von `--erklaer` beginnen mit dem Wort „Erklärung:“. Langer Text bricht bei 100 Zeichen um. Es gibt keine Rahmen und keine Farbe, also tut `NO_COLOR` nichts, und Zeichen sind immer von einem Wort begleitet. `netzinfo live` malt im Terminal eine Blockkurve und überschreibt seine Zeilen; mit `TERM=dumb` oder Umleitung bleibt nur Text.
+
 ## Wie Netzinfo ein Netz wiedererkennt
 
 `netzinfo hier` sagt oben, ob das Netz bekannt ist („Bekanntes Netz: WG, zuletzt am …“) oder neu. Erkannt wird es an Router, DHCP-Server, Domain und Subnetz, nicht am WLAN-Namen. Die Liste liegt in `~/Library/Application Support/netzinfo/netze.json` (anderer Pfad: Umgebungsvariable `NETZ_DATEN`). Zwei Netze mit demselben Werksrouter (z. B. zwei FRITZ!Boxen) sehen gleich aus.

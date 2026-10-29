@@ -375,10 +375,10 @@ pub fn hier_hinweis(a: &Aktuell, explain_on: bool) {
         ),
         // store unreadable: only the note, no explanation
         None if a.hinweis.is_some() => {}
-        None => println!("Neues Netz. Mit `netzinfo merken <Name>` merkst du es dir."),
+        None => crate::satz("Neues Netz. Mit `netzinfo merken <Name>` merkst du es dir."),
     }
     if let Some(h) = &a.hinweis {
-        println!("Hinweis: {h}");
+        crate::satz(&format!("Hinweis: {h}"));
         if a.netz.is_none() {
             return;
         }
@@ -497,7 +497,7 @@ pub fn run_netze(args: &[String], explain_on: bool) -> Result<(), String> {
     crate::optionen::nur(args, &[], "netze")?;
     let list = liste()?;
     if list.is_empty() {
-        println!("Noch kein Netz gemerkt. Mit `netzinfo merken <Name>` fängst du an.");
+        crate::satz("Noch kein Netz gemerkt. Mit `netzinfo merken <Name>` fängst du an.");
         return Ok(());
     }
     for n in &list {

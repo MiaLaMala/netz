@@ -304,8 +304,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         return Ok(());
     }
     if a.beobachtungen.is_empty() {
-        println!(
-            "Der Scan hat kein Netz gehört. Ohne Standortfreigabe liefert macOS manchmal nichts; in der App kannst du sie unter „Dieses Netz“ erteilen."
+        crate::satz(
+            "Der Scan hat kein Netz gehört. Ohne Standortfreigabe liefert macOS manchmal nichts; in der App kannst du sie unter „Dieses Netz“ erteilen.",
         );
         return Ok(());
     }
@@ -322,7 +322,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         if zeilen.is_empty() {
             continue;
         }
-        println!("\n{}", b.name());
+        println!("\n{}:", b.name());
         for l in zeilen {
             let du = if a.aktuell
                 == Some(Kanal {
@@ -341,7 +341,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             );
         }
     }
-    println!("\n{}", a.empfehlung.text);
+    println!();
+    crate::satz(&a.empfehlung.text);
     if explain_on {
         explain(
             true,

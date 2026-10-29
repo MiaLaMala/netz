@@ -593,8 +593,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     println!("Dienste: {}", dienste.len());
     if dienste.is_empty() {
-        println!(
-            "Es hat sich niemand gemeldet. Viele Geräte schweigen; versuche es später noch einmal."
+        crate::satz(
+            "Es hat sich niemand gemeldet. Viele Geräte schweigen; versuche es später noch einmal.",
         );
     }
     for d in &dienste {
@@ -625,15 +625,15 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     if !txt && dienste.iter().any(|d| !d.txt.is_empty()) {
-        println!(
-            "TXT-Werte sind ausgeblendet (können Namen oder Seriennummern enthalten). Mit `--txt` anzeigen."
+        crate::satz(
+            "TXT-Werte sind ausgeblendet (können Namen oder Seriennummern enthalten). Mit `--txt` anzeigen.",
         );
     }
     if !ohne.is_empty() {
-        println!(
+        crate::satz(&format!(
             "{} Dienste passen zu keinem bekannten Gerät. Starte `netzinfo geraete --nachbarn`, dann ordne ich sie zu.",
             ohne.len()
-        );
+        ));
     }
     e(
         "Grenzen: Du siehst nur Geräte im selben Netzsegment. Viele Geräte schweigen (Windows-PCs, einfache IoT-Geräte), und jeder kann beliebige Dienste ankündigen: Ein Treffer beweist keine Identität.",

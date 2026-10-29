@@ -342,7 +342,16 @@ fn eine(x: f64) -> String {
     format!("{x:.1}").replace('.', ",")
 }
 
-fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
+/// Zwei Textzeilen je Ziel. Die Blockkurve gibt es nur im echten Terminal: ein Screenreader liest
+/// jeden Block einzeln vor, und alles Wichtige steht ohnehin in den Zahlen.
+fn zeilen(ziel: &str, s: &Serie, mit_kurve: bool) -> [String; 2] {
+    let kurve = |s: &Serie| {
+        if mit_kurve {
+            format!("{}  ", kurve(&s.proben, 40))
+        } else {
+            String::new()
+        }
+    };
     let Some(k) = s.kennzahlen(jetzt_ms()) else {
         return [
             format!("{ziel:<16} wartet auf die erste Antwort …"),
@@ -352,8 +361,8 @@ fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
     if k.median_ms.is_none() {
         return [
             format!(
-                "{ziel:<16} {}  keine Antwort auf {} Pakete",
-                kurve(&s.proben, 40),
+                "{ziel:<16} {}keine Antwort auf {} Pakete",
+                kurve(s),
                 k.gesendet
             ),
             format!(
@@ -366,15 +375,15 @@ fn zeilen(ziel: &str, s: &Serie) -> [String; 2] {
     let e = einstufen(&k);
     [
         format!(
-            "{ziel:<16} {}  Median {}  P95 {}  Jitter {}  Verlust {} %",
-            kurve(&s.proben, 40),
+            "{ziel:<16} {}Median {}  P95 {}  Jitter {}  Verlust {} %",
+            kurve(s),
             ms(k.median_ms),
             ms(k.p95_ms),
             ms(k.jitter_ms),
             eine(k.verlust_prozent)
         ),
         format!(
-            "{:<16} Videoanruf: {}  ·  Spiele: {}  ·  Streaming: {}",
+            "{:<16} Videoanruf: {}, Spiele: {}, Streaming: {}",
             "",
             wort(e.anruf),
             wort(e.spiel),
@@ -414,9 +423,18 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         let ip = resolve4(z)?;
         sender.push((*z, ip, Icmp::open(ip)?));
     }
-    println!(
-        "Messe {sekunden} s lang alle {intervall} ms. × heißt: keine Antwort. Vorzeitig beenden mit Strg-C."
-    );
+    // Cursorsteuerung und Blockkurve nur im echten Terminal. Farbe nutzt Netzinfo nicht, `NO_COLOR`
+    // ist hier egal. Mit `TERM=dumb` (auch für Screenreader) kommt Zeile für Zeile reiner Text.
+    let tty =
+        std::io::stdout().is_terminal() && std::env::var_os("TERM").is_none_or(|t| t != "dumb");
+    let kreuz = if tty {
+        " × heißt: keine Antwort."
+    } else {
+        ""
+    };
+    crate::satz(&format!(
+        "Messe {sekunden} s lang alle {intervall} ms.{kreuz} Vorzeitig beenden mit Strg-C."
+    ));
     explain(
         explain_on,
         "Ich schicke dem Ziel regelmäßig ein kleines Ping-Paket (ICMP Echo) und messe, wie lange die Antwort braucht. Das braucht kein sudo. Jitter ist das Zittern dieser Zeit: Bei Videoanrufen führt er zu abgehackter Stimme, auch wenn der Durchschnitt gut aussieht. Verlust sind Pakete ohne Antwort nach 2 s.",
@@ -426,9 +444,6 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Die Eignung ist eine Faustregel: Videoanruf gut bei P95 unter 100 ms, Jitter unter 30 ms, Verlust unter 1 %. Spiele gut bei Median unter 50 ms, Jitter unter 15 ms, Verlust unter 0,5 %. Streaming gut bei Verlust unter 2 %. Ein Ping wird von Routern manchmal langsamer beantwortet als echter Verkehr.",
     );
     let mut serien: Vec<Serie> = ziele.iter().map(|_| Serie::default()).collect();
-    // Cursorsteuerung nur im echten Terminal. Farbe nutzt Netzinfo nicht, `NO_COLOR` ist hier egal.
-    let tty =
-        std::io::stdout().is_terminal() && std::env::var_os("TERM").is_none_or(|t| t != "dumb");
     let ende = Instant::now() + Duration::from_secs(sekunden);
     let takt = Duration::from_millis(intervall);
     let (tx, rx) = mpsc::channel::<(usize, SerienStichprobe)>();
@@ -464,7 +479,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                     print!("\x1b[{}A", ziele.len() * 2);
                 }
                 for (z, s) in ziele.iter().zip(&serien) {
-                    for l in zeilen(z, s) {
+                    for l in zeilen(z, s, true) {
                         println!("\x1b[2K{l}");
                     }
                 }
@@ -474,7 +489,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     });
     if !tty {
         for (z, s) in ziele.iter().zip(&serien) {
-            zeilen(z, s).iter().for_each(|l| println!("{l}"));
+            zeilen(z, s, false).iter().for_each(|l| println!("{l}"));
         }
     }
     for (z, s) in ziele.iter().zip(&serien) {
@@ -645,9 +660,9 @@ mod tests {
             s
         };
         let s = jetzt(&[Some(10.0), Some(20.0)]);
-        assert!(zeilen("z", &s)[0].contains("Median 15,0 ms"));
+        assert!(zeilen("z", &s, true)[0].contains("Median 15,0 ms"));
         let s = jetzt(&[None, None]);
-        assert!(zeilen("z", &s)[0].contains("keine Antwort auf 2 Pakete"));
+        assert!(zeilen("z", &s, true)[0].contains("keine Antwort auf 2 Pakete"));
     }
 
     #[test]

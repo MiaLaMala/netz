@@ -234,7 +234,7 @@ fn failed(m: &Messung) -> usize {
 }
 
 fn show(m: &Messung) {
-    println!("Router {}, DHCP-Server {}", m.router, m.dhcp_server);
+    println!("Router: {}, DHCP-Server: {}", m.router, m.dhcp_server);
     println!(
         "DNS-Server vom Netz: {}",
         if m.dhcp_dns.is_empty() {
@@ -429,7 +429,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "In einem Netz, das als „meins“ gilt, oder mit `--pfad` messe ich zusätzlich den Weg zu 1.1.1.1 und 9.9.9.9 (3 Runden, bis 12 Stationen) und merke mir nur einen Fingerabdruck der Stationen, keine Adressen. Führt der Weg später über andere Stationen, sage ich es. Steht ein zusätzliches Gerät zwischen Router und Anbieter, kann das ein Tunnel sein, oder jemand leitet deinen Verkehr um.",
     );
     let r = pruefen()?;
-    println!("Netz „{}“", r.netz);
+    println!("Netz: {}", r.netz);
     explain(
         explain_on,
         "Ich frage github.com (A) beim DNS-Server deines Netzes und bei 1.1.1.1. Sagt nur dein Netz „gibt es nicht“ oder 0.0.0.0, blockiert es den Namen (Werbefilter, Jugendschutz oder Zensur).",
@@ -452,12 +452,12 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     show(&r.messung);
     if !crate::proxy::unterstuetzt() {
-        println!(
-            "Proxy: übersprungen. Netzinfo liest die Proxy-Einstellungen bisher nur auf dem Mac."
+        crate::satz(
+            "Proxy: übersprungen. Netzinfo liest die Proxy-Einstellungen bisher nur auf dem Mac.",
         );
     }
     let Some(old) = &r.vorher else {
-        println!("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
+        crate::satz("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
         explain(
             explain_on,
             "Beim nächsten Besuch vergleiche ich mit diesen Werten und sage dir, was anders ist.",
@@ -466,7 +466,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     };
     let when = netze::format_utc(old.time);
     if r.unterschiede.is_empty() {
-        println!("Nichts Auffälliges, alles wie beim letzten Besuch am {when}.");
+        crate::satz(&format!(
+            "Nichts Auffälliges, alles wie beim letzten Besuch am {when}."
+        ));
     } else {
         println!("Seit dem letzten Besuch am {when} ist anders:");
         for u in &r.unterschiede {
@@ -489,9 +491,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                 "Sie zählen",
             )
         };
-        println!(
+        crate::satz(&format!(
             "{n} sich nicht messen (Internet? Zeitüberschreitung?). {rest} nicht als Änderung."
-        );
+        ));
     }
     explain(
         explain_on,
