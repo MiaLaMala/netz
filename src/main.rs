@@ -21,6 +21,7 @@ Befehle:
   netzinfo dns --tempo       Wer antwortet am schnellsten? Dein DNS gegen 1.1.1.1, 8.8.8.8, 9.9.9.9
   netzinfo tls [Host]        Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection
   netzinfo ports <Host>      Offene Ports eines eigenen Geräts
+  netzinfo ports --raus [--ziel <Server>]  Welche ausgehenden Ports lässt dieses Netz durch?
   netzinfo merken <Name> [--meins]
                              Aktuelles Netz merken, optional als „meins“ markieren
   netzinfo netze             Gemerkte Netze auflisten

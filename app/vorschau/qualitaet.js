@@ -253,3 +253,32 @@
   };
   if (marken.some((m) => m.startsWith('dns-tempo'))) addEventListener('DOMContentLoaded', () => setTimeout(() => document.querySelector('.dns-tempo-karte button')?.click(), 600));
 })();
+
+// Karte „Was darf raus?“ (issue #54). Marks: ,egress-blockiert (22, 25, 3389 zu), ,egress-leer (kein Port offen). Misst auf Klick.
+(() => {
+  const NAMEN = { 22: 'SSH', 25: 'Mailversand zwischen Servern', 53: 'DNS über TCP', 80: 'HTTP', 123: 'NTP über TCP', 143: 'IMAP', 443: 'HTTPS', 465: 'SMTPS', 587: 'Mailversand', 853: 'DNS über TLS', 993: 'IMAPS', 1194: 'OpenVPN', 3389: 'Remotedesktop', 5222: 'XMPP-Chat', 8080: 'HTTP, Ausweichport', 8443: 'HTTPS, Ausweichport' };
+  const zu = { 22: 'verschluckt', 25: 'abgelehnt', 3389: 'verschluckt' };
+  VORSCHAU.egress_pruefen = async () => {
+    const leer = marken.includes('egress-leer');
+    const sperre = marken.includes('egress-blockiert');
+    const ports = Object.entries(NAMEN).map(([p, name]) => {
+      const port = Number(p);
+      const status = leer ? 'verschluckt' : sperre && zu[port] ? zu[port] : 'offen';
+      const ms = status === 'offen' ? 18 + (port % 7) : status === 'abgelehnt' ? 9 : 3000;
+      const n = `${port} (${name})`;
+      const satz = port === 443 && status === 'offen' ? 'Port 443 (HTTPS) ist offen. Normale Webseiten und die meisten VPNs über HTTPS funktionieren.'
+        : port === 22 && status !== 'offen' ? 'Dieses Netz lässt Port 22 (SSH) nicht hinaus. Verbindungen per SSH nach außen funktionieren hier nicht.'
+        : status === 'offen' ? `Port ${n} ist offen.`
+        : status === 'abgelehnt' ? `Port ${n} wird abgelehnt: Die Antwort kam sofort, typisch für eine Firewall, die ausdrücklich ablehnt.`
+        : `Port ${n} wird verschluckt: Es kam keine Antwort, typisch für eine Firewall, die still verwirft.`;
+      return { port, name, status, ms, satz };
+    });
+    return { ziel: '203.0.113.7', ports, hinweise: leer ? ['Kein Port war offen. Läuft dein Testserver, und hast du Internet? Das Ergebnis wird nicht gespeichert.'] : sperre ? ['Dieses Netz lässt jetzt Port 22 (SSH), 25 (Mailversand zwischen Servern), 3389 (Remotedesktop) nicht mehr hinaus, vorher ging es. Mit `netzinfo ports --raus` siehst du alle Ports.'] : [] };
+  };
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('egress-'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => { document.querySelector('.egress-karte .knopf')?.click(); document.querySelector('.egress-karte')?.scrollIntoView(); }, 900);
+    }
+  });
+})();
