@@ -64,7 +64,7 @@
     const aus = (zustand, satz) => ({ zustand, satz, gefunden: 0, neu: 0 });
     if (m('geraete-fritz-falsch')) return aus('zugang_falsch', 'Die Fritz!Box lehnt Benutzer oder Passwort ab. Prüfe sie unter System, Fritz!Box-Benutzer, oder richte den Zugang neu ein.');
     if (m('geraete-fritz-aus')) return aus('tr064_aus', 'TR-064 ist in der Fritz!Box aus. Schalte es ein unter Heimnetz, Netzwerk, Netzwerkeinstellungen, Heimnetzfreigaben: „Zugriff für Anwendungen zulassen“.');
-    if (m('geraete-fritz-weg')) return aus('nicht_erreichbar', 'Die Fritz!Box 192.0.2.1 antwortet nicht (timed out). Prüfe die Verbindung und die Rechte für das lokale Netzwerk.');
+    if (m('geraete-fritz-weg')) return aus('nicht_erreichbar', 'Die Fritz!Box 192.0.2.1 antwortet nicht innerhalb von 3 s. Prüfe die Verbindung und die Rechte für das lokale Netzwerk.');
     gelesen = true;
     return { zustand: 'ok', satz: '', gefunden: 6, neu: 3 };
   };

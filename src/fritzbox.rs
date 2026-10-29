@@ -323,10 +323,16 @@ fn io_stoerung(ip: Ipv4Addr, e: &std::io::Error) -> Stoerung {
     if e.kind() == std::io::ErrorKind::ConnectionRefused {
         return stoerung(Zustand::Tr064Aus, SATZ_AUS);
     }
+    let warum = match e.kind() {
+        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => {
+            "nicht innerhalb von 3 s".to_string()
+        }
+        _ => format!("nicht ({e})"),
+    };
     (
         Zustand::NichtErreichbar,
         format!(
-            "Die Fritz!Box {ip} antwortet nicht ({e}). Prüfe die Verbindung und die Rechte für das lokale Netzwerk."
+            "Die Fritz!Box {ip} antwortet {warum}. Prüfe die Verbindung und die Rechte für das lokale Netzwerk."
         ),
     )
 }
