@@ -1,43 +1,42 @@
 /* Styles for the view „qualitaet“ only. */
-.werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-.werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
-.werkzeuge select { height: 24px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); }
-.karte { margin-top: 16px; padding: 12px 10px 8px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
-.karte .leer-zustand { min-height: 0; padding: 40px 0; }
-.kurve { display: block; width: 100%; height: auto; }
-.kurve .gitter { stroke: var(--linie); stroke-width: 1; }
-.kurve .achse { fill: var(--fg2); font-size: 11px; }
-.kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.kurve .verlust { stroke-width: 2; stroke-linecap: round; }
-.legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
-.legende li { display: flex; align-items: center; gap: 6px; }
-.legende .muster { width: 28px; height: 8px; }
+[data-ansicht='qualitaet'] .werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+[data-ansicht='qualitaet'] .werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
+[data-ansicht='qualitaet'] .werkzeuge select { height: 24px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); }
+[data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 40px 0; }
+[data-ansicht='qualitaet'] .kurve { display: block; width: 100%; height: auto; }
+[data-ansicht='qualitaet'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
+[data-ansicht='qualitaet'] .kurve .achse { fill: var(--fg2); font-size: 11px; }
+[data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+[data-ansicht='qualitaet'] .kurve .verlust { stroke-width: 2; stroke-linecap: round; }
+[data-ansicht='qualitaet'] .legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .legende li { display: flex; align-items: center; gap: 6px; }
+[data-ansicht='qualitaet'] .legende .muster { width: 28px; height: 8px; }
 
 /* „Wo hakt es?“ */
-.diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
-.diagnose > div { width: 100%; }
-.diagnose-ziele, .diagnose-gruende { margin: 10px 0 0; padding: 0; list-style: none; }
-.diagnose-ziele li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-.diagnose-ziele .diagnose-name { min-width: 200px; }
-.diagnose-ziele .diagnose-wert { color: var(--fg2); font-variant-numeric: tabular-nums; }
-.diagnose-urteil { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; }
-.diagnose-gruende li { margin-top: 4px; color: var(--fg2); }
-.diagnose-hinweis { margin: 10px 0 0; color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
+[data-ansicht='qualitaet'] .diagnose > div { width: 100%; }
+[data-ansicht='qualitaet'] .diagnose-ziele, [data-ansicht='qualitaet'] .diagnose-gruende { margin: 10px 0 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .diagnose-ziele li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+[data-ansicht='qualitaet'] .diagnose-ziele .diagnose-name { min-width: 200px; }
+[data-ansicht='qualitaet'] .diagnose-ziele .diagnose-wert { color: var(--fg2); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .diagnose-urteil { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; }
+[data-ansicht='qualitaet'] .diagnose-gruende li { margin-top: 4px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .diagnose-hinweis { margin: 10px 0 0; color: var(--fg2); font-size: 12px; }
 
 /* Karte „Weg zum Ziel“ */
-.weg-karte .karte { margin-top: 6px; }
-.weg .werkzeuge { margin-top: 0; }
-.ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
-.weg .fortschritt progress { vertical-align: middle; width: 80px; }
-.hops { margin: 10px 0 0; padding: 0; list-style: none; }
-.hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 70px 100px; align-items: center; gap: 8px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
-.hop .ttl, .hop .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
-.hop .zahl { text-align: right; }
-.hop .adresse { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hop.stumm .adresse { color: var(--fg2); }
-.hop .balken { height: 6px; border-radius: 3px; background: var(--linie); overflow: hidden; }
-.hop .balken span { display: block; height: 100%; background: var(--accent); }
-.hop.ende-verlust .adresse, .hop.ende-verlust .zahl.verlust { color: var(--rot); font-weight: 600; }
-.hop.ende-verlust .balken span { background: var(--rot); }
-.weg .erklaerung { margin: 8px 0 0; }
+[data-ansicht='qualitaet'] .weg-karte .karte { margin-top: 6px; }
+[data-ansicht='qualitaet'] .weg .werkzeuge { margin-top: 0; }
+[data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
+[data-ansicht='qualitaet'] .weg .fortschritt progress { vertical-align: middle; width: 80px; }
+[data-ansicht='qualitaet'] .hops { margin: 10px 0 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 70px 100px; align-items: center; gap: 8px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
+[data-ansicht='qualitaet'] .hop .ttl, [data-ansicht='qualitaet'] .hop .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .hop .zahl { text-align: right; }
+[data-ansicht='qualitaet'] .hop .adresse { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-ansicht='qualitaet'] .hop.stumm .adresse { color: var(--fg2); }
+[data-ansicht='qualitaet'] .hop .balken { height: 6px; border-radius: 3px; background: var(--linie); overflow: hidden; }
+[data-ansicht='qualitaet'] .hop .balken span { display: block; height: 100%; background: var(--accent); }
+[data-ansicht='qualitaet'] .hop.ende-verlust .adresse, [data-ansicht='qualitaet'] .hop.ende-verlust .zahl.verlust { color: var(--rot); font-weight: 600; }
+[data-ansicht='qualitaet'] .hop.ende-verlust .balken span { background: var(--rot); }
+[data-ansicht='qualitaet'] .weg .erklaerung { margin: 8px 0 0; }
 [data-ansicht='qualitaet'] .diagnose-verlauf { margin: 8px 0 0; font-weight: 600; }

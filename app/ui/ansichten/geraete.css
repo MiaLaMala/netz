@@ -3,9 +3,6 @@
 [data-ansicht='geraete'] .leer-zustand { min-height: 0; padding-top: 48px; }
 [data-ansicht='geraete'] .geraet-status { margin: 0; }
 [data-ansicht='geraete'] .fortschritt:not(:empty) { margin: 10px 0 0; }
-/* The how-it-works rows only make sense in explain mode. */
-[data-ansicht='geraete'] .erklaer-gruppe { display: none; }
-.erklaeren [data-ansicht='geraete'] .erklaer-gruppe { display: block; }
 
 [data-ansicht='geraete'] .filter { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
 [data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; }
