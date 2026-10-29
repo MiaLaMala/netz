@@ -451,9 +451,7 @@ fn current_net() -> Result<(Netz, hier::NetInfo), String> {
     let info = hier::collect()?;
     let fp = netze::fingerprint(&info)?;
     let list = netze::load(&netze::data_path()?)?;
-    let i = netze::find(&list, &fp).ok_or(
-        "Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.",
-    )?;
+    let i = netze::find(&list, &fp).ok_or(netze::NICHT_GEMERKT_MESSEN)?;
     Ok((list[i].clone(), info))
 }
 

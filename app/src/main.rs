@@ -3,60 +3,60 @@
 //! Every command returns data or a German sentence; the UI (app/ui) shows the sentence where it
 //! happened.
 
-use netzinfo::netze::{self, Aktuell, Netz};
+use netzinfo::netze::{self, Aktuell, AppFehler as Fehler, Netz};
 
 #[tauri::command(async)]
-fn dieses_netz() -> Result<Aktuell, String> {
-    netze::aktuell()
+fn dieses_netz() -> Result<Aktuell, Fehler> {
+    netze::aktuell().map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn netz_merken(name: String, meins: bool) -> Result<Netz, String> {
-    netze::merken(&name, meins)
+fn netz_merken(name: String, meins: bool) -> Result<Netz, Fehler> {
+    netze::merken(&name, meins).map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn gemerkte_netze() -> Result<Vec<Netz>, String> {
-    netze::liste()
+fn gemerkte_netze() -> Result<Vec<Netz>, Fehler> {
+    netze::liste().map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn netz_umbenennen(alt: String, neu: String) -> Result<Netz, String> {
-    netze::umbenennen(&alt, &neu)
+fn netz_umbenennen(alt: String, neu: String) -> Result<Netz, Fehler> {
+    netze::umbenennen(&alt, &neu).map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn netz_markieren(name: String, meins: bool) -> Result<Netz, String> {
-    netze::markieren(&name, meins)
+fn netz_markieren(name: String, meins: bool) -> Result<Netz, Fehler> {
+    netze::markieren(&name, meins).map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn pruefen() -> Result<netzinfo::pruefen::PruefErgebnis, String> {
-    netzinfo::pruefen::pruefen()
+fn pruefen() -> Result<netzinfo::pruefen::PruefErgebnis, Fehler> {
+    netzinfo::pruefen::pruefen().map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn messen_einmal() -> Result<netzinfo::messen::Probe, String> {
-    netzinfo::messen::messen_einmal()
+fn messen_einmal() -> Result<netzinfo::messen::Probe, Fehler> {
+    netzinfo::messen::messen_einmal().map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn bericht(name: Option<String>) -> Result<netzinfo::messen::Bericht, String> {
-    netzinfo::messen::bericht_daten(name.as_deref())
+fn bericht(name: Option<String>) -> Result<netzinfo::messen::Bericht, Fehler> {
+    netzinfo::messen::bericht_daten(name.as_deref()).map_err(Into::into)
 }
 
 #[tauri::command(async)]
 fn geraete_suchen(
     cidr: Option<String>,
     gross: bool,
-) -> Result<netzinfo::geraete::GeraeteErgebnis, String> {
-    netzinfo::geraete::suchen_mit(cidr.as_deref(), gross, true)
+) -> Result<netzinfo::geraete::GeraeteErgebnis, Fehler> {
+    netzinfo::geraete::suchen_mit(cidr.as_deref(), gross, true).map_err(Into::into)
 }
 
 /// Cards of the devices stored for this network, see issue #29. Sends nothing.
 #[tauri::command(async)]
-fn geraete_karten() -> Result<Vec<netzinfo::geraetekarte::Karte>, String> {
-    netzinfo::geraetekarte::karten_jetzt()
+fn geraete_karten() -> Result<Vec<netzinfo::geraetekarte::Karte>, Fehler> {
+    netzinfo::geraetekarte::karten_jetzt().map_err(Into::into)
 }
 
 /// Name and/or type given by the user; no scan overwrites it, see issue #29.
@@ -65,14 +65,16 @@ fn geraet_setzen(
     schluessel: String,
     name: Option<String>,
     typ: Option<String>,
-) -> Result<(), String> {
+) -> Result<(), Fehler> {
     netzinfo::geraetekarte::setzen_jetzt(&schluessel, name.as_deref(), typ.as_deref())
+        .map_err(Into::into)
 }
 
 /// Hops to `ziel` (default 1.1.1.1), see issue #73.
 #[tauri::command(async)]
-fn pfad_messen(ziel: Option<String>) -> Result<netzinfo::pfad::PfadErgebnis, String> {
+fn pfad_messen(ziel: Option<String>) -> Result<netzinfo::pfad::PfadErgebnis, Fehler> {
     netzinfo::pfad::pfad_daten(ziel.as_deref().unwrap_or("1.1.1.1"), 20, 10, true)
+        .map_err(Into::into)
 }
 
 /// Captive portal check, see issue #73.
@@ -83,8 +85,8 @@ fn portal_pruefen() -> netzinfo::portal::PortalErgebnis {
 
 /// "Wo hakt es?": four ping series, one verdict, see issue #31.
 #[tauri::command(async)]
-fn diagnose() -> Result<netzinfo::diagnose::DiagnoseErgebnis, String> {
-    netzinfo::diagnose::diagnose_daten()
+fn diagnose() -> Result<netzinfo::diagnose::DiagnoseErgebnis, Fehler> {
+    netzinfo::diagnose::diagnose_daten().map_err(Into::into)
 }
 
 /// Opens the portal login page in the default browser. Fixed URL on purpose: the UI passes nothing.
@@ -103,25 +105,25 @@ fn portal_im_browser_oeffnen() -> Result<(), String> {
 }
 
 #[tauri::command(async)]
-fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, String> {
-    netzinfo::dnsverschl::dns_daten()
+fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, Fehler> {
+    netzinfo::dnsverschl::dns_daten().map_err(Into::into)
 }
 
 /// Radio link of the current Wi-Fi connection, `None` without one, see issue #34.
 #[tauri::command(async)]
-fn wlan_lesen() -> Result<Option<netzinfo::wlan::Funkverbindung>, String> {
-    netzinfo::wlan::lesen()
+fn wlan_lesen() -> Result<Option<netzinfo::wlan::Funkverbindung>, Fehler> {
+    netzinfo::wlan::lesen().map_err(Into::into)
 }
 
 /// Active connections per program, see issue #39. Stores only in „meins“ networks or with `speichern`.
 #[tauri::command(async)]
-fn verbindungen_zeigen(speichern: bool) -> Result<netzinfo::verbindungen::Ergebnis, String> {
-    netzinfo::verbindungen::sammeln(speichern)
+fn verbindungen_zeigen(speichern: bool) -> Result<netzinfo::verbindungen::Ergebnis, Fehler> {
+    netzinfo::verbindungen::sammeln(speichern).map_err(Into::into)
 }
 
 #[tauri::command(async)]
-fn verbindungen_loeschen() -> Result<bool, String> {
-    netzinfo::verbindungen::loeschen()
+fn verbindungen_loeschen() -> Result<bool, Fehler> {
+    netzinfo::verbindungen::loeschen().map_err(Into::into)
 }
 
 /// Location permission for SSID and BSSID, see issue #35. Reading the state shows no dialog.
@@ -152,8 +154,8 @@ fn ort_einstellungen_oeffnen() -> Result<(), String> {
 }
 
 #[tauri::command(async)]
-fn netz_vergessen(name: String) -> Result<(), String> {
-    netze::vergessen(&name)
+fn netz_vergessen(name: String) -> Result<(), Fehler> {
+    netze::vergessen(&name).map_err(Into::into)
 }
 
 fn main() {

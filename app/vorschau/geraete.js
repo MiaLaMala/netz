@@ -18,7 +18,7 @@
 
   VORSCHAU.geraete_suchen = async () => {
     await warte(m('geraete-suche') ? 600000 : 700);
-    if (m('geraete-nichtmeins')) throw nichtMeins;
+    if (m('geraete-nichtmeins')) throw { art: 'nicht_meins', text: nichtMeins };
     if (m('geraete-fehler')) throw 'Das aktuelle Subnetz ist unbekannt.';
     const r = { bereich: '192.168.178.0/24', adressen: 254, geraete: [router, mac, handy, drucker, neu], neu: [neu], verschwunden: [weg], erster_lauf: false };
     if (m('geraete-leer')) return { ...r, geraete: [], neu: [], verschwunden: [] };

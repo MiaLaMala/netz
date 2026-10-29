@@ -25,7 +25,7 @@
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
-  const z = { laeuft: false, erg: null, fehler: null, portal: null };
+  const z = { laeuft: false, erg: null, fehler: null, art: null, portal: null };
   let ui = null;
 
   // One row: current value right, the old one below it when it differs.
@@ -90,7 +90,7 @@
     if (!ui) return;
     const { kopf, rest, knopf } = ui;
     const erg = z.erg;
-    const unbekannt = z.fehler?.startsWith('Dieses Netz ist nicht gemerkt');
+    const unbekannt = z.art === 'nicht_gemerkt';
     knopf.disabled = z.laeuft;
     knopf.replaceChildren(z.laeuft ? 'Prüfe …' : 'Jetzt prüfen', ...(z.laeuft ? [] : [el('span', { class: 'kbd', 'aria-hidden': 'true', text: '⌘R' })]));
     const fuell = (ort, ...k) => ort.replaceChildren(...k.flat().filter((x) => x != null && x !== false));
@@ -117,6 +117,7 @@
     if (z.laeuft) return;
     z.laeuft = true;
     z.fehler = null;
+    z.art = null;
     zeichne();
     const portal = Netz.invoke('portal_pruefen').catch(() => null); // runs alongside, a failed check just shows no hint
     try {
@@ -124,6 +125,7 @@
     } catch (e) {
       z.erg = null;
       z.fehler = Netz.text(e);
+      z.art = e?.art;
     }
     z.portal = await portal;
     z.laeuft = false;

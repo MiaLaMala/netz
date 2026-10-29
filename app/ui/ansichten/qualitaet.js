@@ -225,7 +225,7 @@
         b = await Netz.invoke('bericht', { name: null });
       } catch (e) {
         const t = Netz.text(e);
-        const unbekannt = t.includes('nicht gemerkt');
+        const unbekannt = e?.art === 'nicht_gemerkt';
         wurzel.append(
           el('div', { class: 'kopf' }, el('h2', { text: unbekannt ? 'Unbekanntes Netz' : 'Keine Messung möglich' }),
             status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Messungen gehören zu einem gemerkten Netz' : 'Fehler')),

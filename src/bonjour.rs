@@ -450,6 +450,15 @@ fn speichern(dienste: &[Dienst]) -> Result<Vec<Dienst>, String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn gate_refusal_is_nicht_meins() {
+        let e = gate(false, false).unwrap_err();
+        assert_eq!(
+            crate::netze::fehlerart(&e),
+            crate::netze::Fehlerart::NichtMeins
+        );
+    }
+
     fn nm(s: &str) -> Vec<u8> {
         let mut v = Vec::new();
         for l in s.split('.') {
