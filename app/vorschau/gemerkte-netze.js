@@ -14,6 +14,12 @@ VORSCHAU.netz_markieren = async ({ name, meins }) => {
   n.meins = meins;
   return n;
 };
+// Gespeicherte DNS-Messung je Netz (#88): WG alles frei, Arbeit nur DoH, Hotspot noch nie gemessen.
+const dnsDieses = VORSCHAU.dns_gespeichert;
+VORSCHAU.dns_gespeichert = async (a) => (!marken.includes('netze') ? dnsDieses(a) : ({
+  WG: { messung: { dot: 'Erreichbar', doh: 'Erreichbar', ddr: null, zeit: t - 3600 * 5 }, frisch: true },
+  Arbeit: { messung: { dot: 'Blockiert', doh: 'Erreichbar', ddr: null, zeit: t - 86400 * 3 }, frisch: false },
+}[a.name] ?? null));
 addEventListener('DOMContentLoaded', () => setTimeout(() => {
   const eingabe = (i, wert) => {
     const zeile = document.querySelector(`.netz-zeile:nth-child(${i})`);

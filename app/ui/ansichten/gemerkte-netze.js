@@ -51,6 +51,16 @@
       return s;
     };
 
+    // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, bleibt der Satz weg.
+    const ja = { Erreichbar: 'ja', Blockiert: 'nein', Abgefangen: 'abgefangen' };
+    const dns = el('div', { class: 'fein wert' });
+    Netz.invoke('dns_gespeichert', { name: n.name }).then((g) => {
+      if (!g) return;
+      const m = g.messung;
+      const tag = new Date(m.zeit * 1000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      dns.textContent = `DNS verschlüsselt: DoT ${ja[m.dot]}, DoH ${ja[m.doh]}, DDR ${m.ddr ? 'ja' : 'nein'} · ${tag}`;
+    }).catch(() => {});
+
     const fein = () => [`zuletzt hier ${zeit(n.last_seen)}`, `Router ${n.fingerprint.router}`, n.fingerprint.domain ? `Domain ${n.fingerprint.domain}` : 'ohne Domain'];
     const normal = () => {
       knopf.setAttribute('aria-label', `${n.name} vergessen`);
@@ -58,7 +68,7 @@
       ort.replaceChildren(
         el('div', { class: 'text' },
           el('div', { class: 'name-ort' }, el('span', { class: 'netz-name', text: n.name, ondblclick: umbenennen })),
-          el('div', { class: 'fein wert', text: fein().join(' · ') })),
+          el('div', { class: 'fein wert', text: fein().join(' · ') }), dns),
         el('button', { class: 'knopf umbenennen-knopf', type: 'button', text: 'Umbenennen', 'aria-label': `${n.name} umbenennen`, onclick: umbenennen }),
         knopf,
         el('div', { class: 'meins-zeile' }, schalter(),

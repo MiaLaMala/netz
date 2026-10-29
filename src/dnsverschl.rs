@@ -247,6 +247,42 @@ pub fn store_path() -> Result<std::path::PathBuf, String> {
     Ok(netze::data_path()?.with_file_name("dnsverschl.json"))
 }
 
+/// Eine Messung gilt einen Tag als frisch; danach misst „Dieses Netz“ beim Öffnen neu.
+const FRISCH_SEKUNDEN: u64 = 86400;
+
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Gespeichert {
+    pub messung: DnsVerschluesselung,
+    /// Jünger als ein Tag: die Oberfläche misst dann nicht neu.
+    pub frisch: bool,
+}
+
+fn gespeichert_aus(
+    netze_pfad: &Path,
+    store_pfad: &Path,
+    name: &str,
+    jetzt: u64,
+) -> Result<Option<Gespeichert>, String> {
+    let list = netze::load(netze_pfad)?;
+    let Some(n) = list.iter().find(|n| n.name == name) else {
+        return Err(format!(
+            "Das Netz „{name}“ ist nicht gemerkt. Sieh unter „Gemerkte Netze“ nach."
+        ));
+    };
+    let mut store: Store = netze::load_json(store_pfad)?;
+    Ok(store
+        .remove(&n.fingerprint.key())
+        .map(|messung| Gespeichert {
+            frisch: jetzt.saturating_sub(messung.zeit) < FRISCH_SEKUNDEN,
+            messung,
+        }))
+}
+
+/// Letzte gespeicherte Messung eines gemerkten Netzes, ohne etwas zu senden. `None`: noch nie gemessen.
+pub fn gespeichert(name: &str) -> Result<Option<Gespeichert>, String> {
+    gespeichert_aus(&netze::data_path()?, &store_path()?, name, netze::now())
+}
+
 /// Misst im aktuellen Netz; ist es gemerkt, kommt die Messung in den Speicher.
 pub fn dns_daten() -> Result<DnsErgebnis, String> {
     let info = hier::collect()?;
@@ -604,6 +640,40 @@ mod tests {
         assert_eq!(speichern(&path, "k", &a).unwrap(), None);
         let b = m(Status::Blockiert, Status::Blockiert);
         assert_eq!(speichern(&path, "k", &b).unwrap(), Some(a));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn stored_measurement_is_fresh_for_one_day() {
+        let dir = std::env::temp_dir().join(format!("netzinfo-dv-{}", dns::random_id()));
+        let (np, sp) = (dir.join("netze.json"), dir.join("dnsverschl.json"));
+        let fp = netze::Fingerprint {
+            router: Ipv4Addr::new(192, 0, 2, 1),
+            dhcp_server: Ipv4Addr::new(192, 0, 2, 1),
+            domain: None,
+            subnet: "192.0.2.0/24".into(),
+            bssid_hash: None,
+        };
+        let netz = netze::Netz {
+            name: "WG".into(),
+            fingerprint: fp.clone(),
+            meins: false,
+            first_seen: 0,
+            last_seen: 0,
+        };
+        netze::save(&np, &vec![netz]).unwrap();
+        // Nie gemessen: nichts. Unbekannter Name: Fehler.
+        assert_eq!(gespeichert_aus(&np, &sp, "WG", 1000).unwrap(), None);
+        assert!(gespeichert_aus(&np, &sp, "Fremd", 1000).is_err());
+        let mut a = m(Status::Erreichbar, Status::Blockiert);
+        a.zeit = 1000;
+        speichern(&sp, &fp.key(), &a).unwrap();
+        let g = |jetzt| gespeichert_aus(&np, &sp, "WG", jetzt).unwrap().unwrap();
+        assert!(g(1000 + 86399).frisch);
+        assert!(!g(1000 + 86400).frisch);
+        assert_eq!(g(1000).messung, a);
+        // Uhr zurückgestellt: nicht „aus der Zukunft“ als alt werten.
+        assert!(g(10).frisch);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

@@ -6,3 +6,5 @@
 [data-ansicht='dieses-netz'] .ort-karte .zeile { display: block; }
 [data-ansicht='dieses-netz'] .ort-karte summary { cursor: pointer; }
 [data-ansicht='dieses-netz'] .ort-karte .ort-status { margin: 0; }
+/* Verschlüsseltes DNS (#88) */
+[data-ansicht='dieses-netz'] .dns-neu { margin: 8px 14px 0; }
