@@ -3,9 +3,11 @@
 // Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren?, teil? }) an. Welche Ansicht in welchem
 // Abschnitt der Seitenleiste steht, sagt die Tabelle `abschnitte`; was dort fehlt, landet unten ohne Titel.
 // `teil: true` hält eine Ansicht aus der Seitenleiste: Sie lebt eingebettet (Netz.einbetten) in einer anderen.
+// Die Einstellungen (id `gemerkte-netze`) sind ein Teil und stehen als abgesetzter Knopf unten in der Seitenleiste (⌘,).
 (() => {
   // Vier Ansichten, jede beantwortet oben eine Frage (#208). „Offen“ geht in „Verbindungen“ auf.
   const abschnitte = [[null, ['uebersicht', 'tempo', 'geraete', 'verbindungen', 'offen']]];
+  const EINSTELLUNGEN = 'gemerkte-netze';
   const ansichten = [];
   let aktuell = null;
   let reihe = [];
@@ -37,6 +39,7 @@
     merken: svg('<path d="M4 2.5h8v11L8 10.5l-4 3z"/>'),
     pruefung: svg('<path d="M8 1.8 13 3.6v4.2c0 3-2 5.2-5 6.4-3-1.2-5-3.4-5-6.4V3.6z"/><path d="m5.8 8 1.7 1.7L10.4 6.4"/>'),
     qualitaet: svg('<path d="M1.5 8.5h3l2-5 3 9 2-4h3"/>'),
+    zahnrad: svg('<path d="M13.3 6.4 L15.1 6.6 L15.1 9.4 L13.3 9.6 L12.9 10.6 L14 12 L12 14 L10.6 12.9 L9.6 13.3 L9.4 15.1 L6.6 15.1 L6.4 13.3 L5.4 12.9 L4 14 L2 12 L3.1 10.6 L2.7 9.6 L0.9 9.4 L0.9 6.6 L2.7 6.4 L3.1 5.4 L2 4 L4 2 L5.4 3.1 L6.4 2.7 L6.6 0.9 L9.4 0.9 L9.6 2.7 L10.6 3.1 L12 2 L14 4 L12.9 5.4z"/><circle cx="8" cy="8" r="2.1"/>'),
     geraete: svg('<rect x="2" y="3" width="12" height="8" rx="1.2"/><path d="M5.5 13.5h5M8 11v2.5"/>'),
   };
 
@@ -168,6 +171,11 @@
         titel && el('div', { class: 'abschnitt-titel', 'aria-hidden': 'true', text: titel }),
         mit.map(eintrag)));
     }
+    // Abgesetzt unten, ein Knopf statt eines Tabs: Die Einstellungen sind kein Bereich, sondern ein Ort wie in jeder Mac-App.
+    menue.parentElement.append(el('div', { class: 'unten' }, el('button', {
+      class: 'eintrag', id: 'einstellungen', type: 'button', title: 'Einstellungen (⌘,)', 'aria-keyshortcuts': 'Meta+Comma',
+      onclick: () => zeige(EINSTELLUNGEN, { fokus: true }),
+    }, el('span', { html: icons.zahnrad }), el('span', { text: 'Einstellungen' }))));
     menue.addEventListener('keydown', (e) => {
       const schritt = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[e.key];
       if (!schritt || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -184,12 +192,17 @@
     if (!a) return;
     const wechsel = id !== aktuell;
     aktuell = id;
-    for (const b of document.querySelectorAll('.eintrag')) {
+    // Ganzseitig gezeigte Teile (auch die Einstellungen) markieren keinen Tab; der erste bleibt dann per Tab erreichbar.
+    const ohneTab = !reihe.some((x) => x.id === id);
+    for (const b of document.querySelectorAll('#menue .eintrag')) {
       const an = b.dataset.id === id;
       b.setAttribute('aria-selected', an);
-      b.tabIndex = an ? 0 : -1;
+      b.tabIndex = an || (ohneTab && b.dataset.id === reihe[0].id) ? 0 : -1;
       if (an && fokus) b.focus();
     }
+    const einst = document.getElementById('einstellungen');
+    if (id === EINSTELLUNGEN) einst.setAttribute('aria-current', 'page'); else einst.removeAttribute('aria-current');
+    if (id === EINSTELLUNGEN && fokus) einst.focus();
     document.getElementById('titel').textContent = a.titel;
     const feld = document.getElementById('scroll');
     const knopf = document.getElementById('aktualisieren');
@@ -266,11 +279,11 @@
     document.getElementById('aktualisieren').addEventListener('click', neuLaden);
     document.addEventListener('keydown', (e) => {
       if (!e.metaKey || e.shiftKey || e.altKey) return;
-      // ⌘1 bis ⌘8: Ansichten in der Reihenfolge der Seitenleiste.
-      if (/^[1-8]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement.closest('#menue') }); }
+      // ⌘1 bis ⌘4: Ansichten in der Reihenfolge der Seitenleiste.
+      if (/^[1-4]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement.closest('nav') }); }
       else if (e.key.toLowerCase() === 'r') { e.preventDefault(); neuLaden(); }
-      // ⌘, wie in jeder Mac-App: Einstellungen (dort stehen die gemerkten Netze).
-      else if (e.key === ',') { e.preventDefault(); zeige('gemerkte-netze', { fokus: false }); }
+      // ⌘, wie in jeder Mac-App: Einstellungen (gemerkte Netze, Autostart, Fritz!Box).
+      else if (e.key === ',') { e.preventDefault(); zeige(EINSTELLUNGEN, { fokus: !!document.activeElement.closest('nav') }); }
     });
     zeige(reihe[0].id);
   }

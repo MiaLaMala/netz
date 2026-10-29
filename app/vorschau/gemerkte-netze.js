@@ -3,6 +3,8 @@
 // Hash marks: netze-umbenennen (row 2 renamed to a taken name), netze-fehler (row 3 renamed to blanks),
 // netze-vergessen (row 2 asks for confirmation), netze-vergessen-hier (row 1, the connected one),
 // netze-eins (one network), netze-ladefehler (the list cannot be read).
+// Einstellungen: einst (der Mac ist in „WG“), einst-fritz (Fritz!Box-Zugang da), einst-fritz-entfernen (Rückfrage),
+// einst-fritz-formular (Formular offen), einst-fritz-fehler (Speichern abgelehnt). Zusammen mit tab-gemerkte-netze.
 VORSCHAU.netz_umbenennen = async ({ alt, neu }) => {
   const n = netze.find((x) => x.name === alt);
   const nameNeu = neu.trim();
@@ -25,7 +27,7 @@ for (const n of netze) if (beispiel[n.name]) Object.assign(n.fingerprint, { rout
 const diesesNetz = VORSCHAU.dieses_netz;
 VORSCHAU.dieses_netz = async (a) => {
   const r = await diesesNetz(a);
-  return (marken.includes('netze') || marken.includes('tab-gemerkte-netze')) && !r.netz && !r.erkennung_fehler ? { ...r, netz: netze.find((x) => x.name === 'WG') ?? null } : r;
+  return (marken.includes('netze') || marken.includes('einst') || marken.includes('tab-gemerkte-netze')) && !r.netz && !r.erkennung_fehler ? { ...r, netz: netze.find((x) => x.name === 'WG') ?? null } : r;
 };
 // Gespeicherte DNS-Messung je Netz (#88): WG alles frei, Arbeit nur DoH, Hotspot noch nie gemessen.
 const dnsDieses = VORSCHAU.dns_gespeichert;
@@ -46,6 +48,9 @@ addEventListener('DOMContentLoaded', () => setTimeout(() => {
   if (marken.includes('netze-fehler')) eingabe(3, '  ');
   if (marken.includes('netze-vergessen-hier')) document.querySelector('.netz-zeile:nth-child(1) .knopf:not(.umbenennen-knopf)')?.click();
   if (marken.includes('netze-vergessen')) document.querySelector('.netz-zeile:nth-child(2) .knopf:not(.umbenennen-knopf)')?.click();
+  if (marken.includes('einst-fritz-entfernen')) document.querySelector('.fritz-entfernen')?.click();
+  if (marken.includes('einst-fritz-formular') || marken.includes('einst-fritz-fehler')) document.querySelector('.fritz-einrichten')?.click();
+  if (marken.includes('einst-fritz-fehler')) document.querySelector('.fritz-formular')?.requestSubmit();
 }, 600));
 // Start mit der Anmeldung (#9)
 let autostartAn = false;

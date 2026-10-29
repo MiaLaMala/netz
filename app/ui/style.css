@@ -74,6 +74,7 @@ input[aria-invalid='true'] { border-color: var(--rot); }
 
 /* Seitenleiste: läuft bis ganz nach oben, Material kommt vom Fenster */
 .seite {
+  display: flex; flex-direction: column;
   flex: none;
   width: 216px;
   padding: 52px 10px 12px;
@@ -84,7 +85,8 @@ input[aria-invalid='true'] { border-color: var(--rot); }
   .seite { background: var(--seite-solid); }
 }
 .ziehen { position: absolute; inset: 0 0 auto 0; height: 52px; }
-.menue { display: flex; flex-direction: column; gap: 20px; }
+.menue { display: flex; flex-direction: column; gap: 20px; flex: 1; }
+.unten { flex: none; margin-top: 12px; padding-top: 8px; border-top: 0.5px solid var(--linie); }
 .abschnitt { display: flex; flex-direction: column; gap: 2px; }
 .abschnitt-titel { padding: 0 10px 4px; font-size: 11px; font-weight: 600; color: var(--fg2); }
 .eintrag {
@@ -94,16 +96,16 @@ input[aria-invalid='true'] { border-color: var(--rot); }
   text-align: left; width: 100%;
 }
 .eintrag svg { width: 16px; height: 16px; flex: none; color: var(--accent-lesbar); }
-.eintrag:hover:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.eintrag:hover:not(:is([aria-selected="true"], [aria-current="page"])) { background: color-mix(in srgb, var(--fg) 7%, transparent); }
 .eintrag:focus-visible { outline-offset: -2px; }
-.eintrag[aria-selected="true"]:focus-visible { outline-color: var(--auf-accent); }
-.inaktiv .eintrag[aria-selected="true"]:focus-visible { outline-color: var(--fokus); }
+.eintrag:is([aria-selected="true"], [aria-current="page"]):focus-visible { outline-color: var(--auf-accent); }
+.inaktiv .eintrag:is([aria-selected="true"], [aria-current="page"]):focus-visible { outline-color: var(--fokus); }
 /* Selection: system accent while the window is active, grey otherwise (html.inaktiv, set in app.js). */
-.eintrag[aria-selected="true"] { background: var(--accent); color: var(--auf-accent); }
-.eintrag[aria-selected="true"] svg { color: inherit; }
-.inaktiv .eintrag[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 14%, transparent); color: var(--fg); }
-.inaktiv .eintrag[aria-selected="true"] svg { color: var(--fg2); }
-.eintrag:active:not([aria-selected="true"]) { background: color-mix(in srgb, var(--fg) 16%, transparent); }
+.eintrag:is([aria-selected="true"], [aria-current="page"]) { background: var(--accent); color: var(--auf-accent); }
+.eintrag:is([aria-selected="true"], [aria-current="page"]) svg { color: inherit; }
+.inaktiv .eintrag:is([aria-selected="true"], [aria-current="page"]) { background: color-mix(in srgb, var(--fg) 14%, transparent); color: var(--fg); }
+.inaktiv .eintrag:is([aria-selected="true"], [aria-current="page"]) svg { color: var(--fg2); }
+.eintrag:active:not(:is([aria-selected="true"], [aria-current="page"])) { background: color-mix(in srgb, var(--fg) 16%, transparent); }
 
 /* Inhalt: fest, mit Werkzeugleiste */
 .inhalt {
@@ -256,3 +258,25 @@ select:disabled, input[type="text"]:disabled, input[type="password"]:disabled { 
 /* Erklärzeilen in Geräte und Verbindungen: nur im Erklärmodus. */
 .erklaer-gruppe { display: none; }
 .erklaeren .erklaer-gruppe { display: block; }
+
+/* „Details“ (<details class="details"><summary>…</summary>…</details>): eine Zeile wie in den Systemeinstellungen,
+   Text links, Pfeil rechts. Alle Ansichten verwenden genau diese Klasse und bauen kein eigenes Aussehen. */
+details.details { margin-top: 24px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+details.details > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 36px; padding: 8px 14px; border-radius: 10px;
+  font-weight: 500; list-style: none; cursor: default;
+}
+details.details > summary::-webkit-details-marker { display: none; }
+details.details > summary::after {
+  content: ""; flex: none; width: 7px; height: 7px; margin-right: 3px;
+  border: solid var(--fg2); border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg); transition: transform 0.18s ease-out;
+}
+details.details[open] > summary::after { transform: rotate(45deg); }
+details.details > summary:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+details.details > summary:focus-visible { outline-offset: -2px; }
+details.details[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0.5px solid var(--linie); }
+details.details > :not(summary) { margin-left: 14px; margin-right: 14px; }
+details.details > :not(summary):last-child { margin-bottom: 14px; }
+details.details > summary + * { margin-top: 12px; }
