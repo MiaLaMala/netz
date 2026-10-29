@@ -63,17 +63,17 @@
     };
 
     // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, bleibt der Satz weg.
+    const tag = (s) => new Date(s * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' });
     const ja = { Erreichbar: 'ja', Blockiert: 'nein', Abgefangen: 'abgefangen' };
     const dns = el('div', { class: 'fein wert', text: 'Verschlüsseltes DNS: noch nicht geprüft' });
     Netz.invoke('dns_gespeichert', { name: n.name }).then((g) => {
       if (!g) return;
       const m = g.messung;
-      const tag = new Date(m.zeit * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' });
-      dns.textContent = `Verschlüsseltes DNS: DoT ${ja[m.dot]}, DoH ${ja[m.doh]}, DDR ${m.ddr ? 'ja' : 'nein'}, geprüft am ${tag}`;
+      dns.textContent = `Verschlüsseltes DNS: DoT ${ja[m.dot] ?? 'unbekannt'}, DoH ${ja[m.doh] ?? 'unbekannt'}, DDR ${m.ddr ? 'ja' : 'nein'}, geprüft am ${tag(m.zeit)}`;
     }).catch(() => {});
 
     // Segments wrap as whole pieces, no separator characters: a line can never start with one.
-    const fein = () => [hier ? 'Gerade hier' : `Zuletzt hier ${zeit(n.last_seen)}`, `Router ${n.fingerprint.router}`, n.fingerprint.domain ? `Domain ${n.fingerprint.domain}` : 'ohne Domain']
+    const fein = () => [...(hier ? [] : [`Zuletzt hier ${zeit(n.last_seen)}`]), `Gemerkt seit ${tag(n.first_seen)}`, `Router ${n.fingerprint.router}`, n.fingerprint.domain ? `Domain ${n.fingerprint.domain}` : 'ohne Domain']
       .map((t) => el('span', { class: 'teil', text: t }));
     const normal = () => {
       ort.classList.remove('bearbeiten');
@@ -94,7 +94,7 @@
       ort.replaceChildren(
         el('div', { class: 'kopf-zeile' }, el('div', { class: 'name-ort' }, el('span', { class: 'netz-name', text: n.name }))),
         Netz.bestaetigung({
-          frage: `„${n.name}“ vergessen? Beim nächsten Besuch gilt das Netz wieder als neu, und die Markierung „meins“ ist weg.`,
+          frage: `„${n.name}“ vergessen? Beim nächsten Besuch gilt das Netz wieder als neu, und die Markierung „meins“ ist weg.${hier ? ' Die Verbindung bleibt, nur Netzinfo vergisst das Netz.' : ''}`,
           label: `${n.name} vergessen?`,
           aria: `${n.name} endgültig vergessen`,
           knopf: 'Vergessen',
