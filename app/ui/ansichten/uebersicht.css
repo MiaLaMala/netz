@@ -1,0 +1,20 @@
+/* Styles for the view „uebersicht“ only. Liste der Unterschiede und Details tragen ihre eigene data-ansicht. */
+/* Antwort: ein großer Satz mit Statuspunkt, der Punkt ist nur Zugabe (das Wort steht im Satz). */
+[data-ansicht='uebersicht'] .kopf h2 { display: flex; align-items: baseline; gap: 10px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.25; text-wrap: balance; }
+[data-ansicht='uebersicht'] .kopf h2 .punkt { width: 11px; height: 11px; transform: translateY(-1px); }
+[data-ansicht='uebersicht'] .kopf > * + * { margin-top: 8px; }
+[data-ansicht='uebersicht'] .kopf .erklaerung { margin-left: 21px; }
+[data-ansicht='uebersicht'] .kopf .fuss { margin-left: 21px; }
+[data-ansicht='uebersicht'] .kopf .status, [data-ansicht='uebersicht'] .kopf .knopf { margin-left: 21px; }
+/* Fünf Werte: Farbe nur für eine Bewertung, 4,5:1 hell wie dunkel */
+[data-ansicht='uebersicht'] .wert.gut { color: color-mix(in srgb, var(--gruen) 80%, var(--fg)); }
+[data-ansicht='uebersicht'] .wert.mittel { color: color-mix(in srgb, var(--orange) 80%, var(--fg)); }
+[data-ansicht='uebersicht'] .wert.schlecht { color: color-mix(in srgb, var(--rot) 80%, var(--fg)); }
+[data-ansicht='uebersicht'] > .aktion { margin-top: 20px; }
+[data-ansicht='uebersicht'] > .aktion[hidden] { display: none; }
+[data-ansicht='uebersicht'] .knopf[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+[data-ansicht='uebersicht'] .knopf.haupt .kbd { color: inherit; }
+[data-ansicht='uebersicht'] .details { margin-top: 24px; }
+/* Hinter „Details“ stehen die alten Ansichten untereinander; die erste braucht keinen Abstand nach oben. */
+[data-ansicht='uebersicht'] .details > .eingebettet:first-of-type > :first-child { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { [data-ansicht='uebersicht'] * { animation: none !important; } }

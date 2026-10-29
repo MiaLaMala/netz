@@ -48,6 +48,9 @@
   // again must not measure again.
   const z = { laeuft: false, offen: {}, erg: null, fehler: null, art: null, portal: null, sni: null };
   let ui = null;
+  // Die Übersicht liest dieselben Daten und meldet sich hier an: `f('zeichne' | 'start' | 'fertig')`, `false` zurück meldet ab.
+  let lauscher = [];
+  const melde = (was) => { lauscher = lauscher.filter((f) => f(was) !== false); };
 
   // One row: current value right, the old one below it when it differs.
   const reihe = (label, m, o, wert, erkl) => {
@@ -140,7 +143,7 @@
     const n = erg.nicht_messbar;
     return [
       gruppe('Netz', [
-        r('Router', (x) => x.router, E.router),
+        ...(!ui?.eingebettet || o?.router !== m.router ? [r('Router', (x) => x.router, E.router)] : []), // in der Übersicht steht der Router oben
         r('DHCP-Server', (x) => x.dhcp_server, E.dhcp),
         r('DNS-Server vom Netz', (x) => (x.dhcp_dns.length ? x.dhcp_dns.join(', ') : 'keine'), E.dns),
         r('Öffentliche IP', (x) => x.public_ip, E.ip),
@@ -182,10 +185,16 @@
     el('p', { class: 'erklaerung', text: E.portal }));
 
   function zeichne() {
+    melde('zeichne');
     if (!ui) return;
     const { kopf, rest, knopf } = ui;
     const erg = z.erg;
     const unbekannt = z.art === 'nicht_gemerkt';
+    // Eingebettet (Übersicht, unter „Details“) gibt es weder Kopf noch Knopf: Antwort, Unterschiede und Aktion stehen dort oben.
+    if (ui.eingebettet) {
+      if (erg && !z.offen.vergleich) ui.rest.replaceChildren(...[...werte(erg), sniKarte(), el('p', { class: 'fuss', text: `Gemessen am ${zeit(erg.messung.time)}` })].filter(Boolean));
+      return;
+    }
     // aria-disabled instead of disabled: a disabled button drops the focus to the page start.
     knopf.setAttribute('aria-disabled', String(z.laeuft));
     if (z.laeuft) ui.wurzel.setAttribute('aria-busy', 'true'); else ui.wurzel.removeAttribute('aria-busy');
@@ -222,7 +231,7 @@
   }
 
   // The one polite announcement: „Prüfung läuft“ at the start, the verdict once at the end (the head itself is redrawn often, so it is no live region).
-  const sage = (satz) => { if (ui) ui.ansage.textContent = satz; };
+  const sage = (satz) => { if (ui?.ansage) ui.ansage.textContent = satz; };
   const urteilSatz = () => {
     const k = ui.kopf;
     const u = k.querySelector('.urteil, .status');
@@ -237,6 +246,7 @@
     z.sni = z.portal = null;
     z.offen = { vergleich: true, sni: true, portal: true };
     zeichne();
+    melde('start');
     sage('Prüfung läuft');
     // All three run alongside; each one redraws the head when it is in, so the head never says „fine“ before a card has spoken.
     const fertig = (name, f) => (w) => { z.offen[name] = false; f(w); zeichne(); };
@@ -254,7 +264,8 @@
     await Promise.all([sni, portal]);
     z.laeuft = false;
     zeichne();
-    sage(urteilSatz());
+    if (!ui?.eingebettet) sage(urteilSatz());
+    melde('fertig');
   }
 
   // ⌘R means „Jetzt prüfen“ here; runs before the shared handler in app.js.
@@ -267,6 +278,12 @@
     }
   }, true);
 
+  // Für die Übersicht: derselbe Zustand, dieselben Bausteine, kein zweiter Messlauf.
+  Netz.pruefung = {
+    z, lauf, diffs, unterschiede, thema, befunde, kartenBefunde, E, lausche: (f) => lauscher.push(f),
+    portalHinweis: () => z.portal?.status === 'PortalVermutet' ? z.portal : null,
+  };
+
   Netz.registriere({
     id: 'pruefung',
     teil: true,
@@ -274,6 +291,14 @@
     titel: 'Prüfung',
     icon: Netz.icons.pruefung,
     render(wurzel) {
+      if (wurzel.classList.contains('eingebettet')) {
+        // Nur der Rest für „Details“; die Übersicht startet die Prüfung selbst (Netz.pruefung.lauf).
+        const rest = el('div');
+        ui = { wurzel, rest, eingebettet: true };
+        wurzel.append(rest);
+        zeichne();
+        return;
+      }
       // Old view still on screen means the toolbar button asked again; coming from another tab shows the old answer.
       const nochmal = ui?.wurzel.isConnected;
       const knopf = el('button', { class: 'knopf haupt', type: 'button', onclick: lauf });

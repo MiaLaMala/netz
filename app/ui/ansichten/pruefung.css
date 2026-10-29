@@ -25,3 +25,5 @@
 [data-ansicht='pruefung'] .portal-hinweis p { margin: 4px 0 12px; }
 [data-ansicht='pruefung'] .portal-hinweis .erklaerung { margin: 12px 0 0; }
 [data-ansicht='pruefung'] .knopf[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+/* Leere Hülle der Unterschiede in der Übersicht nimmt keinen Platz. */
+[data-ansicht='pruefung'].eingebettet:empty { display: none; }

@@ -71,3 +71,18 @@
       ? { anzahl: 2, passt_zu_gateway: false, text: '2 Router, passt nicht zum Gateway' }
       : { anzahl: 1, passt_zu_gateway: true, text: 'ein Router, passt zum Gateway' });
 })();
+
+// Übersicht (#208). Marken: tab-uebersicht plus eine Lage: pruefung-ok, pruefung-alarm, pruefung-erst, pruefung-laeuft, pruefung-fehler,
+// portal, sni-filter (ohne Marke: Netz bekannt mit Unterschieden nur mit `bekannt`), vpn, ohne wlan-Marke Kabel, ohne `bekannt` ein neues Netz.
+// `details` klappt „Details“ auf, `erklaeren` schaltet den Erklärmodus ein.
+(() => {
+  if (marken.includes('details')) addEventListener('load', () => setTimeout(() => { const d = document.querySelector('[data-ansicht=\'uebersicht\'] details.details'); if (d) d.open = true; }, 1800));
+})();
+// Bei pruefung-alarm sieht der Mac dieselben Werte wie die Prüfung: anderer DHCP-Server, anderer DNS.
+if (marken.includes('pruefung-alarm')) {
+  const roh = VORSCHAU.dieses_netz;
+  VORSCHAU.dieses_netz = async () => {
+    const d = await roh();
+    return { ...d, info: { ...d.info, dhcp_server: '192.0.2.77', dhcp_dns: ['198.51.100.53'], system_dns: ['198.51.100.53', '2001:db8::53'] } };
+  };
+}
