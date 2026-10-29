@@ -14,7 +14,7 @@
     aussen: '„Von außen prüfen“ verbindet sich zu den TCP-Ports der Netz-Zeilen an der Netzadresse dieses Macs, wie der Portscan. Das geht nur in einem „meins“-Netz.',
     fremd: 'Programme anderer Nutzer und Systemdienste sind ohne Root nicht sichtbar.',
   };
-  const ART = { Netz: 'Netz', Lokal: 'lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: '?' };
+  const ART = { Netz: 'Netz', Lokal: 'Lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: '?' };
 
   const zustand = { nurNetz: false, aussen: false };
   let liste = null;
@@ -30,34 +30,69 @@
     return s;
   };
 
+  // `*` und die Loopback-Adressen sagen Menschen nichts.
+  const adresse = (a) => (a === '*' ? 'alle Adressen' : a === '127.0.0.1' || a === '::1' ? 'nur dieser Mac' : a);
+
+  // „Woher?“ wie in „Verbindungen“: lädt die Startkette erst beim Aufklappen.
+  const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
+  function woher(pid) {
+    const inhalt = el('div', { class: 'woher-inhalt' });
+    const d = el('details', { class: 'woher' }, el('summary', { text: 'Woher?' }), inhalt);
+    d.addEventListener('toggle', async () => {
+      if (!d.open || inhalt.childElementCount) return;
+      try {
+        const h = await Netz.invoke('woher_zeigen', { pid });
+        inhalt.append(
+          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
+          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
+            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
+          el('p', { class: 'fein', text: h.satz }));
+      } catch (f) {
+        inhalt.append(meldung(Netz.text(f), 'rot'));
+      }
+    });
+    return d;
+  }
+
   function zelle(l) {
-    const wo = el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] }));
     const hinweise = [
       l.apple_signiert === false && 'nicht von Apple signiert',
       l.von_aussen && 'auch von außen erreichbar',
     ].filter(Boolean);
     return el('tr', {},
-      wo,
+      el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] })),
       el('td', {}, el('div', { text: l.programm || `PID ${l.pid}` }),
-        hinweise.length ? el('div', { class: 'fein warn', text: hinweise.join(' · ') }) : null),
+        hinweise.length ? el('div', { class: 'fein warn', text: hinweise.join(' · ') }) : null,
+        woher(l.pid)),
       el('td', { class: 'num' }, el('div', { text: `${l.protokoll} ${l.port}` }),
         l.dienst ? el('div', { class: 'fein', text: l.dienst }) : null),
-      el('td', { class: 'num fein', text: l.adresse }));
+      el('td', { class: 'fein', text: adresse(l.adresse) }));
   }
 
-  function zeichne(ort) {
+  // Der Kopf trägt die Aussage; ein UDP-Client lauscht nicht und zählt nicht mit.
+  function kopfSatz(alle) {
+    const dienste = alle.filter((l) => l.reichweite !== 'UdpClient').length;
+    const netz = alle.filter((l) => l.reichweite === 'Netz').length;
+    if (!dienste) return 'Kein Programm lauscht';
+    if (!netz) return 'Kein Programm ist fürs Netz erreichbar';
+    return `${netz} von ${dienste} Programmen ${netz === 1 ? 'ist' : 'sind'} fürs Netz erreichbar`;
+  }
+
+  function zeichne(ort, titel, unter) {
     const alle = liste;
     const netz = alle.filter((l) => l.reichweite === 'Netz');
     const gezeigt = zustand.nurNetz ? netz : alle;
     const auffaellig = netz.filter((l) => l.apple_signiert === false || l.von_aussen).length;
-    const kopf = status(netz.length ? 'orange' : 'gruen',
-      `${alle.length} lauschend, ${netz.length} für das Netz erreichbar${auffaellig ? `, ${auffaellig} mit Hinweis` : ''}`);
+    titel.textContent = kopfSatz(alle);
+    unter.replaceChildren(...(alle.length
+      ? status(auffaellig ? 'orange' : 'gruen', auffaellig ? `${auffaellig} mit Hinweis` : 'Ohne Hinweis').children
+      : []));
     if (!gezeigt.length) {
-      ort.replaceChildren(kopf, leerZustand(Netz.icons.offen,
+      ort.replaceChildren(leerZustand(Netz.icons.offen,
         zustand.nurNetz ? 'Kein Programm lauscht im Netz. Alles, was offen ist, erreicht nur dieser Mac.' : 'Keine lauschenden Programme von dir gefunden.'));
       return;
     }
-    ort.replaceChildren(kopf, el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
+    ort.replaceChildren(el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
       el('thead', {}, el('tr', {}, ['Reichweite', 'Programm', 'Port', 'Adresse'].map((t) => el('th', { scope: 'col', text: t })))),
       el('tbody', {}, gezeigt.map(zelle)))));
   }
@@ -68,12 +103,22 @@
     icon: Netz.icons.offen,
     async render(wurzel) {
       const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' });
+      const titel = el('h2', { text: 'Wird gelesen …' });
+      const unter = el('p', { class: 'status' });
+      const pruefen = el('button', { class: 'knopf', type: 'button', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
+      pruefen.addEventListener('click', () => {
+        zustand.aussen = true;
+        pruefen.disabled = true;
+        pruefen.textContent = 'Prüfe …';
+        Netz.neuLaden();
+      });
       wurzel.append(
-        el('div', { class: 'kopf' }, el('h2', { text: 'Offen' }),
-          el('p', { class: 'status' }, el('span', { text: 'Welche Programme auf diesem Mac auf Verbindungen warten.' }))),
+        el('div', { class: 'kopf' }, titel, unter),
         el('div', { class: 'werkzeuge' },
-          schalter('Nur Netz', 'nurNetz', () => liste && zeichne(ort)),
-          schalter('Von außen prüfen', 'aussen', () => Netz.neuLaden())),
+          el('div', { class: 'werkzeug' }, schalter('Nur Netz', 'nurNetz', () => liste && zeichne(ort, titel, unter)),
+            el('p', { class: 'fein', text: 'Blendet Programme aus, die nur dieser Mac erreicht. Ändert nur die Liste.' })),
+          el('div', { class: 'werkzeug' }, pruefen,
+            el('p', { class: 'fein', text: 'Verbindet sich von diesem Mac aus mit den TCP-Ports der Netz-Zeilen und zeigt, welche auch von außen offen sind. Nur in einem „meins“-Netz.' }))),
         ort,
         Object.assign(gruppe('So entsteht die Liste', [
           zeile('Netz', 'erreichbar für andere', E.netz),
@@ -86,8 +131,10 @@
         ]), { className: 'gruppe erklaer-gruppe' }));
       try {
         liste = await Netz.invoke('offen_zeigen', { aussen: zustand.aussen });
-        zeichne(ort);
+        zeichne(ort, titel, unter);
       } catch (f) {
+        zustand.aussen = false; // sonst scheitert jedes Neuladen am selben Grund
+        titel.textContent = 'Offen';
         ort.replaceChildren(meldung(Netz.text(f), 'rot'));
       }
     },
