@@ -40,8 +40,8 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 
 <table>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Qualität“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Statistik"></picture><br><sub>Qualität: Wie gut ist die Leitung über den Tag?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert, darunter die Gruppen Netz, Sperren und Umleitungen und Zertifikate"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Qualität“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Kennzahlen, darunter „Wo hakt es?“ und die Ausfälle der letzten 7 Tage als Zeitleiste mit Liste und dem Knopf „Text für den Anbieter kopieren“"></picture><br><sub>Qualität: Wie gut ist die Leitung über den Tag?</sub></td>
   </tr>
   <tr>
     <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router, Fernseher, Mac und Drucker mit Hersteller, Ports und Diensten, darüber Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
@@ -52,9 +52,9 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 - **Dieses Netz** zeigt Adresse, Router, DNS, WLAN mit Signal und Sicherheit, Proxy, IPv6 und verschlüsseltes DNS. Oben steht, ob du hier schon warst.
 - **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
 - **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
-- **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
+- **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Ein Ausfallprotokoll hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
 - **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat.
-- **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
+- **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
 - **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
 - **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
 - **In der Menüleiste** wacht Netzinfo weiter, wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt. Auf Wunsch startet es mit der Anmeldung.
@@ -181,6 +181,7 @@ Ausführlicher zu einzelnen Befehlen (Erkennung eines Netzes, Einstufung in `pru
 - Ins Internet gehen nur Prüfanfragen, keine Daten von dir: DNS-Fragen an öffentliche Resolver (1.1.1.1, 8.8.8.8, 9.9.9.9) zum Vergleich und für die eigene öffentliche IP, TLS-Verbindungsaufbau mit bekannten Seiten (github.com, apple.com, cloudflare.com, für den SNI-Test auch youtube.com, bbc.com und telegram.org), die Portal-Prüfadressen von Apple, Google und Firefox, die Uhrzeit von time.apple.com und pool.ntp.org, Pings und der Weg zu 1.1.1.1 und 9.9.9.9. Mit `--erklaer` sagt jeder Befehl, was er wohin schickt.
 - Der Lasttest (`last`, lädt mehrere hundert Megabyte) und der Test ausgehender Ports (`ports --raus`, nur gegen deinen eigenen Server) laufen nur auf ausdrücklichen Start.
 - Vom Weg ins Internet speichert Netzinfo nur gekürzte Hop-Adressen (/24 und /48).
+- Land und Anbieter eines Ziels schlägt Netzinfo in einer Datei nach, die mit der App kommt. Dafür geht keine Adresse ins Netz.
 
 Sicherheitslücken bitte nicht als Issue melden, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
 
@@ -196,6 +197,8 @@ cargo build -p netzinfo-app           # Mac-App
 ./target/debug/netzinfo-app
 ```
 
+Land und Anbieter in `verbindungen` brauchen zwei Offline-Datenbanken (zusammen etwa 18 MB, nicht im Git): `sh tools/ipdb-bauen.sh ipdb` lädt sie mit fester Version und Prüfsumme. Ohne sie bleiben die beiden Felder leer.
+
 `app/vorschau.html` zeigt die ganze Oberfläche mit erfundenen Daten in jedem Browser, ohne die App zu starten. Daraus stammen auch die Bilder oben.
 
 ## Wie es gebaut ist
@@ -206,11 +209,13 @@ app/src/        Mac-App mit Tauri 2, Menüleisten-Wache
 app/ui/         Oberfläche: HTML, CSS und JavaScript ohne npm und ohne Framework
 app/vorschau/   Beispieldaten für app/vorschau.html
 data/           Herstellerliste aus dem IEEE-Register
+ipdb/           Offline-Datenbanken für Land und Anbieter (nicht im Git)
+tools/          Skripte, die diese Datenbanken bauen
 testdata/       Aufgezeichnete Antworten für die Tests
 ```
 
-- Knapp 24 000 Zeilen Rust in 44 Modulen, über 330 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
-- Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
+- Gut 25 000 Zeilen Rust in 47 Modulen, über 350 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
+- Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
 
@@ -222,4 +227,4 @@ Netzinfo remembers every network your Mac has been on and tells you when one beh
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE). Herstellerliste aus dem IEEE-Register, siehe [THIRD_PARTY.md](THIRD_PARTY.md).
+MIT, siehe [LICENSE](LICENSE). Herstellerliste aus dem IEEE-Register, Länder aus DB-IP Lite (IP Geolocation by [DB-IP](https://db-ip.com), CC BY 4.0), Anbieter aus IPtoASN (PDDL 1.0), siehe [THIRD_PARTY.md](THIRD_PARTY.md).

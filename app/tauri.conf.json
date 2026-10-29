@@ -29,7 +29,8 @@
     "active": true,
     "targets": ["app", "dmg"],
     "category": "public.app-category.utilities",
-    "resources": { "../ipdb/*": "ipdb/" },
+    "resources": { "../ipdb/*": "ipdb/", "Credits.rtf": "Credits.rtf" },
+    "copyright": "© 2026 Mia Grünwald",
     "macOS": { "minimumSystemVersion": "13.0", "signingIdentity": "-" },
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"]
   }
