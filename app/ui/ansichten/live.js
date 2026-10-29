@@ -29,7 +29,9 @@
     const B = 600, H = 150, L = 36, U = 18;
     const jetzt = a.punkte.length ? a.punkte[a.punkte.length - 1].zeit : 0;
     const werte = a.punkte.map((p) => p.ms).filter((v) => v != null);
-    const max = Math.max(50, ...werte) * 1.1;
+    // Glatte Achse (50, 100, 200 …), damit die Beschriftung nicht bei jedem Takt springt.
+    const hoechst = Math.max(0, ...werte) * 1.05;
+    const max = [50, 100, 200, 500, 1000, 2000, 5000].find((g) => g >= hoechst) ?? hoechst;
     const x = (t) => L + ((t - (jetzt - FENSTER_MS)) / FENSTER_MS) * (B - L - 4);
     const y = (v) => H - U - (v / max) * (H - U - 6);
     const s = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'kurve', role: 'img', 'aria-label': a.punkte.length ? `Antwortzeit zu ${a.ziel}, letzte 5 Minuten` : 'Leeres Diagramm, Antwortzeit der letzten 5 Minuten' });
@@ -73,12 +75,16 @@
     const ampeln = a.eignung
       ? [['Videoanrufe', a.eignung.anruf], ['Spiele', a.eignung.spiel], ['Streaming', a.eignung.streaming]]
       : [];
-    const gesendet = k ? `${k.gesendet} Pakete` : 'noch keine Antwort';
+    const tot = k && k.verlust_prozent >= 100;
+    const gesendet = !k ? 'Noch keine Antwort.' : tot
+      ? `Keine Antwort auf ${k.gesendet} ${k.gesendet === 1 ? 'Paket' : 'Pakete'}. Prüfe die Verbindung; manche Ziele beantworten Ping nicht.`
+      : `${k.gesendet} ${k.gesendet === 1 ? 'Paket' : 'Pakete'} gesendet.`;
     const letzter = a.punkte[a.punkte.length - 1];
     const kachel = (name, wert, erkl) => el('div', { class: 'kachel' },
       el('dt', { class: 'label', text: name }), el('dd', { class: 'gross', text: wert }), erkl && el('dd', { class: 'erklaerung', text: erkl }));
     return el('section', { class: 'gruppe live-ziel', 'aria-label': a.ziel },
       el('h3', { text: a.ziel === a.ziel_ip ? a.ziel : `${a.ziel} · ${a.ziel_ip}` }),
+      tot && status('rot', 'Antwortet nicht'),
       el('dl', { class: 'kacheln' },
         kachel('Aktuell', !letzter ? '–' : letzter.ms == null ? 'Verlust' : ms(letzter.ms)),
         kachel('Jitter (60 s)', k ? ms(k.jitter_ms) : '–', E.jitter),
@@ -93,7 +99,7 @@
         zeile('Median', k && ms(k.median_ms)),
         zeile('P95', k && ms(k.p95_ms)),
         zeile('Maximum', k && ms(k.max_ms))),
-      el('p', { class: 'fuss', text: `${gesendet}. Jitter und Verlust beziehen sich auf dieselben 60 Sekunden.` }),
+      el('p', { class: 'fuss', text: gesendet }),
       el('h3', { class: 'unter', text: 'Eignung' }),
       el('dl', { class: 'liste' }, ampeln.map(([n, st]) => el('div', { class: 'zeile' },
         el('dt', { class: 'label', text: n }), el('dd', { class: 'wert' }, status(FARBE[st], WORT[st]))))));
@@ -105,20 +111,24 @@
     titel: 'Live',
     icon: Netz.icons.live,
     async render(wurzel) {
+      const HINWEIS = 'Name oder Adresse, mehrere mit Leerzeichen getrennt, bis zu vier.';
       let laeuft = false, nr = 0, t0Lauf = 0, messungen = 0;
       const feld = el('input', { type: 'text', id: 'live-ziel', class: 'ziel-feld', value: '1.1.1.1', placeholder: '1.1.1.1 9.9.9.9', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'live-lauf' });
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Start' });
       const ort = el('div', { class: 'ergebnis', 'aria-live': 'off' }, leereFlaeche());
-      const laufText = el('p', { class: 'fuss', id: 'live-lauf', text: 'Name oder Adresse, mehrere mit Leerzeichen getrennt, bis zu vier.' });
+      const laufText = el('p', { class: 'fuss', id: 'live-lauf', text: HINWEIS });
       const zeit = () => `${sek((Date.now() - t0Lauf) / 1000)} · ${messungen} Messungen`;
-      const ziele = () => feld.value.split(/[\s,]+/).filter(Boolean).slice(0, 4);
+      // Gleiche Ziele nur einmal: Sie teilen sich eine Serie und würden sich gegenseitig stören.
+      const alle = () => [...new Set(feld.value.split(/[\s,]+/).filter(Boolean))];
+      const ziele = () => alle().slice(0, 4);
 
       const takt = async (neu, lauf) => {
         if (lauf !== nr) return; // gestoppt oder neu gestartet
         // Nur messen, solange die Ansicht im Dokument hängt; verborgenes Fenster setzt nur aus.
         if (!wurzel.isConnected) return stopp();
         const t0 = Date.now();
-        if (!document.hidden) {
+        if (document.hidden) laufText.textContent = `Pausiert, solange das Fenster verborgen ist (${zeit()})`;
+        else {
           try {
             const antworten = await Promise.all(ziele().map((z) => invoke('live_sonde', { ziel: z, neu })));
             if (lauf !== nr) return;
@@ -134,13 +144,13 @@
         setTimeout(() => takt(false, lauf), Math.max(0, 1000 - (Date.now() - t0)));
       };
       const stopp = () => {
-        if (laeuft && messungen) laufText.textContent = `Gestoppt nach ${zeit()}`;
+        if (laeuft) laufText.textContent = messungen ? `Gestoppt nach ${zeit()}` : HINWEIS;
         laeuft = false; nr++; knopf.textContent = 'Start'; feld.disabled = false;
       };
       const start = () => {
-        if (!ziele().length) return;
+        if (!ziele().length) { laufText.textContent = 'Gib mindestens ein Ziel ein, zum Beispiel 1.1.1.1.'; return feld.focus(); }
         laeuft = true; feld.disabled = true; knopf.textContent = 'Stopp';
-        t0Lauf = Date.now(); messungen = 0; laufText.textContent = 'Läuft seit 0:00 · 0 Messungen';
+        t0Lauf = Date.now(); messungen = 0; laufText.textContent = alle().length > 4 ? 'Startet, gemessen werden die ersten vier Ziele …' : 'Startet, warte auf die erste Antwort …';
         takt(true, ++nr);
       };
       knopf.addEventListener('click', () => (laeuft ? stopp() : start()));
@@ -149,7 +159,7 @@
       wurzel.append(
         el('div', { class: 'kopf' }, el('h2', { text: 'Live' }),
           el('p', { class: 'status' }, el('span', { text: 'Antwortzeit, Jitter und Verlust zu bis zu vier Zielen, jede Sekunde.' }))),
-        el('section', { class: 'gruppe steuerung' }, el('div', { class: 'liste werkzeuge' }, el('label', { class: 'label', for: 'live-ziel', text: 'Ziel' }), feld, knopf), laufText),
+        el('section', { class: 'gruppe steuerung' }, el('div', { class: 'liste werkzeuge' }, el('label', { class: 'label', for: 'live-ziel', text: 'Ziele' }), feld, knopf), laufText),
         ort,
         Object.assign(gruppe('So wird gemessen', [
           zeile('Messung', 'Ping (ICMP Echo), jede Sekunde', E.ping),

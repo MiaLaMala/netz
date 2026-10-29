@@ -116,12 +116,13 @@ fn nettop(_sekunden: u64) -> Result<String, String> {
 pub fn messen(sekunden: u64) -> Result<Vec<Verbrauch>, String> {
     if !(MIN_SEKUNDEN..=MAX_SEKUNDEN).contains(&sekunden) {
         return Err(format!(
-            "Die Messdauer muss zwischen {MIN_SEKUNDEN} und {MAX_SEKUNDEN} Sekunden liegen, öfter belastet nettop den Rechner nur unnötig."
+            "Die Messdauer muss zwischen {MIN_SEKUNDEN} und {MAX_SEKUNDEN} Sekunden liegen. Beispiel: `netzinfo traffic --sekunden 10`."
         ));
     }
     differenz(&nettop(sekunden)?, sekunden)
 }
 
+/// Menge mit Einheit und deutschem Komma (Zehnerpotenzen wie im Finder).
 fn menge(b: f64) -> String {
     match b {
         b if b >= 1e9 => format!("{:.1} GB", b / 1e9),
@@ -129,6 +130,7 @@ fn menge(b: f64) -> String {
         b if b >= 1e3 => format!("{:.1} kB", b / 1e3),
         b => format!("{b:.0} B"),
     }
+    .replace('.', ",")
 }
 
 pub const OPTIONEN: &[&str] = &["--json", "--sekunden"];
@@ -141,9 +143,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         match a.as_str() {
             "--json" => json = true,
             "--sekunden" => {
-                sekunden = it.next().and_then(|s| s.parse().ok()).ok_or(
-                    "Nach `--sekunden` fehlt eine ganze Zahl. Beispiel: `netzinfo traffic --sekunden 10`.",
-                )?;
+                sekunden = it.next().and_then(|s| s.parse().ok()).ok_or(format!(
+                    "Nach `--sekunden` gehört eine ganze Zahl von {MIN_SEKUNDEN} bis {MAX_SEKUNDEN}. Beispiel: `netzinfo traffic --sekunden 10`."
+                ))?;
             }
             _ => {
                 return Err(format!(
@@ -159,6 +161,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     e(&format!(
         "Ich lese die Zähler zweimal im Abstand von {sekunden} Sekunden. Die Differenz ist, was in dieser Zeit floss."
     ));
+    if !json && (MIN_SEKUNDEN..=MAX_SEKUNDEN).contains(&sekunden) {
+        println!("Messe {sekunden} Sekunden lang, bitte warten …");
+    }
     let liste = messen(sekunden)?;
     e(
         "Die Zahlen zählen alle Wege, auch Verbindungen zum eigenen Router. Ein Programm, das viel hochlädt, obwohl du nichts hochlädst, ist einen Blick wert.",
@@ -168,8 +173,13 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             .map(|s| println!("{s}"))
             .map_err(|e| format!("Ausgabe als JSON nicht möglich ({e})."));
     }
-    println!("Letzte {sekunden} Sekunden, je Programm:");
-    for v in liste.iter().filter(|v| v.ein + v.aus > 0).take(15) {
+    let aktiv: Vec<_> = liste.iter().filter(|v| v.ein + v.aus > 0).collect();
+    if aktiv.is_empty() {
+        println!("In {sekunden} Sekunden hat kein Programm Daten übertragen.");
+        return Ok(());
+    }
+    println!("Letzte {sekunden} Sekunden, je Programm (ein = empfangen, aus = gesendet):");
+    for v in aktiv.iter().take(15) {
         println!(
             "  {:<28} ein {:>9}  aus {:>9}   ({}/s ein, {}/s aus)",
             v.programm,
@@ -178,6 +188,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             menge(v.rate_ein),
             menge(v.rate_aus)
         );
+    }
+    if aktiv.len() > 15 {
+        println!("… und {} weitere mit weniger Daten.", aktiv.len() - 15);
     }
     Ok(())
 }
@@ -233,6 +246,13 @@ kaputte zeile
     fn eine_messung_ist_ein_fehler() {
         assert!(differenz(",bytes_in,bytes_out,\nA.1,1,1,\n", 5).is_err());
         assert!(differenz("", 5).is_err());
+    }
+
+    #[test]
+    fn menge_mit_komma() {
+        assert_eq!(menge(1_500.0), "1,5 kB");
+        assert_eq!(menge(999.0), "999 B");
+        assert_eq!(menge(2.5e9), "2,5 GB");
     }
 
     #[test]
