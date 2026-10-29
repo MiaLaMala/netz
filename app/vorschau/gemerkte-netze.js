@@ -1,6 +1,7 @@
 // Fake answers for the view „gemerkte-netze“ in vorschau.html. Add keys to VORSCHAU, e.g.
 // VORSCHAU.befehl = async (args) => ({ ... });
-// Hash marks: netze-umbenennen (row 2 renamed to a taken name), netze-fehler (row 3 renamed to blanks).
+// Hash marks: netze-umbenennen (row 2 renamed to a taken name), netze-fehler (row 3 renamed to blanks),
+// netze-vergessen (row 2 asks for confirmation).
 VORSCHAU.netz_umbenennen = async ({ alt, neu }) => {
   const n = netze.find((x) => x.name === alt);
   const nameNeu = neu.trim();
@@ -13,6 +14,15 @@ VORSCHAU.netz_markieren = async ({ name, meins }) => {
   const n = netze.find((x) => x.name === name);
   n.meins = meins;
   return n;
+};
+// Beispielbereiche statt privater Adressen (WG = Router 192.0.2.1, wie in allen Ansichten).
+const beispiel = { WG: ['192.0.2.1', '192.0.2.0/24'], Arbeit: ['198.51.100.1', '198.51.100.0/24'], Hotspot: ['203.0.113.1', '203.0.113.0/28'] };
+for (const n of netze) if (beispiel[n.name]) Object.assign(n.fingerprint, { router: beispiel[n.name][0], dhcp_server: beispiel[n.name][0], subnet: beispiel[n.name][1] });
+// In den Marken dieser Ansicht ist der Mac gerade im Netz „WG“ (Zeile „Verbunden“).
+const diesesNetz = VORSCHAU.dieses_netz;
+VORSCHAU.dieses_netz = async (a) => {
+  const r = await diesesNetz(a);
+  return (marken.includes('netze') || marken.includes('tab-gemerkte-netze')) && !r.netz && r.info === wlan ? { ...r, netz: netze.find((x) => x.name === 'WG') ?? null } : r;
 };
 // Gespeicherte DNS-Messung je Netz (#88): WG alles frei, Arbeit nur DoH, Hotspot noch nie gemessen.
 const dnsDieses = VORSCHAU.dns_gespeichert;
@@ -31,6 +41,7 @@ addEventListener('DOMContentLoaded', () => setTimeout(() => {
   };
   if (marken.includes('netze-umbenennen')) eingabe(2, 'WG');
   if (marken.includes('netze-fehler')) eingabe(3, '  ');
+  if (marken.includes('netze-vergessen')) document.querySelector('.netz-zeile:nth-child(2) .knopf:not(.umbenennen-knopf)')?.click();
 }, 600));
 // Start mit der Anmeldung (#9)
 let autostartAn = false;
