@@ -35,6 +35,17 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netzinfo` merkt sic
 
 `netzinfo geraete --nachbarn` zeigt zu jeder MAC den Hersteller aus der eingebauten IEEE-Liste (`data/oui.tsv`, Quelle und Lizenzhinweis in [THIRD_PARTY.md](THIRD_PARTY.md)). Ist die Adresse zufällig (Handys mit „privater WLAN-Adresse“), steht dort „zufällige Adresse“: Sie verrät keinen Hersteller, bleibt aber pro Netz gleich und gilt deshalb beim nächsten Besuch als bekannt. `netzinfo pruefen` meldet ein neues Gerät mit zufälliger Adresse als „auffällig“, nie als Alarm. Die Liste aktualisiert nur ein Release: `python3 scripts/oui.py` holt die Register neu und schreibt `data/oui.tsv`.
 
+## Installieren
+
+Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App als `.dmg`, die Kommandozeile als `netzinfo-<tag>-aarch64-apple-darwin.tar.gz` und `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`). Nur Apple Silicon, macOS 13 oder neuer.
+
+1. `.dmg` öffnen und `Netzinfo` in den Ordner „Programme“ ziehen.
+2. Netzinfo starten. macOS meldet, dass es die App nicht prüfen konnte: Das Programm ist nur ad hoc signiert, nicht notarisiert. Auf aktuellem macOS hilft Rechtsklick und „Öffnen“ nicht mehr.
+3. „Fertig“ wählen, dann Systemeinstellungen, Datenschutz & Sicherheit, ganz nach unten scrollen, bei Netzinfo „Trotzdem öffnen“ und mit Passwort oder Touch ID bestätigen.
+4. Beim ersten Scan fragt macOS nach „Lokales Netzwerk“. Erlauben, sonst findet Netzinfo keine Geräte.
+
+Im Terminal geht Schritt 2 und 3 auch so: `xattr -dr com.apple.quarantine /Applications/Netzinfo.app`. Dasselbe gilt für das entpackte `netzinfo` aus dem Archiv. Nach einem Update kann macOS die Berechtigung „Lokales Netzwerk“ erneut abfragen, weil die Ad-hoc-Signatur bei jedem Build anders ist.
+
 ## Bauen
 
     cargo build --release
