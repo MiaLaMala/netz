@@ -1,6 +1,10 @@
 /* Styles for the view „offen“ only, scoped: class names like .werkzeuge exist in other views too. */
-[data-ansicht='offen'] .werkzeuge { display: flex; align-items: center; gap: 18px; margin: 14px 0 0; }
+[data-ansicht='offen'] .werkzeuge { display: flex; align-items: flex-start; gap: 24px; margin: 14px 0 0; }
+[data-ansicht='offen'] .werkzeug { flex: 1; min-width: 0; }
+[data-ansicht='offen'] .werkzeug .fein { margin: 4px 0 0; color: var(--fg2); font-size: 12px; }
+[data-ansicht='offen'] .werkzeug .erklaeren-schalter { min-height: 24px; }
 [data-ansicht='offen'] .werkzeuge .erklaeren-schalter { padding-left: 0; }
+[data-ansicht='offen'] .werkzeug .knopf { min-height: 24px; }
 [data-ansicht='offen'] .ergebnis { margin-top: 8px; }
 [data-ansicht='offen'] .ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
 [data-ansicht='offen'] .offen-tabelle { width: 100%; border-collapse: collapse; }
@@ -10,5 +14,9 @@
 [data-ansicht='offen'] .offen-tabelle .warn { color: var(--orange); }
 [data-ansicht='offen'] .offen-tabelle td:first-child, [data-ansicht='offen'] .offen-tabelle td.num:nth-child(3) { white-space: nowrap; }
 [data-ansicht='offen'] .offen-art { font-size: 12px; font-weight: 500; color: var(--fg2); }
-[data-ansicht='offen'] .offen-art.netz { color: var(--orange); }
+[data-ansicht='offen'] .offen-art.netz { color: var(--fg); font-weight: 600; }
 [data-ansicht='offen'] .offen-tabelle td:last-child { white-space: nowrap; }
+[data-ansicht='offen'] .woher { margin: 2px 0 0; font-size: 12px; }
+[data-ansicht='offen'] .woher summary { cursor: pointer; color: var(--fg2); }
+[data-ansicht='offen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; }
+[data-ansicht='offen'] .woher-inhalt p { margin: 0; }

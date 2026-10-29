@@ -119,13 +119,27 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         );
     }
     let zaehle = |r| liste.iter().filter(|l| l.reichweite == r).count();
+    let clients = zaehle(Reichweite::UdpClient);
+    let ohne = if clients > 0 {
+        format!(" ({clients} UDP-Clients nicht mitgezählt)")
+    } else {
+        String::new()
+    };
     println!(
-        "{} lauschend, davon {} für das Netz erreichbar, {} nur über VPN. Programme anderer Nutzer sind ohne Root nicht sichtbar.",
-        liste.len(),
+        "{} lauschend{ohne}, davon {} für das Netz erreichbar, {} nur über VPN. Programme anderer Nutzer sind ohne Root nicht sichtbar.",
+        lauschend(&liste),
         zaehle(Reichweite::Netz),
         zaehle(Reichweite::Vpn)
     );
     Ok(())
+}
+
+/// Entries that really wait for connections: a UDP client only holds a port for answers.
+pub fn lauschend(liste: &[Lauscher]) -> usize {
+    liste
+        .iter()
+        .filter(|l| l.reichweite != Reichweite::UdpClient)
+        .count()
 }
 
 /// Listening TCP and bound UDP sockets of the current user, network-reachable first.
@@ -802,12 +816,11 @@ mod tests {
             sock("TCP", "*", 50000, "server"),
         ];
         let fest: Fest = [("dienst".to_string(), 60000)].into();
-        let r: Vec<_> = lauscher(socks, &[], &fest)
-            .iter()
-            .map(|l| l.reichweite)
-            .collect();
+        let alle = lauscher(socks, &[], &fest);
+        let r: Vec<_> = alle.iter().map(|l| l.reichweite).collect();
         use Reichweite::*;
         assert_eq!(r, vec![UdpClient, Netz, Netz, Lokal, Netz]);
+        assert_eq!(lauschend(&alle), 4); // the UDP client does not listen
     }
 
     #[test]
