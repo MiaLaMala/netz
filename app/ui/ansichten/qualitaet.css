@@ -88,3 +88,5 @@
 [data-ansicht='qualitaet'] .dns-tempo .balken { height: 6px; border-radius: 3px; background: var(--linie); overflow: hidden; }
 [data-ansicht='qualitaet'] .dns-tempo .balken span { display: block; height: 100%; background: var(--accent); }
 [data-ansicht='qualitaet'] .dns-tempo li.rat .name { font-weight: 600; }
+[data-ansicht='qualitaet'] .egress-karte .karte { padding: 12px; }
+[data-ansicht='qualitaet'] .egress-werkzeuge { display: flex; gap: 8px; margin-bottom: 8px; }

@@ -110,6 +110,12 @@ fn zeit_pruefen() -> netzinfo::zeit::ZeitErgebnis {
     netzinfo::zeit::pruefen()
 }
 
+/// Outgoing TCP ports to the own test server, see issue #54. `ziel` is saved when given.
+#[tauri::command(async)]
+fn egress_pruefen(ziel: Option<String>) -> Result<netzinfo::egress::EgressAntwort, Fehler> {
+    netzinfo::egress::ausfuehren(ziel).map_err(Into::into)
+}
+
 #[tauri::command(async)]
 fn dns_verschluesselt() -> Result<netzinfo::dnsverschl::DnsErgebnis, Fehler> {
     netzinfo::dnsverschl::dns_daten().map_err(Into::into)
@@ -295,6 +301,7 @@ fn main() {
             sni_pruefen,
             ipv6_messen,
             zeit_pruefen,
+            egress_pruefen,
             wlan_umfeld,
             proxy_lesen,
             proxy_pac_ansehen,

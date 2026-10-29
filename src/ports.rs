@@ -51,6 +51,9 @@ pub(crate) enum State {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    if args.iter().any(|a| a == "--raus") {
+        return crate::egress::run(args, explain_on);
+    }
     let mut target = None;
     let mut meins = false;
     let mut ports = None;

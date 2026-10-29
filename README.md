@@ -18,6 +18,7 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netzinfo` merkt sic
 | `netzinfo dns <Name>` | Antwort deines Netzes gegen 1.1.1.1 und Quad9 | #2 |
 | `netzinfo tls [Host]` | Zertifikatsaussteller prüfen, SSL-Inspection erkennen | #3 |
 | `netzinfo ports <Host>` | offene Ports eines eigenen Geräts | #4 |
+| `netzinfo ports --raus [--ziel <Server>]` | welche ausgehenden TCP-Ports das Netz durchlässt (siehe „Ausgehende Ports“) | #54 |
 | `netzinfo merken <Name> [--meins]` | aktuelles Netz speichern, optional als „meins“ markieren | #5 |
 | `netzinfo netze` | gemerkte Netze auflisten | #5 |
 | `netzinfo vergessen <Name>` | ein gemerktes Netz löschen | #5 |
@@ -71,3 +72,17 @@ Sie liest dieselbe Liste wie die Kommandozeile (`NETZ_DATEN` gilt auch hier). Di
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE).
+
+## Ausgehende Ports
+
+`netzinfo ports --raus` verbindet sich mit deinem eigenen Testserver auf 16 TCP-Ports (22, 25, 53, 80, 123, 143, 443, 465, 587, 853, 993, 1194, 3389, 5222, 8080, 8443), in zufälliger Reihenfolge, höchstens vier gleichzeitig. „offen“: Verbindung steht. „abgelehnt“: sofortige Ablehnung. „verschluckt“: keine Antwort in 3 Sekunden. Es sendet nur an diesen einen Server und braucht kein „meins“. Nur TCP, und eine Verbindung heißt nicht, dass Inhalte ungefiltert bleiben.
+
+Testserver aufstellen (ein Linux-Rechner oder Server mit fester Adresse, Firewall für die Ports offen):
+
+```sh
+for p in 22 25 53 80 123 143 443 465 587 853 993 1194 3389 5222 8080 8443; do
+  socat TCP-LISTEN:$p,fork,reuseaddr /dev/null &
+done
+```
+
+Port 22 braucht dort einen anderen SSH-Port oder den echten `sshd`; Ports unter 1024 brauchen Root oder `setcap`. Einmal eintragen: `netzinfo ports --raus --ziel <Server>`. Danach vergleicht `netzinfo pruefen` in gemerkten Netzen mit der letzten Messung und meldet nur neu gesperrte Ports, nie als Alarm. Ohne Ziel sendet Netzinfo nichts.

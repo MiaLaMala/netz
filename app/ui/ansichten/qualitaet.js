@@ -456,6 +456,28 @@
     return k;
   }
 
+  // ---- Karte „Was darf raus?“ (`netzinfo ports --raus`, src/egress.rs, issue #54): misst nur auf Klick, nur gegen den eigenen Testserver ----
+  function egressKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const feld = el('input', { type: 'text', class: 'ziel-feld', autocapitalize: 'off', spellcheck: 'false', placeholder: 'Testserver, leer = gespeicherter', 'aria-label': 'Testserver' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Ports prüfen' });
+    const WORT = { offen: 'offen', abgelehnt: 'abgelehnt', verschluckt: 'verschluckt', fehler: 'Fehler' };
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Prüft 16 Ports, das dauert bis zu 15 Sekunden'));
+      try {
+        const a = await Netz.invoke('egress_pruefen', { ziel: feld.value.trim() || null });
+        ort.replaceChildren(gruppe(`Ausgehende Ports zu ${a.ziel}`,
+          a.ports.map((p) => zeile(`${p.port} ${p.name}`, `${WORT[p.status]} (${p.ms} ms)`, p.satz)), a.hinweise.join(' ')));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    });
+    return el('section', { class: 'gruppe egress-karte', 'aria-labelledby': 'g-egress' }, el('h3', { id: 'g-egress', text: 'Was darf raus?' }),
+      el('div', { class: 'karte' }, el('div', { class: 'egress-werkzeuge' }, feld, knopf), ort));
+  }
+
   // ---- Karte „Funkumfeld“ (`netzinfo wlan --umfeld`, src/kanal.rs): scannt nur auf Klick, speichert nichts ----
   const BAENDER = ['2,4 GHz', '5 GHz', '6 GHz'];
   function umfeldBalken(a) {
@@ -601,6 +623,7 @@
       wurzel.append(ipv6Karte());
       wurzel.append(dnsTempoKarte());
       wurzel.append(zeitKarte());
+      wurzel.append(egressKarte());
       wurzel.append(umfeldKarte());
       if (weiter) schalte(true);
     },
