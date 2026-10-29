@@ -35,6 +35,8 @@ struct Lease {
     server: Option<Ipv4Addr>,
     dns: Vec<Ipv4Addr>,
     domain: Option<String>,
+    /// DHCP option 252 (WPAD URL), if the server sends one.
+    wpad: Option<String>,
 }
 
 fn field<'a>(line: &'a str, key: &str) -> Option<&'a str> {
@@ -82,6 +84,10 @@ fn parse_lease(out: &str) -> Lease {
             "server_identifier" => l.server = ips(v).first().copied(),
             "domain_name_server" => l.dns = ips(v),
             "domain_name" => l.domain = Some(v.to_string()).filter(|d| !d.is_empty()),
+            // ponytail: name as printed by `ipconfig getpacket` on macOS; check it on a net that sends 252
+            "proxy_auto_discovery" | "wpad" => {
+                l.wpad = Some(v.to_string()).filter(|d| !d.is_empty())
+            }
             _ => {}
         }
     }
@@ -118,6 +124,11 @@ fn sh(program: &str, args: &[&str]) -> Result<String, String> {
         return Err(format!("`{program}` meldete einen Fehler."));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// WPAD URL from DHCP option 252 on `interface`, `None` without one.
+pub fn wpad_dhcp(interface: &str) -> Option<String> {
+    parse_lease(&sh("ipconfig", &["getpacket", interface]).ok()?).wpad
 }
 
 pub fn collect() -> Result<NetInfo, String> {
@@ -325,6 +336,15 @@ mod tests {
         assert_eq!(l.server, "192.168.178.1".parse().ok());
         assert_eq!(l.dns.len(), 2);
         assert_eq!(l.domain.as_deref(), Some("fritz.box"));
+    }
+
+    #[test]
+    fn lease_wpad_option_252() {
+        let l = parse_lease(
+            "yiaddr = 192.0.2.20\nproxy_auto_discovery (string): http://wpad.example.net/wpad.dat\n",
+        );
+        assert_eq!(l.wpad.as_deref(), Some("http://wpad.example.net/wpad.dat"));
+        assert_eq!(parse_lease("router (ip_mult): {192.0.2.1}\n").wpad, None);
     }
 
     #[test]

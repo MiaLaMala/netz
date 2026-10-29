@@ -29,3 +29,13 @@
       ? { messung: { ...gespeichert, zeit: t - 86400 * 3 }, frisch: false }
       : null);
 })();
+// Proxy und WPAD (#53). Marken: proxy-pac (PAC-Datei und WPAD), proxy-pac-offen (Hostnamen schon geladen);
+// ohne Marke „Kein Proxy“.
+(() => {
+  const pac = marken.includes('proxy-pac') || marken.includes('proxy-pac-offen');
+  VORSCHAU.proxy_lesen = async () => (pac
+    ? { manuell: null, pac_url: 'http://wpad.example.net/proxy.pac', wpad_dhcp: 'http://wpad.example.net/wpad.dat', wpad_dns: true, auto_suche: true }
+    : { manuell: null, pac_url: null, wpad_dhcp: null, wpad_dns: false, auto_suche: false });
+  VORSCHAU.proxy_pac_ansehen = async () => ['proxy1.example.net', 'proxy2.example.net'];
+  if (marken.includes('proxy-pac-offen')) addEventListener('load', () => setTimeout(() => document.querySelector('[data-ansicht=\'dieses-netz\'] button[data-pac]')?.click(), 300));
+})();

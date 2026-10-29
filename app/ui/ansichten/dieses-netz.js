@@ -172,6 +172,33 @@
     ort.querySelector('input[type="text"]').focus();
   }
 
+  // Proxy und WPAD (#53): rein lesend. Die PAC-Datei wird nur auf Klick geladen, gezeigt werden nur Hostnamen.
+  function proxyGruppe() {
+    const erkl = 'Ein Proxy ist ein Zwischenrechner, über den dein Mac Webseiten laden soll. Der Betreiber könnte deine Webanfragen sehen. In einem Heimnetz gibt es normalerweise keinen, ein neuer Eintrag ist ein Grund zum Nachsehen.';
+    let ort = gruppe('Proxy', [zeile('Proxy und WPAD', 'wird geprüft …', erkl)]);
+    const ersetze = (neu) => { ort.replaceWith(neu); ort = neu; };
+    Netz.invoke('proxy_lesen').then((b) => {
+      const zeilen = [
+        zeile('Fester Proxy', b.manuell || 'keiner', erkl),
+        zeile('PAC-Datei', b.pac_url || 'keine', 'Die PAC-Datei sagt dem Browser, welcher Proxy für welche Adresse gilt. Ich führe sie nie aus.'),
+        zeile('WPAD per DHCP', b.wpad_dhcp || 'keiner', 'Das Netz kann dem Mac mit DHCP-Option 252 die Adresse einer PAC-Datei mitgeben (WPAD).'),
+        zeile('WPAD per DNS', b.wpad_dns ? 'gefunden' : 'nicht gefunden', 'Ich frage den DNS-Server des Netzes nach wpad.<Domain>. Ein Treffer ist nur ein Hinweis, die Datei lade ich nicht.'),
+      ];
+      const keiner = !b.manuell && !b.pac_url && !b.wpad_dhcp && !b.wpad_dns;
+      const neu = gruppe('Proxy', zeilen, keiner ? 'Kein Proxy.' : null);
+      if (b.pac_url) {
+        const hosts = el('div', { 'aria-live': 'polite' });
+        neu.append(el('div', { class: 'aktion' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', onclick: (e) => {
+          e.currentTarget.disabled = true;
+          Netz.invoke('proxy_pac_ansehen').then((h) => hosts.replaceChildren(el('p', { class: 'fuss', text: h.length ? `Hostnamen in der PAC-Datei: ${h.join(', ')}` : 'In der PAC-Datei stehen keine Proxy-Hostnamen.' })))
+            .catch((err) => hosts.replaceChildren(meldung(Netz.text(err), 'orange')));
+        } })), hosts);
+      }
+      ersetze(neu);
+    }).catch(() => ort.remove());
+    return ort;
+  }
+
   Netz.registriere({
     id: 'dieses-netz',
     titel: 'Dieses Netz',
@@ -241,6 +268,7 @@
         wurzel.append(dnsOrt);
         messen();
       }
+      wurzel.append(proxyGruppe());
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       const funk = await Netz.invoke('wlan_lesen').catch(() => null);
       if (funk) {

@@ -2,7 +2,7 @@
 
 use netzinfo::{
     bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal, ports,
-    pruefen, sni, tls, verbindungen, wlan, woher,
+    proxy, pruefen, sni, tls, verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -43,6 +43,7 @@ Befehle:
                              Signal, Roaming und Abbrüche über Minuten verfolgen
   netzinfo wlan --umfeld [--json]
                              Scan: Netze je Kanal und Band, Rat für einen leereren Kanal
+  netzinfo proxy [--ansehen] Proxy, PAC und WPAD in diesem Netz erkennen
   netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
   netzinfo woher <Port|Programm> [--json]
                              Wer hat dieses Programm gestartet? Kette bis launchd
@@ -83,6 +84,7 @@ fn main() -> ExitCode {
         "bonjour" => bonjour::run(rest, explain_on),
         "diagnose" => diagnose::run(rest, explain_on),
         "wlan" => wlan::run(rest, explain_on),
+        "proxy" => proxy::run(rest, explain_on),
         "verbindungen" => verbindungen::run(rest, explain_on),
         "woher" => woher::run(rest, explain_on),
         "live" => live::run(rest, explain_on),

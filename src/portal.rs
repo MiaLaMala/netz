@@ -85,7 +85,7 @@ pub struct PortalErgebnis {
 
 /// Splits a raw HTTP response into status code, `Location` header and body.
 /// `None` for garbage or when the header block is not complete.
-fn parse(raw: &[u8]) -> Option<(u16, Option<String>, &[u8])> {
+pub(crate) fn parse(raw: &[u8]) -> Option<(u16, Option<String>, &[u8])> {
     let end = raw.windows(4).position(|w| w == b"\r\n\r\n")?;
     let head = std::str::from_utf8(&raw[..end]).ok()?;
     let mut lines = head.split("\r\n");
@@ -102,7 +102,7 @@ fn parse(raw: &[u8]) -> Option<(u16, Option<String>, &[u8])> {
 }
 
 /// Host of an absolute `http(s)://` URL. No userinfo, port or query; odd characters give `None`.
-fn host_of(url: &str) -> Option<String> {
+pub(crate) fn host_of(url: &str) -> Option<String> {
     let rest = url.split_once("://")?.1;
     let auth = rest.split(['/', '?', '#']).next()?;
     let host = auth
@@ -141,7 +141,7 @@ fn classify(raw: &[u8], erwartet: Erwartet) -> (Option<u16>, Urteil, Option<Stri
 }
 
 /// One GET without redirects, at most `MAX_BYTES` and `TIMEOUT` in total.
-fn fetch(addr: impl ToSocketAddrs, host: &str, path: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn fetch(addr: impl ToSocketAddrs, host: &str, path: &str) -> Result<Vec<u8>, String> {
     let start = Instant::now();
     let left = || {
         TIMEOUT
