@@ -85,6 +85,69 @@
     })];
   }
 
+  // „Wer sendet gerade“ (#58): measures only on click; repeats only while this view is on screen.
+  const TRAFFIC_SEKUNDEN = 5;
+  const TRAFFIC_TAKT = 30000;
+  const menge = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : b >= 1e3 ? `${(b / 1e3).toFixed(0)} kB` : `${Math.round(b)} B`).replace('.', ',');
+
+  function trafficBalken(liste) {
+    const aktiv = liste.filter((v) => v.ein + v.aus > 0).slice(0, 8);
+    if (!aktiv.length) return [el('p', { class: 'fuss', text: 'In diesen Sekunden floss bei keinem Programm etwas.' })];
+    const max = Math.max(...aktiv.map((v) => v.rate_ein + v.rate_aus));
+    return aktiv.map((v) => el('div', { class: 'traffic-zeile' },
+      el('div', { class: 'traffic-kopf' },
+        el('span', { class: 'netz-name', text: v.programm }),
+        el('span', { class: 'fein num', text: `↓ ${menge(v.rate_ein)}/s · ↑ ${menge(v.rate_aus)}/s` })),
+      el('div', { class: 'traffic-balken', role: 'img', 'aria-label': `${v.programm}: ${menge(v.ein)} empfangen, ${menge(v.aus)} gesendet` },
+        el('span', { class: 'ein', style: `width:${((v.rate_ein / max) * 100).toFixed(1)}%` }),
+        el('span', { class: 'aus', style: `width:${((v.rate_aus / max) * 100).toFixed(1)}%` }))));
+  }
+
+  function trafficAbschnitt() {
+    const ort = el('div', { class: 'traffic-liste', 'aria-live': 'polite' });
+    const messen = el('button', { class: 'knopf', type: 'button', text: 'Messen' });
+    let wiederholen = false;
+    let laeuft = false;
+    let timer = null;
+    const einmal = async () => {
+      if (laeuft) return;
+      laeuft = true;
+      messen.disabled = true;
+      messen.textContent = 'Messe …';
+      try {
+        ort.replaceChildren(...trafficBalken(await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN })));
+      } catch (f) {
+        ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+        wiederholen = false;
+        sw.setAttribute('aria-checked', 'false');
+      }
+      laeuft = false;
+      messen.disabled = false;
+      messen.textContent = 'Messen';
+      clearTimeout(timer);
+      if (wiederholen && messen.isConnected) timer = setTimeout(takt, TRAFFIC_TAKT);
+    };
+    const takt = () => {
+      if (!messen.isConnected) return; // view was left: the loop ends
+      if (document.hidden) timer = setTimeout(takt, TRAFFIC_TAKT);
+      else einmal();
+    };
+    const sw = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': 'false' },
+      el('span', { class: 'spur' }), el('span', { text: 'Alle 30 Sekunden wiederholen, solange diese Ansicht offen ist' }));
+    sw.addEventListener('click', () => {
+      wiederholen = !wiederholen;
+      sw.setAttribute('aria-checked', String(wiederholen));
+      clearTimeout(timer);
+      if (wiederholen) einmal();
+    });
+    messen.addEventListener('click', einmal);
+    return Object.assign(gruppe('Wer sendet gerade', [
+      el('div', { class: 'traffic-werkzeuge' }, messen, sw),
+      ort,
+      el('p', { class: 'fuss', text: 'Die Werte sind Zähler seit Prozessstart, gezeigt wird die Differenz über 5 Sekunden. Blau: empfangen, orange: gesendet, Länge im Verhältnis zum lautesten Programm. Die Zahlen zählen alle Wege, auch zum eigenen Router.' }),
+    ]), { className: 'gruppe traffic' });
+  }
+
   Netz.registriere({
     id: 'verbindungen',
     titel: 'Verbindungen',
@@ -109,6 +172,7 @@
           schalter('Merken', 'merken', () => Netz.neuLaden())),
         ort,
         el('div', { class: 'aktion' }, loeschen),
+        trafficAbschnitt(),
         Object.assign(gruppe('So entsteht die Liste', [
           zeile('Verbunden', 'nur ESTABLISHED', E.verbunden),
           zeile('Name', 'Rückwärts-DNS (PTR)', E.ptr),

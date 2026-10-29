@@ -133,6 +133,12 @@ fn woher_zeigen(pid: u32) -> Result<netzinfo::woher::Herkunft, Fehler> {
     netzinfo::woher::herkunft(pid).map_err(Into::into)
 }
 
+/// Bytes per program over `sekunden`, measured on request only, see issue #58.
+#[tauri::command(async)]
+fn traffic_messen(sekunden: u64) -> Result<Vec<netzinfo::traffic::Verbrauch>, Fehler> {
+    netzinfo::traffic::messen(sekunden).map_err(Into::into)
+}
+
 #[tauri::command(async)]
 fn verbindungen_loeschen() -> Result<bool, Fehler> {
     netzinfo::verbindungen::loeschen().map_err(Into::into)
@@ -262,6 +268,7 @@ fn main() {
             verbindungen_zeigen,
             verbindungen_loeschen,
             offen_zeigen,
+            traffic_messen,
             geraete_karten,
             geraet_setzen,
             ort_status,

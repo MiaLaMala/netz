@@ -10,3 +10,13 @@
 [data-ansicht='verbindungen'] .woher { margin: 0 0 8px; font-size: 13px; }
 [data-ansicht='verbindungen'] .woher summary { cursor: pointer; opacity: 0.8; }
 [data-ansicht='verbindungen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; }
+/* #58 „Wer sendet gerade“ */
+[data-ansicht='verbindungen'] .traffic-werkzeuge { display: flex; align-items: center; gap: 14px; padding: 12px 14px 8px; }
+[data-ansicht='verbindungen'] .traffic-werkzeuge .erklaeren-schalter { padding-left: 0; }
+[data-ansicht='verbindungen'] .traffic-zeile { padding: 6px 14px; }
+[data-ansicht='verbindungen'] .traffic .fuss { padding-bottom: 12px; }
+[data-ansicht='verbindungen'] .traffic-balken span { min-width: 3px; }
+[data-ansicht='verbindungen'] .traffic-kopf { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+[data-ansicht='verbindungen'] .traffic-balken { display: flex; height: 8px; border-radius: 3px; background: var(--linie); overflow: hidden; }
+[data-ansicht='verbindungen'] .traffic-balken .ein { background: var(--accent); }
+[data-ansicht='verbindungen'] .traffic-balken .aus { background: var(--orange); }
