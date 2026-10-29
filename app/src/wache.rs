@@ -8,6 +8,7 @@ use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{App, AppHandle, Manager, Wry};
+use tauri_plugin_notification::NotificationExt;
 
 const KENNUNG: &str = "dev.mia-gruenwald.netzinfo";
 const INTERVALL: Duration = Duration::from_secs(20);
@@ -67,25 +68,25 @@ fn mitteilung(netz: &str, u: &[Unterschied]) -> Option<(String, String)> {
     ))
 }
 
-fn mitteilen(titel: &str, text: &str) {
-    #[cfg(target_os = "macos")]
-    {
-        let r = std::process::Command::new("osascript")
-            .args(["-e", "on run argv"])
-            .args([
-                "-e",
-                "display notification (item 1 of argv) with title (item 2 of argv)",
-            ])
-            .args(["-e", "end run", "--", text, titel])
-            .status();
-        if !matches!(r, Ok(s) if s.success()) {
-            eprintln!(
-                "Die Mitteilung ließ sich nicht anzeigen. Erlaube sie unter Systemeinstellungen > Mitteilungen."
-            );
-        }
+/// Shown by the notification plugin, so macOS lists it as Netzinfo, not as Script Editor.
+fn mitteilen(app: &AppHandle, titel: &str, text: &str) {
+    if let Err(e) = app.notification().builder().title(titel).body(text).show() {
+        eprintln!(
+            "Die Mitteilung ließ sich nicht anzeigen ({e}). Erlaube sie unter Systemeinstellungen > Mitteilungen."
+        );
     }
-    #[cfg(not(target_os = "macos"))]
-    eprintln!("{titel}: {text}");
+}
+
+/// "29.10.2026, 11:06" in local time. `date` knows the time zone, so no new dependency.
+// ponytail: one process per check; libc localtime_r if that ever matters.
+fn ortszeit(secs: u64) -> String {
+    std::process::Command::new("date")
+        .args(["-r", &secs.to_string(), "+%d.%m.%Y, %H:%M"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map_or_else(|| netze::format_utc(secs), |t| t.trim().to_string())
 }
 
 struct Menue {
@@ -123,10 +124,10 @@ fn pruefe(app: &AppHandle) {
                 app,
                 z,
                 &e.netz,
-                &format!("Geprüft: {}", netze::format_utc(e.messung.time)),
+                &format!("Geprüft: {}", ortszeit(e.messung.time)),
             );
             if let Some((titel, text)) = mitteilung(&e.netz, &e.unterschiede) {
-                mitteilen(&titel, &text);
+                mitteilen(app, &titel, &text);
             }
         }
         Err(f) if f == netze::NICHT_GEMERKT_PRUEFEN => {
@@ -144,7 +145,7 @@ fn pruefe(app: &AppHandle) {
     }
 }
 
-fn fenster_oeffnen(app: &AppHandle) {
+pub fn fenster_oeffnen(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -157,8 +158,14 @@ pub fn starten(app: &mut App) -> tauri::Result<()> {
     let netz = MenuItem::with_id(app, "netz", "Kein Netz", false, None::<&str>)?;
     let zuletzt = MenuItem::with_id(app, "zuletzt", "Noch nicht geprüft", false, None::<&str>)?;
     let jetzt = MenuItem::with_id(app, "jetzt", "Jetzt prüfen", true, None::<&str>)?;
-    let fenster = MenuItem::with_id(app, "fenster", "Fenster öffnen", true, None::<&str>)?;
-    let beenden = MenuItem::with_id(app, "beenden", "Beenden", true, None::<&str>)?;
+    let fenster = MenuItem::with_id(app, "fenster", "Netzinfo öffnen", true, None::<&str>)?;
+    let beenden = MenuItem::with_id(
+        app,
+        "beenden",
+        "Netzinfo beenden",
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
     let menue = Menu::with_items(
         app,
         &[
@@ -167,10 +174,15 @@ pub fn starten(app: &mut App) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &jetzt,
             &fenster,
+            &PredefinedMenuItem::separator(app)?,
             &beenden,
         ],
     )?;
-    let mut tray = TrayIconBuilder::with_id("wache")
+    // Template image: macOS tints it for light and dark. The state is the text next to it.
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/wache-template.png"))?;
+    let tray = TrayIconBuilder::with_id("wache")
+        .icon(icon)
+        .icon_as_template(true)
         .menu(&menue)
         .title(Zustand::Unbekannt.symbol())
         .on_menu_event(|app, ev| match ev.id().as_ref() {
@@ -182,9 +194,6 @@ pub fn starten(app: &mut App) -> tauri::Result<()> {
             "beenden" => app.exit(0),
             _ => {}
         });
-    if let Some(icon) = app.default_window_icon() {
-        tray = tray.icon(icon.clone());
-    }
     let tray = tray.build(app)?;
     app.manage(Menue {
         tray,
@@ -231,6 +240,18 @@ fn autostart_pfad() -> Result<std::path::PathBuf, String> {
 
 pub fn autostart_lesen() -> Result<bool, String> {
     Ok(autostart_pfad()?.exists())
+}
+
+/// A dev build starts from `target/debug`, which is gone after a clean build: say so at the switch.
+pub fn autostart_hinweis() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    entwicklung(&exe).then(|| {
+        "Das ist ein Entwicklungsstand (target/debug). Der Start mit der Anmeldung zeigt auf diese Datei und geht ins Leere, wenn du neu baust. Schalte ihn lieber in der installierten App ein.".into()
+    })
+}
+
+fn entwicklung(exe: &std::path::Path) -> bool {
+    exe.components().any(|c| c.as_os_str() == "target")
 }
 
 /// Writes or removes the login item. Takes effect at the next login.
@@ -287,6 +308,23 @@ mod tests {
             (t.as_str(), b.as_str()),
             ("Netzinfo: WG ist auffällig", "DNS neu")
         );
+    }
+
+    #[test]
+    fn entwicklungsstand_wird_erkannt() {
+        assert!(entwicklung(std::path::Path::new(
+            "/x/netz/target/debug/netzinfo-app"
+        )));
+        assert!(!entwicklung(std::path::Path::new(
+            "/Applications/Netzinfo.app/Contents/MacOS/netzinfo-app"
+        )));
+    }
+
+    #[test]
+    fn ortszeit_hat_das_format() {
+        let t = ortszeit(1793050200);
+        assert_eq!(t.len(), 17, "{t}");
+        assert_eq!(&t[2..3], ".");
     }
 
     #[test]

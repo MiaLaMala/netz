@@ -12,4 +12,5 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 netzinfo = { path = ".." }
 # macos-private-api: needed for the transparent window with the native sidebar material.
-tauri = { version = "2.12", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "2.12", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-notification = "2.8.0"
