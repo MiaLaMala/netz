@@ -451,6 +451,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Ich lese die Nachbartabelle deines Rechners und merke mir, zu welchem Gerät die Adresse deines Routers gehört. Gehört sie später zu einem anderen Gerät, ist das harmlos, wenn du den Router getauscht hast. Sonst solltest du dem Netz hier nicht trauen. Ich sende dafür nichts.",
     );
     show(&r.messung);
+    if !crate::proxy::unterstuetzt() {
+        println!(
+            "Proxy: übersprungen. Netzinfo liest die Proxy-Einstellungen bisher nur auf dem Mac."
+        );
+    }
     let Some(old) = &r.vorher else {
         println!("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
         explain(
@@ -474,9 +479,16 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     if r.nicht_messbar > 0 {
+        let (n, rest) = if r.nicht_messbar == 1 {
+            ("Eine Prüfung ließ".to_string(), "Sie zählt")
+        } else {
+            (
+                format!("{} Prüfungen ließen", r.nicht_messbar),
+                "Sie zählen",
+            )
+        };
         println!(
-            "{} Prüfung(en) ließen sich nicht messen (Internet? Zeitüberschreitung?). Sie zählen nicht als Änderung.",
-            r.nicht_messbar
+            "{n} sich nicht messen (Internet? Zeitüberschreitung?). {rest} nicht als Änderung."
         );
     }
     explain(

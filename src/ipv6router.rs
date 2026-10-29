@@ -233,7 +233,7 @@ pub fn zeigen(info: &NetInfo, explain_on: bool) {
                     }
                     1 => "Nur dein Router meldet sich als IPv6-Router. Das ist der Normalfall.",
                     _ => {
-                        "In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal. Ich sehe nur, was der Mac sich gemerkt hat."
+                        "In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal. Ich sehe nur, was der Rechner sich gemerkt hat."
                     }
                 },
             );

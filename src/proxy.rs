@@ -101,12 +101,22 @@ fn wpad_per_dns(info: &hier::NetInfo) -> bool {
         .is_ok_and(|a| a.rcode == 0 && a.records.iter().any(|r| r.rtype == dns::A))
 }
 
+const NUR_MAC: &str = "Proxy-Einstellungen liest Netzinfo bisher nur auf dem Mac.";
+
+/// Ob dieses System die Proxy-Einstellungen lesen kann (`scutil` gibt es nur auf dem Mac).
+pub fn unterstuetzt() -> bool {
+    cfg!(target_os = "macos")
+}
+
 /// Misst Proxy-Angaben des aktuellen Netzes. Sendet nur eine DNS-Frage nach `wpad.<domain>`.
 pub fn messen() -> Result<ProxyBefund, String> {
+    if !unterstuetzt() {
+        return Err(NUR_MAC.into());
+    }
     let out = Command::new("scutil")
         .arg("--proxy")
         .output()
-        .map_err(|e| format!("`scutil` ließ sich nicht starten ({e}). Proxy-Einstellungen liest Netzinfo bisher nur auf dem Mac."))?;
+        .map_err(|_| format!("`scutil` ließ sich nicht starten. {NUR_MAC}"))?;
     let mut b = parse_scutil(&String::from_utf8_lossy(&out.stdout));
     if let Ok(info) = hier::collect() {
         b.wpad_dhcp = crate::plattform::wpad_dhcp(&info.interface);
@@ -176,7 +186,7 @@ fn vergleiche(alt: &Gespeichert, neu: &Gespeichert) -> Vec<(Klasse, String)> {
         out.push((
             Klasse::Auffaellig,
             format!(
-                "Dein Mac soll Webseiten über den Proxy {z} laden, das war bei deinem letzten Besuch anders. Ein Proxy sieht deine Webanfragen. In einem Heimnetz ist ein neuer Eintrag ein Grund zum Nachsehen."
+                "Dein Rechner soll Webseiten über den Proxy {z} laden, das war bei deinem letzten Besuch anders. Ein Proxy sieht deine Webanfragen. In einem Heimnetz ist ein neuer Eintrag ein Grund zum Nachsehen."
             ),
         ));
     }
@@ -233,7 +243,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     };
     explain(
         explain_on,
-        "Ein Proxy ist ein Zwischenrechner, über den dein Mac Webseiten laden soll. Der Betreiber könnte dabei deine Webanfragen sehen. In einem Heimnetz gibt es normalerweise keinen.",
+        "Ein Proxy ist ein Zwischenrechner, über den dein Rechner Webseiten laden soll. Der Betreiber könnte dabei deine Webanfragen sehen. In einem Heimnetz gibt es normalerweise keinen.",
     );
     explain(
         explain_on,
