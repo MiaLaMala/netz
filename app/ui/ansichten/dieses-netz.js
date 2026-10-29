@@ -1,7 +1,7 @@
 // „Dieses Netz“: was der Mac gerade vom Netz weiß, und ob er es kennt.
 // Die Erklärsätze folgen den Zeilen von `netzinfo hier --erklaer` (src/hier.rs).
 (() => {
-  const { el, zeit, gruppe, zeile, status, meldung } = Netz;
+  const { el, zeit, gruppe, zeile, meldung } = Netz;
 
   const E = {
     schnittstelle: (vpn) =>
@@ -35,20 +35,31 @@
     ddr: 'Fragt der Mac den DNS-Server des Netzes nach _dns.resolver.arpa, kann dieser einen verschlüsselten Zugang nennen. Die Antwort ist nicht beglaubigt, ich zeige sie nur an.',
   };
 
-  const liste = (a) => (a && a.length ? a.join(', ') : null);
+  // Mehrere Werte (DNS-Server) stehen untereinander, nicht in einer Zeile.
+  const stapel = (label, a, erkl) => {
+    const z = zeile(label, a && a.length ? a.join('\n') : null, erkl);
+    z.querySelector('.wert').classList.add('stapel');
+    return z;
+  };
+  // Farbe nur für eine Bewertung (gut, mittel, schlecht); das Wort steht immer im Wert.
+  const bewertet = (z, klasse) => {
+    if (klasse) z.querySelector('.wert').classList.add(klasse);
+    return z;
+  };
+  // Seltene Werte hinter ein Aufklappen (`details` ist mit der Tastatur bedienbar).
+  const mehr = (titel, zeilen) => el('details', { class: 'mehr' }, el('summary', { text: titel }), el('dl', {}, zeilen));
 
   function kopf(d) {
     const { netz } = d;
+    const zeile2 = (farbe, wort, rest) => el('p', { class: 'status' },
+      el('span', { class: `punkt ${farbe}` }), el('span', { class: 'status-wort', text: wort }),
+      rest && el('span', { class: 'status-rest', text: rest }));
     if (netz) {
-      return el('div', { class: 'kopf' },
-        el('h2', { text: netz.name }),
-        status('gruen', `Bekanntes Netz · ${netz.meins ? 'meins · ' : ''}zuletzt hier ${zeit(netz.last_seen)}`));
+      return el('div', { class: 'kopf' }, el('h2', { text: netz.name }),
+        zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`));
     }
-    return el('div', { class: 'kopf' },
-      el('h2', { text: 'Unbekanntes Netz' }),
-      d.erkennung_fehler
-        ? status('grau', 'Ohne DHCP, nicht wiedererkennbar')
-        : status('orange', 'Noch nicht gemerkt'));
+    return el('div', { class: 'kopf' }, el('h2', { text: 'Unbekanntes Netz' }),
+      d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar', 'ohne DHCP') : zeile2('grau', 'Noch nicht gemerkt'));
   }
 
   // Inline-Formular statt Dialog: Name, „meins“, Merken.
@@ -91,7 +102,7 @@
 
   // Karte „WLAN“ (#34). Die Sätze folgen `netzinfo wlan --erklaer` (src/wlan.rs).
   const SICHER = {
-    Offen: 'offen (unverschlüsselt)', Wep: 'WEP', Wpa: 'WPA', Wpa2: 'WPA2', Wpa3: 'WPA3',
+    Offen: 'offen (unverschlüsselt)', Wep: 'WEP (unsicher)', Wpa: 'WPA (veraltet)', Wpa2: 'WPA2', Wpa3: 'WPA3',
     Wpa2Wpa3Gemischt: 'WPA2/WPA3 gemischt', Unbekannt: 'unbekannt',
   };
   const SICHER_SATZ = {
@@ -101,30 +112,30 @@
   };
   const wlanKarte = (w) => {
     const sicher = w.sicherheit ? SICHER[w.sicherheit] : null;
-    const staerke = w.rssi_dbm == null ? '' : w.rssi_dbm >= -70 ? ' gut' : w.rssi_dbm >= -80 ? ' mittel' : ' schwach';
-    const z = zeile('Signal', w.rssi_dbm == null ? null : `${w.rssi_dbm} dBm`,
-      w.rssi_dbm == null ? null : `Das Signal liegt bei minus ${-w.rssi_dbm} dBm. Je näher an null, desto besser, ab minus 70 wird es merklich schlechter.`);
-    z.querySelector('.wert').className += ` wlan-signal${staerke}`;
-    const warn = ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) ? ` wlan-warn` : '';
-    const sz = zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || 'Die Verschlüsselung ist zeitgemäß.');
-    sz.querySelector('.wert').className += warn;
-    return gruppe('WLAN', [
-      ...(w.ssid ? [
-        zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.'),
-        zeile('Kennung (BSSID)', w.bssid, 'Die Hardware-Adresse des Funkgeräts, mit dem du verbunden bist. Gespeichert wird davon nur ein Hash, nie die Adresse selbst.'),
-      ] : []),
+    const staerke = w.rssi_dbm == null ? null : w.rssi_dbm >= -70 ? 'gut' : w.rssi_dbm >= -80 ? 'mittel' : 'schwach';
+    const signal = bewertet(zeile('Signal', staerke && `${w.rssi_dbm} dBm, ${staerke}`,
+      w.rssi_dbm == null ? null : `Das Signal liegt bei minus ${-w.rssi_dbm} dBm. Je näher an null, desto besser, ab minus 70 wird es merklich schlechter.`),
+    { gut: 'gut', mittel: 'mittel', schwach: 'schlecht' }[staerke]);
+    const sz = bewertet(zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || 'Die Verschlüsselung ist zeitgemäß.'),
+      ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) && 'schlecht');
+    const g = gruppe('WLAN', [
+      ...(w.ssid ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
+      signal,
+      sz,
+      zeile('Senderate', w.rate_mbit == null ? null : `${Math.round(w.rate_mbit)} MBit/s`, 'Die Senderate ist das, was Mac und Router gerade aushandeln, nicht die echte Geschwindigkeit. Echt kommt meist die Hälfte oder weniger an.'),
+    ]);
+    g.append(mehr('Band, Kanal, Rauschen und mehr', [
+      ...(w.ssid ? [zeile('Kennung (BSSID)', w.bssid, 'Die Hardware-Adresse des Funkgeräts, mit dem du verbunden bist. Gespeichert wird davon nur ein Hash, nie die Adresse selbst.')] : []),
       zeile('Standard', w.standard, 'Der Standard (Wi-Fi 4, 5, 6) bestimmt, wie schnell die Funkstrecke höchstens sein kann. Neuere Standards sind schneller und gehen besser mit vielen Geräten um.'),
       zeile('Band', w.band, '2,4 GHz reicht weiter durch Wände, 5 und 6 GHz sind schneller, brauchen aber Nähe zum Router.'),
       zeile('Kanal', w.kanal, 'Auf dem Kanal funkt dein WLAN. Teilen sich viele Nachbarnetze denselben Kanal, stören sie sich gegenseitig.'),
       zeile('Kanalbreite', w.breite_mhz == null ? null : `${w.breite_mhz} MHz`, 'Breitere Kanäle sind schneller, aber störanfälliger und belegen mehr vom Band.'),
-      z,
       zeile('Rauschen', w.rauschen_dbm == null ? null : `${w.rauschen_dbm} dBm`, 'Rauschen ist der Störpegel auf dem Kanal. Je weiter von null weg, desto besser. Manche Treiber melden es nicht, dann bleibt das Feld leer.'),
       zeile('Abstand zum Rauschen', w.snr_db == null ? null : `${w.snr_db} dB`,
         w.snr_db == null ? null : `Der Abstand zum Rauschen beträgt ${w.snr_db} dB. Über 25 dB gilt als gut für Videoanrufe.`),
-      zeile('Senderate', w.rate_mbit == null ? null : `${Math.round(w.rate_mbit)} MBit/s`, 'Die Senderate ist das, was Mac und Router gerade aushandeln, nicht die echte Geschwindigkeit. Echt kommt meist die Hälfte oder weniger an.'),
-      sz,
       zeile('Land', w.land, 'Das Land bestimmt, welche Kanäle und welche Sendeleistung erlaubt sind.'),
-    ]);
+    ]));
+    return g;
   };
 
   // Standortfreigabe (#35): macOS gibt Netzname und Kennung nur mit Standortfreigabe heraus.
@@ -172,20 +183,22 @@
     ort.querySelector('input[type="text"]').focus();
   }
 
-  // Proxy und WPAD (#53): rein lesend. Die PAC-Datei wird nur auf Klick geladen, gezeigt werden nur Hostnamen.
-  function proxyGruppe() {
+  // Proxy und WPAD (#53): rein lesend. Ohne Proxy genügt eine Zeile in „Router und Dienste“; erst mit
+  // Eintrag kommt die ganze Gruppe. Die PAC-Datei wird nur auf Klick geladen, gezeigt werden nur Hostnamen.
+  function proxyZeile(dienste) {
+    const liste = dienste.querySelector('dl');
     const erkl = 'Ein Proxy ist ein Zwischenrechner, über den dein Mac Webseiten laden soll. Der Betreiber könnte deine Webanfragen sehen. In einem Heimnetz gibt es normalerweise keinen, ein neuer Eintrag ist ein Grund zum Nachsehen.';
-    let ort = gruppe('Proxy', [zeile('Proxy und WPAD', 'wird geprüft …', erkl)]);
-    const ersetze = (neu) => { ort.replaceWith(neu); ort = neu; };
+    const platz = zeile('Proxy', 'wird geprüft …', erkl);
+    liste.append(platz);
     Netz.invoke('proxy_lesen').then((b) => {
-      const zeilen = [
+      if (!b.manuell && !b.pac_url && !b.wpad_dhcp && !b.wpad_dns) return platz.replaceWith(zeile('Proxy', 'keiner', erkl));
+      platz.remove();
+      const neu = gruppe('Proxy', [
         zeile('Fester Proxy', b.manuell || 'keiner', erkl),
         zeile('PAC-Datei', b.pac_url || 'keine', 'Die PAC-Datei sagt dem Browser, welcher Proxy für welche Adresse gilt. Ich führe sie nie aus.'),
         zeile('WPAD per DHCP', b.wpad_dhcp || 'keiner', 'Das Netz kann dem Mac mit DHCP-Option 252 die Adresse einer PAC-Datei mitgeben (WPAD).'),
         zeile('WPAD per DNS', b.wpad_dns ? 'gefunden' : 'nicht gefunden', 'Ich frage den DNS-Server des Netzes nach wpad.<Domain>. Ein Treffer ist nur ein Hinweis, die Datei lade ich nicht.'),
-      ];
-      const keiner = !b.manuell && !b.pac_url && !b.wpad_dhcp && !b.wpad_dns;
-      const neu = gruppe('Proxy', zeilen, keiner ? 'Kein Proxy.' : null);
+      ]);
       if (b.pac_url) {
         const hosts = el('div', { 'aria-live': 'polite' });
         neu.append(el('div', { class: 'aktion' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', onclick: (e) => {
@@ -194,20 +207,20 @@
             .catch((err) => hosts.replaceChildren(meldung(Netz.text(err), 'orange')));
         } })), hosts);
       }
-      ersetze(neu);
-    }).catch(() => ort.remove());
-    return ort;
+      dienste.after(neu);
+    }).catch(() => platz.remove());
   }
 
-  // IPv6-Router (#68): eine Zeile; bei einem Fehler oder ohne App-Befehl bleibt sie weg.
-  async function ipv6Gruppe() {
+  // IPv6-Router (#68): eine Zeile unter dem Router; bei einem Fehler oder ohne App-Befehl bleibt sie weg.
+  async function ipv6Zeile(dienste) {
     const r = await Netz.invoke('ipv6_router').catch(() => null);
-    if (!r) return null;
-    return gruppe('IPv6', [zeile('IPv6-Router', r.text, r.anzahl === 0
+    if (!r) return;
+    const wert = r.anzahl === 0 ? 'keiner' : r.anzahl > 1 ? `${r.anzahl} Geräte` : r.passt_zu_gateway === false ? 'ein anderes Gerät' : r.passt_zu_gateway ? 'dein Router' : 'ein Gerät';
+    dienste.querySelector('.zeile').after(zeile('IPv6-Router', wert, r.anzahl === 0
       ? 'Ohne IPv6 im Netz meldet sich kein Gerät als IPv6-Router. Das ist ruhig und kein Fehler.'
       : r.anzahl === 1
         ? 'Nur dein Router meldet sich als IPv6-Router. Das ist der Normalfall.'
-        : 'In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal.')]);
+        : 'In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal.'));
   }
 
   Netz.registriere({
@@ -226,60 +239,66 @@
       if (!d.netz && !d.erkennung_fehler) wurzel.append(el('div', { class: 'aktion' }, offenKnopf()));
       if (d.erkennung_fehler) wurzel.append(el('p', { class: 'fuss', text: d.erkennung_fehler }));
 
-      wurzel.append(gruppe('Adresse', [
+      const adresse = gruppe('Adresse', [
         zeile('Schnittstelle', i.interface, E.schnittstelle(vpn)),
         zeile('IP-Adresse', i.ip, E.ip(i.dhcp_server != null)),
-        ...(s ? [
-          zeile('Maske', `${s.mask} (/${s.prefix})`, E.maske),
+        ...(s ? [zeile('Maske', `${s.mask} (/${s.prefix})`, E.maske)] : []),
+      ]);
+      if (s) {
+        adresse.append(mehr('Netzadresse, Broadcast, Hostbereich', [
           zeile('Netzadresse', s.network, E.netzadresse),
           zeile('Broadcast', s.broadcast, E.broadcast),
           zeile('Hostbereich', `${s.first} bis ${s.last}`, E.hostbereich),
-        ] : []),
-      ], s ? null : 'Ohne DHCP-Antwort, z. B. bei einem VPN-Tunnel, kennt der Mac die Maske nicht. Deshalb fehlen Maske, Netzadresse, Broadcast und Hostbereich.'));
+        ]));
+      }
+      wurzel.append(adresse);
 
       const dhcp = i.dhcp_server != null;
-      wurzel.append(gruppe('Router und Dienste', [
+      const dienste = gruppe('Router und Dienste', [
         zeile('Router', i.router, E.router),
         ...(dhcp ? [
           zeile('DHCP-Server', i.dhcp_server, E.dhcp),
-          zeile('DNS vom DHCP', liste(i.dhcp_dns), E.dhcpDns),
+          stapel('DNS vom DHCP', i.dhcp_dns, E.dhcpDns),
         ] : []),
-        zeile('DNS des Systems', liste(i.system_dns), E.systemDns(magic)),
+        stapel('DNS des Systems', i.system_dns, E.systemDns(magic)),
         ...(dhcp ? [zeile('Domain', i.domain || 'keine', E.domain)] : []),
-      ], dhcp ? null : 'In diesem Netz hat kein DHCP-Server geantwortet. Deshalb fehlen DHCP-Server, DNS vom DHCP und Domain.'));
+      ], dhcp ? null : 'Ohne DHCP-Antwort, z. B. bei einem VPN-Tunnel, kennt der Mac die Maske nicht und kein DHCP-Server hat geantwortet. Deshalb fehlen Maske, Netzadresse, Broadcast, Hostbereich, DHCP-Server, DNS vom DHCP und Domain.');
+      wurzel.append(dienste);
+      proxyZeile(dienste);
+      const v6 = ipv6Zeile(dienste);
 
       // Verschlüsseltes DNS (#33, #88): Bei einem gemerkten Netz zeigt die Karte zuerst die gespeicherte
       // Messung und misst nur auf Knopfdruck oder wenn sie älter als ein Tag ist. Sonst misst sie beim Öffnen.
+      // Die letzte Zeile nennt den Stand und trägt „Neu messen“.
       const w = { Erreichbar: 'erreichbar', Blockiert: 'gesperrt', Abgefangen: 'abgefangen' };
-      const dnsGruppe = (zeilen, fuss) => gruppe('Verschlüsseltes DNS', zeilen, fuss);
+      const bew = { Erreichbar: 'gut', Abgefangen: 'schlecht' };
       const dnsZeilen = (m) => [
-        zeile('DNS über TLS (Port 853)', w[m.dot], E.dot[m.dot]),
-        zeile('DNS über HTTPS (Port 443)', w[m.doh], E.doh),
-        zeile('Resolver vom Netz (DDR)', m.ddr ? m.ddr.join('; ') : 'keiner angeboten', E.ddr),
+        bewertet(zeile('DNS über TLS (Port 853)', w[m.dot], E.dot[m.dot]), bew[m.dot]),
+        bewertet(zeile('DNS über HTTPS (Port 443)', w[m.doh], E.doh), bew[m.doh]),
+        stapel('Resolver vom Netz (DDR)', m.ddr || ['keiner angeboten'], E.ddr),
       ];
+      const stand = (satz, knopf) => el('div', { class: 'zeile stand' }, el('dt', { class: 'label', text: satz }), knopf && el('dd', { class: 'wert' }, knopf));
+      const neuKnopf = (vorher) => el('button', { class: 'knopf', type: 'button', text: 'Neu messen', onclick: () => messen(vorher) });
       const gespeichert = d.netz ? await Netz.invoke('dns_gespeichert', { name: d.netz.name }).catch(() => null) : null;
-      let dnsOrt = dnsGruppe([zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
-      const messen = () => {
-        if (gespeichert) {
-          const alt = dnsGruppe(dnsZeilen(gespeichert.messung), `Messung vom ${zeit(gespeichert.messung.zeit)}, wird neu gemessen …`);
-          dnsOrt.replaceWith(alt);
-          dnsOrt = alt;
-        }
-        Netz.invoke('dns_verschluesselt').then((r) => {
-          const neu = dnsGruppe(dnsZeilen(r.messung), r.netz ? `Gemessen am ${zeit(r.messung.zeit)}.` : 'Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert.');
-          dnsOrt.replaceWith(neu);
-          dnsOrt = neu;
-        }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
+      let dnsOrt = gruppe('Verschlüsseltes DNS', [zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
+      const zeigeDns = (zeilen) => {
+        const neu = gruppe('Verschlüsseltes DNS', zeilen);
+        dnsOrt.replaceWith(neu);
+        dnsOrt = neu;
       };
+      const messen = (vorher) => {
+        if (vorher) zeigeDns([...dnsZeilen(vorher.messung), stand(`Messung vom ${zeit(vorher.messung.zeit)}, wird neu gemessen …`)]);
+        Netz.invoke('dns_verschluesselt').then((r) => zeigeDns([...dnsZeilen(r.messung), stand(
+          `Gemessen am ${zeit(r.messung.zeit)}${r.netz ? '' : '. Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert'}.`,
+          neuKnopf({ messung: r.messung }))]))
+          .catch((err) => zeigeDns([stand(Netz.text(err), neuKnopf(vorher))]));
+      };
+      wurzel.append(dnsOrt);
       if (gespeichert?.frisch) {
-        dnsOrt = dnsGruppe(dnsZeilen(gespeichert.messung), `Gespeichert, gemessen am ${zeit(gespeichert.messung.zeit)}.`);
-        dnsOrt.append(el('div', { class: 'dns-neu' }, el('button', { class: 'knopf', type: 'button', text: 'Neu messen', onclick: (e) => { e.currentTarget.disabled = true; messen(); } })));
-        wurzel.append(dnsOrt);
+        zeigeDns([...dnsZeilen(gespeichert.messung), stand(`Gespeichert, gemessen am ${zeit(gespeichert.messung.zeit)}.`, neuKnopf(gespeichert))]);
       } else {
-        wurzel.append(dnsOrt);
-        messen();
+        messen(gespeichert);
       }
-      wurzel.append(proxyGruppe());
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       const funk = await Netz.invoke('wlan_lesen').catch(() => null);
       if (funk) {
@@ -287,8 +306,7 @@
         if (ort) wurzel.append(ort);
         wurzel.append(wlanKarte(funk));
       }
-      const v6 = await ipv6Gruppe();
-      if (v6) wurzel.append(v6);
+      await v6;
     },
   });
 })();
