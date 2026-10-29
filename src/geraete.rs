@@ -54,6 +54,9 @@ pub struct Device {
     /// Number of scans that found this device. 0 in files from before issue #29.
     #[serde(default)]
     pub besuche: u32,
+    /// What the device says via UPnP/SSDP (issue #42). Scans keep it, `netzinfo upnp` sets it.
+    #[serde(default)]
+    pub upnp: Option<crate::upnp::Upnp>,
 }
 
 impl Default for Device {
@@ -74,6 +77,7 @@ impl Default for Device {
             mdns_name: None,
             von_mia: None,
             besuche: 0,
+            upnp: None,
         }
     }
 }
