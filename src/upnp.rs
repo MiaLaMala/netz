@@ -33,13 +33,13 @@ pub struct Upnp {
 
 /// One SSDP answer.
 #[derive(Debug, PartialEq)]
-struct Antwort {
-    location: String,
+pub(crate) struct Antwort {
+    pub(crate) location: String,
     server: Option<String>,
     usn: Option<String>,
 }
 
-fn parse_antwort(b: &[u8]) -> Option<Antwort> {
+pub(crate) fn parse_antwort(b: &[u8]) -> Option<Antwort> {
     let text = String::from_utf8_lossy(b);
     let mut zeilen = text.lines();
     if !zeilen.next()?.starts_with("HTTP/1.1 200") {
@@ -62,7 +62,7 @@ fn udn(usn: &str) -> Option<String> {
     u.starts_with("uuid:").then(|| kuerzen(u.into()))
 }
 
-fn kuerzen(s: String) -> String {
+pub(crate) fn kuerzen(s: String) -> String {
     s.chars()
         .filter(|c| !c.is_control())
         .take(MAX_TEXT)
@@ -74,7 +74,10 @@ fn privat(ip: Ipv4Addr) -> bool {
 }
 
 /// Checks a LOCATION against the sender (SSRF guard) and returns (port, path).
-fn location_pruefen(location: &str, absender: Ipv4Addr) -> Result<(u16, String), String> {
+pub(crate) fn location_pruefen(
+    location: &str,
+    absender: Ipv4Addr,
+) -> Result<(u16, String), String> {
     let fremd = |grund: &str| {
         format!(
             "Die Beschreibung von {absender} wird nicht geholt: {grund}. Es wurde nichts gesendet."
@@ -109,7 +112,7 @@ fn location_pruefen(location: &str, absender: Ipv4Addr) -> Result<(u16, String),
 /// custom entities are never read, so `&x;` stays literal text (no XXE).
 // ponytail: plain tag search, no namespaces or CDATA. quick-xml (already in Cargo.lock via the
 // app) if a device needs it; using it here would be a new dependency of the core crate.
-fn tag(xml: &str, name: &str) -> Option<String> {
+pub(crate) fn tag(xml: &str, name: &str) -> Option<String> {
     let start = xml.find(&format!("<{name}>"))? + name.len() + 2;
     let ende = xml[start..].find(&format!("</{name}>"))?;
     let t = xml[start..start + ende]
@@ -134,7 +137,7 @@ fn beschreibung_lesen(xml: &str, a: &Antwort, pfad: String) -> Upnp {
     }
 }
 
-fn http_holen(ip: Ipv4Addr, port: u16, pfad: &str) -> Result<String, String> {
+pub(crate) fn http_holen(ip: Ipv4Addr, port: u16, pfad: &str) -> Result<String, String> {
     let fehler = |e: &dyn std::fmt::Display| {
         format!(
             "Die UPnP-Beschreibung von {ip} ließ sich nicht holen ({e}). Prüfe die Rechte für das lokale Netzwerk."

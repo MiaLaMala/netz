@@ -1,8 +1,9 @@
 //! Command line front end of Netzinfo. The logic lives in the library (src/lib.rs).
 
 use netzinfo::{
-    bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal, ports,
-    proxy, pruefen, router, sni, tls, traffic, upnp, verbindungen, wlan, woher,
+    bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal,
+    portfreigaben, ports, proxy, pruefen, router, sni, tls, traffic, upnp, verbindungen, wlan,
+    woher,
 };
 
 use std::process::ExitCode;
@@ -55,6 +56,7 @@ Befehle:
                              Datenmenge je Programm ohne Root (nur Mac)
   netzinfo upnp              Geräte, die sich per UPnP/SSDP vorstellen, mit Modell
   netzinfo router [--json]   Router-Seite passiv einschätzen: http, https, Zertifikat
+  netzinfo portfreigaben     Ports, die der Router per UPnP ins Internet geöffnet hat (nur lesen)
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -97,6 +99,7 @@ fn main() -> ExitCode {
         "traffic" => traffic::run(rest, explain_on),
         "upnp" => upnp::run(rest, explain_on),
         "router" => router::run(rest, explain_on),
+        "portfreigaben" => portfreigaben::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
