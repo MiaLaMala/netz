@@ -324,6 +324,15 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     {
         erg.unterschiede.push(Unterschied { klasse, text });
     }
+    // Wave 10 (#44, #47, #53): each module reads its own store next to netze.json.
+    let mut weitere = crate::gatewaywache::fuer_pruefen(&path, &fp.key(), known[i].meins);
+    weitere.extend(crate::mtu::fuer_pruefen(&path, &fp.key(), known[i].meins));
+    weitere.extend(crate::proxy::fuer_pruefen(&path, &fp.key(), known[i].meins));
+    erg.unterschiede.extend(
+        weitere
+            .into_iter()
+            .map(|(klasse, text)| Unterschied { klasse, text }),
+    );
     // Every rule above may append findings; the verdict is the first entry, so sort once here.
     erg.unterschiede
         .sort_by_key(|u| std::cmp::Reverse(u.klasse));
