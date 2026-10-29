@@ -467,6 +467,16 @@ fn reverse_name(resolver: IpAddr, ip: IpAddr) -> Option<String> {
     Some(r.data.trim_end_matches('.').to_string()).filter(|n| !n.is_empty())
 }
 
+/// Like `resolve`, for the IPv4-only probes (live, mtu); a name with only an IPv6 address gets a sentence.
+pub(crate) fn resolve4(ziel: &str) -> Result<Ipv4Addr, String> {
+    match resolve(ziel)? {
+        IpAddr::V4(a) => Ok(a),
+        IpAddr::V6(_) => Err(format!(
+            "„{ziel}“ ist nur über IPv6 erreichbar. Diese Messung kann bisher nur IPv4."
+        )),
+    }
+}
+
 /// An address as typed, else the name's A record, else its AAAA record.
 fn resolve(ziel: &str) -> Result<IpAddr, String> {
     if let Ok(ip) = ziel.parse::<IpAddr>() {

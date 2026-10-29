@@ -186,6 +186,12 @@ fn wlan_verlauf_abtasten() -> Result<netzinfo::wlanverlauf::Ansicht, Fehler> {
     netzinfo::wlanverlauf::abtasten().map_err(Into::into)
 }
 
+/// One ping to `ziel` for the view „Live“, see issue #46. The view calls it once a second while visible.
+#[tauri::command(async)]
+fn live_sonde(ziel: String, neu: bool) -> Result<netzinfo::live::Ansicht, Fehler> {
+    netzinfo::live::sonde(&ziel, neu).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -216,6 +222,7 @@ fn main() {
             dns_gespeichert,
             wlan_verlauf_abtasten,
             woher_zeigen,
+            live_sonde,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

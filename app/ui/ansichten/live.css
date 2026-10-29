@@ -1,0 +1,21 @@
+/* Styles for the view „live“ only, scoped. */
+[data-ansicht='live'] .werkzeuge { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; }
+[data-ansicht='live'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
+[data-ansicht='live'] .ziel-feld:disabled { color: var(--fg2); }
+[data-ansicht='live'] .kurve { display: block; width: 100%; height: auto; }
+[data-ansicht='live'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
+[data-ansicht='live'] .kurve .achse { fill: var(--fg2); font-size: 11px; }
+[data-ansicht='live'] .kurve .linie { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+[data-ansicht='live'] .kurve .band { fill: var(--accent); opacity: 0.18; }
+[data-ansicht='live'] .kurve .verlust { stroke: var(--rot); stroke-width: 2; stroke-linecap: round; }
+[data-ansicht='live'] .legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+[data-ansicht='live'] .legende li { display: flex; align-items: center; gap: 6px; }
+[data-ansicht='live'] .muster { width: 22px; height: 8px; border-radius: 2px; }
+[data-ansicht='live'] .linie-muster { height: 2px; background: var(--accent); }
+[data-ansicht='live'] .band-muster { background: var(--accent); opacity: 0.18; }
+[data-ansicht='live'] .verlust-muster { width: 2px; height: 10px; margin: 0 10px; background: var(--rot); }
+[data-ansicht='live'] .live-ziel .liste { margin-top: 10px; }
+[data-ansicht='live'] .ampeln { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 10px 14px 0; }
+[data-ansicht='live'] .ampel { display: flex; flex-direction: column; gap: 2px; }
+[data-ansicht='live'] .ampel .status { margin: 0; }
+[data-ansicht='live'] .ergebnis { margin-top: 8px; }
