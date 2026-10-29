@@ -270,6 +270,29 @@ fn ms(v: Option<f64>) -> String {
     v.map_or("-".into(), |x| format!("{x:.0} ms"))
 }
 
+fn datenschutz() -> String {
+    format!(
+        "Datenschutz: Die öffentlichen Anbieter ({}) sehen die Namen, die du abfragst.",
+        OEFFENTLICH.map(|(n, _)| n).join(", ")
+    )
+}
+
+fn urteil(e: &Ergebnis) -> (String, &'static str) {
+    match e.empfehlung {
+        Some(i) => (
+            format!(
+                "Empfehlung: {} antwortet auf bekannte und neue Namen mindestens 30 % schneller als dein Netz.",
+                e.zeilen[i].name
+            ),
+            "Ein Wechsel lohnt, weil der Server auf beiden Gruppen deutlich schneller ist und nicht öfter ausfällt. Bedenke: Schneller zu sein ist nicht das Einzige, was zählt. Quad9 filtert zum Beispiel bekannte Schadseiten, Cloudflare nicht, und jeder öffentliche Anbieter sieht deine Namen.",
+        ),
+        None => (
+            "Kein Wechsel nötig.".to_string(),
+            "Kein öffentlicher Server ist auf beiden Gruppen mindestens 30 % schneller als dein Netz oder er fällt öfter aus. Ein kleiner Unterschied von wenigen Millisekunden fällt beim Surfen nicht auf.",
+        ),
+    }
+}
+
 fn ausgeben(e: &Ergebnis, gekuerzt: bool, explain_on: bool) {
     println!(
         "{:<28} {:>17} {:>17} {:>8} {:>10}",
@@ -290,23 +313,8 @@ fn ausgeben(e: &Ergebnis, gekuerzt: bool, explain_on: bool) {
             "Hinweis: Wegen der Obergrenze von {MAX_ABFRAGEN} Abfragen je Server zählen nur die ersten {MAX_NAMEN} Namen."
         );
     }
-    println!(
-        "Datenschutz: Die öffentlichen Anbieter ({}) sehen die Namen, die du abfragst.",
-        OEFFENTLICH.map(|(n, _)| n).join(", ")
-    );
-    let (satz, erklaerung) = match e.empfehlung {
-        Some(i) => (
-            format!(
-                "Empfehlung: {} antwortet auf bekannte und neue Namen mindestens 30 % schneller als dein Netz.",
-                e.zeilen[i].name
-            ),
-            "Ein Wechsel lohnt, weil der Server auf beiden Gruppen deutlich schneller ist und nicht öfter ausfällt. Bedenke: Schneller zu sein ist nicht das Einzige, was zählt. Quad9 filtert zum Beispiel bekannte Schadseiten, Cloudflare nicht, und jeder öffentliche Anbieter sieht deine Namen.",
-        ),
-        None => (
-            "Kein Wechsel nötig.".to_string(),
-            "Kein öffentlicher Server ist auf beiden Gruppen mindestens 30 % schneller als dein Netz oder er fällt öfter aus. Ein kleiner Unterschied von wenigen Millisekunden fällt beim Surfen nicht auf.",
-        ),
-    };
+    println!("{}", datenschutz());
+    let (satz, erklaerung) = urteil(e);
     println!("{satz}");
     explain(explain_on, erklaerung);
 }
@@ -327,7 +335,6 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     let (namen, gekuerzt) = namenliste(&eigene)?;
-    let system = dns::system_resolver()?;
     explain(
         explain_on,
         &format!(
@@ -335,14 +342,43 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             namen.len()
         ),
     );
-    let e = tempo(&namen, system);
+    let e = messen_und_merken(&namen)?;
     ausgeben(&e, gekuerzt, explain_on);
+    Ok(())
+}
+
+fn messen_und_merken(namen: &[String]) -> Result<Ergebnis, String> {
+    let e = tempo(namen, dns::system_resolver()?);
     if let Some((pfad, key)) = ziel() {
         let mut store: Store = netze::load_json(&pfad)?;
         ablegen(&mut store, &key, &e.zeilen, netze::now());
         netze::save(&pfad, &store)?;
     }
-    Ok(())
+    Ok(e)
+}
+
+/// Was die App zeigt (Tabelle, Urteil, Datenschutzhinweis), Issue #50.
+#[derive(Serialize)]
+pub struct Anzeige {
+    pub zeilen: Vec<Zeile>,
+    pub empfehlung: Option<usize>,
+    pub satz: String,
+    pub erklaerung: &'static str,
+    pub datenschutz: String,
+}
+
+/// Misst mit der festen Namensliste und legt wie die Kommandozeile ab.
+pub fn daten() -> Result<Anzeige, String> {
+    let (namen, _) = namenliste("")?;
+    let e = messen_und_merken(&namen)?;
+    let (satz, erklaerung) = urteil(&e);
+    Ok(Anzeige {
+        satz,
+        erklaerung,
+        datenschutz: datenschutz(),
+        empfehlung: e.empfehlung,
+        zeilen: e.zeilen,
+    })
 }
 
 #[cfg(test)]

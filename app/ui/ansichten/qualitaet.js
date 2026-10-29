@@ -380,6 +380,35 @@
     return k;
   }
 
+  // ---- Karte „DNS-Tempo“ (`netzinfo dns --tempo`, src/dnstempo.rs, issue #50) ----
+  function dnsTempoKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'DNS vergleichen' });
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Misst vier Server nacheinander, etwa 20 Sekunden'));
+      try {
+        const r = await Netz.invoke('dns_tempo');
+        const hoechst = Math.max(...r.zeilen.flatMap((z) => [z.bekannt_p95, z.unbekannt_p95]).filter((v) => v != null), 1);
+        const balken = (v) => { const b = el('span', { class: 'balken' }, el('span')); b.firstChild.style.width = `${v == null ? 0 : Math.max(2, (v / hoechst) * 100)}%`; return b; };
+        ort.replaceChildren(
+          el('ul', { class: 'dns-tempo' }, r.zeilen.map((z, i) => el('li', { class: i === r.empfehlung ? 'rat' : '' },
+            el('span', { class: 'name', text: z.name }),
+            el('span', { class: 'werte' }, balken(z.bekannt_median), el('span', { class: 'zahl', text: `bekannt ${ms(z.bekannt_median)}` })),
+            el('span', { class: 'werte' }, balken(z.unbekannt_median), el('span', { class: 'zahl', text: `neu ${ms(z.unbekannt_median)}` })),
+            el('span', { class: 'zahl', text: `${Math.round(z.fehlerrate * 100)} % Fehler` })))),
+          status(r.empfehlung == null ? 'gruen' : 'orange', r.satz),
+          el('p', { class: 'fuss', text: r.datenschutz }),
+          el('p', { class: 'erklaerung', text: r.erklaerung }));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    });
+    return el('section', { class: 'gruppe dns-tempo-karte', 'aria-labelledby': 'g-dns-tempo' }, el('h3', { id: 'g-dns-tempo', text: 'DNS-Tempo' }),
+      el('div', { class: 'karte' }, el('p', { class: 'fuss', text: 'Fragt je Server höchstens 60 Namen ab, nacheinander. Balken: Median, bekannte Namen und neue.' }), knopf, ort));
+  }
+
   // ---- Karte „IPv6“ (`netzinfo ipv6`, src/ipv6.rs) ----
   const V6 = {
     kein_ipv6: ['grau', 'kein IPv6'], gleich: ['gruen', 'IPv6 nutzbar und gleich schnell'], langsamer: ['orange', 'IPv6 nutzbar, aber langsamer'],
@@ -570,6 +599,7 @@
       wurzel.append(wlanKarte());
       wurzel.append(mtuKarte());
       wurzel.append(ipv6Karte());
+      wurzel.append(dnsTempoKarte());
       wurzel.append(zeitKarte());
       wurzel.append(umfeldKarte());
       if (weiter) schalte(true);

@@ -236,3 +236,20 @@
     }
   });
 })();
+
+// Karte „DNS-Tempo“ (#50). Marks: ,dns-tempo-wechsel (Empfehlung), sonst „kein Wechsel nötig“; ,dns-tempo-fehler. Alle Zahlen erfunden.
+(() => {
+  const z = (name, oeffentlich, bm, b95, um, u95, f = 0) => ({ name, oeffentlich, bekannt_median: bm, bekannt_p95: b95, unbekannt_median: um, unbekannt_p95: u95, fehlerrate: f, ausreisser: 0 });
+  VORSCHAU.dns_tempo = async () => {
+    if (marken.includes('dns-tempo-fehler')) throw 'Kein DNS-Server gefunden: Das System nennt keinen Resolver. Verbinde den Mac mit einem Netz und versuche es noch mal.';
+    const wechsel = marken.includes('dns-tempo-wechsel');
+    const zeilen = [wechsel ? z('deinem Netz (192.0.2.1)', false, 24, 40, 80, 120) : z('deinem Netz (192.0.2.1)', false, 2, 5, 38, 60), z('1.1.1.1 (Cloudflare)', true, 12, 20, 30, 45), z('8.8.8.8 (Google)', true, 14, 22, 34, 50), z('9.9.9.9 (Quad9)', true, 15, 25, 36, 52)];
+    return {
+      zeilen, empfehlung: wechsel ? 1 : null,
+      satz: wechsel ? 'Empfehlung: 1.1.1.1 (Cloudflare) antwortet auf bekannte und neue Namen mindestens 30 % schneller als dein Netz.' : 'Kein Wechsel nötig.',
+      erklaerung: wechsel ? 'Ein Wechsel lohnt, weil der Server auf beiden Gruppen deutlich schneller ist und nicht öfter ausfällt. Bedenke: Schneller zu sein ist nicht das Einzige, was zählt. Quad9 filtert zum Beispiel bekannte Schadseiten, Cloudflare nicht, und jeder öffentliche Anbieter sieht deine Namen.' : 'Kein öffentlicher Server ist auf beiden Gruppen mindestens 30 % schneller als dein Netz oder er fällt öfter aus. Ein kleiner Unterschied von wenigen Millisekunden fällt beim Surfen nicht auf.',
+      datenschutz: 'Datenschutz: Die öffentlichen Anbieter (1.1.1.1 (Cloudflare), 8.8.8.8 (Google), 9.9.9.9 (Quad9)) sehen die Namen, die du abfragst.',
+    };
+  };
+  if (marken.some((m) => m.startsWith('dns-tempo'))) addEventListener('DOMContentLoaded', () => setTimeout(() => document.querySelector('.dns-tempo-karte button')?.click(), 600));
+})();

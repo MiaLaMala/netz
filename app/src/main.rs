@@ -216,6 +216,12 @@ fn mtu_messen(ziel: Option<String>) -> Result<netzinfo::mtu::MtuErgebnis, Fehler
     netzinfo::mtu::mtu_daten(ziel.as_deref().unwrap_or("1.1.1.1")).map_err(Into::into)
 }
 
+/// DNS server comparison, sends at most 60 queries per server, see issue #50.
+#[tauri::command(async)]
+fn dns_tempo() -> Result<netzinfo::dnstempo::Anzeige, Fehler> {
+    netzinfo::dnstempo::daten().map_err(Into::into)
+}
+
 /// SNI filter check against 1.1.1.1, see issue #52. Stores nothing.
 #[tauri::command(async)]
 fn sni_pruefen() -> Result<netzinfo::sni::SniErgebnis, Fehler> {
@@ -285,6 +291,7 @@ fn main() {
             woher_zeigen,
             live_sonde,
             mtu_messen,
+            dns_tempo,
             sni_pruefen,
             ipv6_messen,
             zeit_pruefen,
