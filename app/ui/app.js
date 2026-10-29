@@ -1,10 +1,16 @@
 // Gerüst der App: Seitenleiste, Werkzeugleiste, Erklärmodus und die kleinen Bausteine,
 // die alle Ansichten teilen. Jede Ansicht liegt in ansichten/<name>.js und meldet sich mit
-// Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren? }) an. Die Reihenfolge der Script-Tags
-// in index.html ist die Reihenfolge in der Seitenleiste.
+// Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren? }) an. Welche Ansicht in welchem
+// Abschnitt der Seitenleiste steht, sagt die Tabelle `abschnitte`; was dort fehlt, landet unten ohne Titel.
 (() => {
+  const abschnitte = [
+    ['Netz', ['dieses-netz', 'gemerkte-netze', 'pruefung']],
+    ['Messen', ['qualitaet', 'live']],
+    ['Geräte und Mac', ['geraete', 'verbindungen', 'offen']],
+  ];
   const ansichten = [];
   let aktuell = null;
+  let reihe = [];
   let zaehler = 0;
 
   const invoke = (befehl, args) => window.__TAURI__.core.invoke(befehl, args);
@@ -79,20 +85,33 @@
   // ---- Seitenleiste ----
   function baueMenue() {
     const menue = document.getElementById('menue');
-    for (const a of ansichten) {
-      menue.append(el('button', {
-        class: 'eintrag', role: 'tab', id: `tab-${a.id}`, 'data-id': a.id,
-        'aria-selected': 'false', tabindex: '-1',
-        onclick: () => zeige(a.id),
-      }, el('span', { html: a.icon }), el('span', { text: a.titel })));
+    const eintrag = (a) => el('button', {
+      class: 'eintrag', role: 'tab', id: `tab-${a.id}`, 'data-id': a.id,
+      'aria-selected': 'false', tabindex: '-1',
+      onclick: () => zeige(a.id),
+    }, el('span', { html: a.icon }), el('span', { text: a.titel }));
+    const rest = new Set(ansichten);
+    const bloecke = abschnitte.map(([titel, ids]) => {
+      const mit = ids.map((id) => ansichten.find((a) => a.id === id)).filter(Boolean);
+      mit.forEach((a) => rest.delete(a));
+      return [titel, mit];
+    });
+    bloecke.push([null, [...rest]]);
+    // Pfeiltasten gehen in der Reihenfolge der Seitenleiste, nicht der Anmeldung.
+    reihe = bloecke.flatMap(([, mit]) => mit);
+    for (const [titel, mit] of bloecke) {
+      if (!mit.length) continue;
+      menue.append(el('div', { class: 'abschnitt', role: 'presentation' },
+        titel && el('div', { class: 'abschnitt-titel', 'aria-hidden': 'true', text: titel }),
+        mit.map(eintrag)));
     }
     menue.addEventListener('keydown', (e) => {
       const schritt = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[e.key];
       if (!schritt) return;
       e.preventDefault();
-      const i = ansichten.findIndex((a) => a.id === aktuell);
-      const n = Math.max(0, Math.min(ansichten.length - 1, i + schritt));
-      zeige(ansichten[n].id, { fokus: true });
+      const i = reihe.findIndex((a) => a.id === aktuell);
+      const n = Math.max(0, Math.min(reihe.length - 1, i + schritt));
+      zeige(reihe[n].id, { fokus: true });
     });
   }
 
@@ -157,7 +176,7 @@
         neuLaden();
       }
     });
-    zeige(ansichten[0].id);
+    zeige(reihe[0].id);
   }
 
   window.Netz = {

@@ -25,13 +25,13 @@
     const t = 1793050200; // Mo 26.10.2026, 21:30 UTC
     const fp = (router, domain, subnet) => ({ router, dhcp_server: router, domain, subnet });
     let netze = [
-      { name: 'WG', fingerprint: fp('192.168.178.1', 'fritz.box', '192.168.178.0/24'), meins: true, first_seen: t - 86400 * 90, last_seen: t },
-      { name: 'Arbeit', fingerprint: fp('10.20.0.1', 'firma.example', '10.20.0.0/22'), meins: false, first_seen: t - 86400 * 40, last_seen: t - 86400 * 3 },
-      { name: 'Hotspot', fingerprint: fp('172.20.10.1', null, '172.20.10.0/28'), meins: false, first_seen: t - 86400 * 12, last_seen: t - 86400 * 9 },
+      { name: 'WG', fingerprint: fp('192.0.2.1', 'fritz.box', '192.0.2.0/24'), meins: true, first_seen: t - 86400 * 90, last_seen: t },
+      { name: 'Arbeit', fingerprint: fp('203.0.113.1', 'firma.example', '203.0.113.0/24'), meins: false, first_seen: t - 86400 * 40, last_seen: t - 86400 * 3 },
+      { name: 'Hotspot', fingerprint: fp('198.51.100.65', null, '198.51.100.64/28'), meins: false, first_seen: t - 86400 * 12, last_seen: t - 86400 * 9 },
     ];
-    const subnet = { ip: '192.168.178.20', prefix: 24, mask: '255.255.255.0', network: '192.168.178.0', broadcast: '192.168.178.255', first: '192.168.178.1', last: '192.168.178.254', hosts: 254 };
-    const wlan = { interface: 'en0', ip: '192.168.178.20', subnet, router: '192.168.178.1', dhcp_server: '192.168.178.1', dhcp_dns: ['192.168.178.1', '192.0.2.53'], system_dns: ['100.100.100.100', 'fd7a:115c:a1e0::53', '192.168.178.1'], domain: 'fritz.box' };
-    const vpn = { interface: 'utun4', ip: '100.64.0.7', subnet: null, router: '100.64.0.1', dhcp_server: null, dhcp_dns: [], system_dns: ['100.100.100.100'], domain: null };
+    const subnet = { ip: '192.0.2.20', prefix: 24, mask: '255.255.255.0', network: '192.0.2.0', broadcast: '192.0.2.255', first: '192.0.2.1', last: '192.0.2.254', hosts: 254 };
+    const wlan = { interface: 'en0', ip: '192.0.2.20', subnet, router: '192.0.2.1', dhcp_server: '192.0.2.1', dhcp_dns: ['192.0.2.1', '192.0.2.53'], system_dns: ['192.0.2.1', '2001:db8::53'], domain: 'fritz.box' };
+    const vpn = { interface: 'utun4', ip: '198.51.100.7', subnet: null, router: '198.51.100.1', dhcp_server: null, dhcp_dns: [], system_dns: ['198.51.100.53'], domain: null };
     const kein = 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
     const antworten = {
       dieses_netz: async () => {
@@ -53,7 +53,10 @@
       },
     };
     window.VORSCHAU = antworten;
-    window.__TAURI__ = { core: { invoke: (befehl, args) => VORSCHAU[befehl](args) } };
+    window.__TAURI__ = { core: { invoke: async (befehl, args) => {
+      if (!VORSCHAU[befehl]) throw `Die Vorschau kennt den Befehl ${befehl} nicht.`;
+      return VORSCHAU[befehl](args);
+    } } };
 
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       const klick = (s) => document.querySelector(s)?.click();
