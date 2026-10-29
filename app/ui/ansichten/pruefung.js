@@ -175,10 +175,10 @@
   };
 
   // Shown above everything else when the login-page check (`netzinfo portal`) suspects a captive portal.
-  const portalHinweis = () => z.portal?.status === 'PortalVermutet' && el('section', { class: 'portal-hinweis', role: 'alert' },
-    el('h3', { text: 'Anmeldung nötig' }),
+  const portalHinweis = () => z.portal?.status === 'PortalVermutet' && el('section', { class: 'portal-hinweis', 'aria-labelledby': 'portal-titel' },
+    el('h2', { id: 'portal-titel', text: 'Anmeldung nötig' }), // h2: it stands above the network name, a h3 would skip a level
     el('p', { text: `Dieses Netz leitet vermutlich auf eine Anmeldeseite um${z.portal.ziel_host ? ` (${z.portal.ziel_host})` : ''}. Solange du dich nicht angemeldet hast, sind die übrigen Ergebnisse unzuverlässig.` }),
-    el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', onclick: (ev) => Netz.invoke('portal_im_browser_oeffnen').catch((f) => ev.target.after(meldung(Netz.text(f)))) }),
+    el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', 'aria-label': `Im Browser öffnen${z.portal.ziel_host ? `, Anmeldeseite von ${z.portal.ziel_host}` : ', Anmeldeseite'}`, onclick: (ev) => Netz.invoke('portal_im_browser_oeffnen').catch((f) => ev.target.after(meldung(Netz.text(f)))) }),
     el('p', { class: 'erklaerung', text: E.portal }));
 
   function zeichne() {
@@ -186,7 +186,10 @@
     const { kopf, rest, knopf } = ui;
     const erg = z.erg;
     const unbekannt = z.art === 'nicht_gemerkt';
-    knopf.disabled = z.laeuft;
+    // aria-disabled instead of disabled: a disabled button drops the focus to the page start.
+    knopf.setAttribute('aria-disabled', String(z.laeuft));
+    if (z.laeuft) ui.wurzel.setAttribute('aria-busy', 'true'); else ui.wurzel.removeAttribute('aria-busy');
+    const hatteFokus = ui.wurzel.contains(document.activeElement) && document.activeElement !== ui.wurzel;
     // One main action per area: with the portal hint its button leads.
     knopf.classList.toggle('haupt', z.portal?.status !== 'PortalVermutet');
     knopf.parentElement.hidden = unbekannt || (z.fehler && !z.laeuft); // there the empty state or the error card carries the button
@@ -194,8 +197,8 @@
     const fuell = (ort, ...k) => ort.replaceChildren(...k.flat().filter((x) => x != null && x !== false));
     fuell(kopf,
       portalHinweis(),
-      el('h2', { text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
-      z.offen.vergleich ? status('grau', 'Prüfe …')
+      el('h2', { tabindex: '-1', text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
+      z.offen.vergleich ? status('grau', 'Prüfung läuft …')
         : erg ? (erg.erster_besuch ? [status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis'), ...kartenBefunde()] : urteil(erg))
         : null);
     fuell(rest,
@@ -203,7 +206,7 @@
         Netz.leerZustand('', 'Dieses Netz ist nicht gemerkt, es gibt nichts zum Vergleichen. Merke es unter „Dieses Netz“ und prüfe dann noch mal.', 'pruefung'),
         el('div', { class: 'aktion mitte' },
           el('button', { class: 'knopf haupt', type: 'button', text: 'Zu „Dieses Netz“ …', onclick: () => document.getElementById('tab-dieses-netz').click() }),
-          el('button', { class: 'knopf', type: 'button', text: 'Noch mal prüfen', disabled: z.laeuft, onclick: lauf })),
+          el('button', { class: 'knopf', type: 'button', text: 'Noch mal prüfen', onclick: lauf })),
       ] : [Netz.fehlerKarte(z.fehler, lauf)]) : []),
       ...(erg && !z.offen.vergleich ? [
         erg.erster_besuch && el('p', { class: 'fuss erklaerung', text: E.erst }),
@@ -212,7 +215,19 @@
         sniKarte(),
         el('p', { class: 'fuss', text: `Gemessen am ${zeit(erg.messung.time)}` }),
       ] : []));
+    // Whatever had the focus may be gone (error button, hidden main button): the button if it is shown, else the heading.
+    if (hatteFokus && !(ui.wurzel.contains(document.activeElement) && document.activeElement !== ui.wurzel && !(document.activeElement === knopf && knopf.parentElement.hidden))) {
+      (knopf.parentElement.hidden ? kopf.querySelector('h2[tabindex]') : knopf)?.focus({ preventScroll: true });
+    }
   }
+
+  // The one polite announcement: „Prüfung läuft“ at the start, the verdict once at the end (the head itself is redrawn often, so it is no live region).
+  const sage = (satz) => { if (ui) ui.ansage.textContent = satz; };
+  const urteilSatz = () => {
+    const k = ui.kopf;
+    const u = k.querySelector('.urteil, .status');
+    return [z.portal?.status === 'PortalVermutet' && 'Anmeldung nötig.', z.fehler ?? (u ? u.innerText.replace(/\s+/g, ' ') : null)].filter(Boolean).join(' ');
+  };
 
   async function lauf() {
     if (z.laeuft) return;
@@ -222,6 +237,7 @@
     z.sni = z.portal = null;
     z.offen = { vergleich: true, sni: true, portal: true };
     zeichne();
+    sage('Prüfung läuft');
     // All three run alongside; each one redraws the head when it is in, so the head never says „fine“ before a card has spoken.
     const fertig = (name, f) => (w) => { z.offen[name] = false; f(w); zeichne(); };
     const portal = Netz.invoke('portal_pruefen').catch(() => null).then(fertig('portal', (w) => { z.portal = w; })); // a failed check just shows no hint
@@ -238,6 +254,7 @@
     await Promise.all([sni, portal]);
     z.laeuft = false;
     zeichne();
+    sage(urteilSatz());
   }
 
   // ⌘R means „Jetzt prüfen“ here; runs before the shared handler in app.js.
@@ -259,10 +276,11 @@
       // Old view still on screen means the toolbar button asked again; coming from another tab shows the old answer.
       const nochmal = ui?.wurzel.isConnected;
       const knopf = el('button', { class: 'knopf haupt', type: 'button', onclick: lauf });
-      const kopf = el('div', { class: 'kopf', 'aria-live': 'polite' });
+      const kopf = el('div', { class: 'kopf' });
+      const ansage = el('p', { class: 'nur-vo', role: 'status', 'aria-live': 'polite' });
       const rest = el('div');
-      ui = { wurzel, kopf, rest, knopf };
-      wurzel.append(kopf, el('div', { class: 'aktion' }, knopf), rest);
+      ui = { wurzel, kopf, rest, knopf, ansage };
+      wurzel.append(ansage, kopf, el('div', { class: 'aktion' }, knopf), rest);
       zeichne();
       if (nochmal || (!z.erg && !z.fehler)) lauf();
     },

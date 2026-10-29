@@ -14,13 +14,16 @@
 [data-ansicht='pruefung'] .urteil.rot { border-color: var(--rot); }
 [data-ansicht='pruefung'] .urteil.orange, [data-ansicht='pruefung'] .portal-hinweis { border-color: var(--orange); }
 [data-ansicht='pruefung'] .urteil.gruen { border-color: var(--gruen); }
-[data-ansicht='pruefung'] .urteil strong, [data-ansicht='pruefung'] .portal-hinweis h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; }
+[data-ansicht='pruefung'] .urteil strong, [data-ansicht='pruefung'] .portal-hinweis h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; }
 [data-ansicht='pruefung'] .urteil .punkt { width: 10px; height: 10px; }
 [data-ansicht='pruefung'] .urteil.rot strong { color: var(--rot); }
-[data-ansicht='pruefung'] .urteil.orange strong, [data-ansicht='pruefung'] .portal-hinweis h3 { color: var(--orange); }
+[data-ansicht='pruefung'] .urteil.orange strong, [data-ansicht='pruefung'] .portal-hinweis h2 { color: var(--orange); }
 [data-ansicht='pruefung'] .urteil.gruen strong { color: var(--gruen); }
 [data-ansicht='pruefung'] .urteil p { margin: 4px 0 0 18px; }
 [data-ansicht='pruefung'] .knopf.haupt .kbd { color: inherit; opacity: 0.85; }
 [data-ansicht='pruefung'] .portal-hinweis { margin: 0 0 24px; }
 [data-ansicht='pruefung'] .portal-hinweis p { margin: 4px 0 12px; }
 [data-ansicht='pruefung'] .portal-hinweis .erklaerung { margin: 12px 0 0; }
+[data-ansicht='pruefung'] .nur-vo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[data-ansicht='pruefung'] h2:focus { outline: none; } /* focus lands here by script only, the next Tab leaves it */
+[data-ansicht='pruefung'] .knopf[aria-disabled='true'] { opacity: 0.5; cursor: default; }
