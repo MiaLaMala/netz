@@ -1,0 +1,43 @@
+name: Fehler melden
+description: Netzinfo tut etwas anderes als erwartet.
+labels: [fehler]
+body:
+  - type: input
+    id: os
+    attributes:
+      label: Betriebssystem und Version
+      placeholder: macOS 15.2
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Netzinfo-Version
+      description: Ausgabe von `netzinfo --version`
+    validations:
+      required: true
+  - type: input
+    id: befehl
+    attributes:
+      label: Befehl
+      placeholder: netzinfo pruefen
+    validations:
+      required: true
+  - type: textarea
+    id: erwartet
+    attributes:
+      label: Erwartet
+    validations:
+      required: true
+  - type: textarea
+    id: erhalten
+    attributes:
+      label: Erhalten
+    validations:
+      required: true
+  - type: textarea
+    id: ausgabe
+    attributes:
+      label: Ausgabe ohne echte IPs und WLAN-Namen
+      description: Bitte IP-Adressen, MACs, Hostnamen und WLAN-Namen durch Platzhalter ersetzen (z. B. 192.0.2.1).
+      render: text

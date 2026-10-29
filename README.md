@@ -1,5 +1,10 @@
 # Netzinfo
 
+## English in short
+
+Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before (new router, changed DNS answers, TLS interception, new devices). It is a Rust CLI (`netzinfo hier`, `dns`, `tls`, `pruefen`, `messen`, `geraete`, `pfad`, `portal`, `offen`) plus a Tauri Mac app. Output and docs are in German; `--erklaer` explains in plain German what each command does on the wire.
+Scanning only targets private addresses on networks you marked as yours (`--meins`). Install: see the German "Installieren" section below. Status: macOS is the main platform, the CLI core also builds on Linux (CI), Windows is untested. License: MIT. Security reports: see [SECURITY.md](SECURITY.md).
+
 Kennt jedes Netz, in dem dein Mac war, und meldet sich, wenn eins sich anders verhält als sonst.
 
 Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netzinfo` merkt sich jedes Netz (WG, Arbeit, Schule, Hotspot) und vergleicht beim nächsten Besuch: Ist es derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Mit `--erklaer` zeigt jeder Befehl auf Deutsch, was im Netz gerade passiert, passend zum Stoff der IHK-Prüfung.
