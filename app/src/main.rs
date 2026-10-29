@@ -246,6 +246,12 @@ fn proxy_pac_ansehen() -> Result<Vec<String>, Fehler> {
     netzinfo::proxy::pac_ansehen().map_err(Into::into)
 }
 
+/// Passive Einschätzung der Router-Seite, nur Gateway und nur in „meins“-Netzen, siehe Issue #67.
+#[tauri::command(async)]
+fn router_seite() -> Result<netzinfo::router::Ergebnis, Fehler> {
+    netzinfo::router::router_jetzt().map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -286,6 +292,7 @@ fn main() {
             proxy_lesen,
             proxy_pac_ansehen,
             ipv6_router,
+            router_seite,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

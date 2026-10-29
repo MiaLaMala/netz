@@ -2,7 +2,7 @@
 
 use netzinfo::{
     bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal, ports,
-    proxy, pruefen, sni, tls, traffic, upnp, verbindungen, wlan, woher,
+    proxy, pruefen, router, sni, tls, traffic, upnp, verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -54,6 +54,7 @@ Befehle:
   netzinfo traffic [--sekunden N] [--json]
                              Datenmenge je Programm ohne Root (nur Mac)
   netzinfo upnp              Geräte, die sich per UPnP/SSDP vorstellen, mit Modell
+  netzinfo router [--json]   Router-Seite passiv einschätzen: http, https, Zertifikat
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -95,6 +96,7 @@ fn main() -> ExitCode {
         "zeit" => netzinfo::zeit::run(rest, explain_on),
         "traffic" => traffic::run(rest, explain_on),
         "upnp" => upnp::run(rest, explain_on),
+        "router" => router::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())
