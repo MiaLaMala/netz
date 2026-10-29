@@ -283,10 +283,24 @@
   });
 })();
 
-// Karte „Unter Last“ (#49). Misst auf Klick. Alle Zahlen erfunden.
+// Karte „Unter Last“ (#49). Marken: ,last-hotspot (Rückfrage) ,last-fehler ,last-verlauf (zwei frühere Läufe); der Knopf wird geklickt. Misst auf Klick. Alle Zahlen erfunden.
 (() => {
-  VORSCHAU.last_vorab = async () => ({ hinweis: 'Misst Download, Upload und die Antwortzeit unter Last. Die Leitung ist dabei etwa 30 Sekunden voll ausgelastet.', hotspot: false, hotspot_frage: '', verlauf: [] });
-  VORSCHAU.last_messen = async () => ({ zeit: 1793050200, ergebnis: { down_bps: 480e6, up_bps: 48e6, ruhe_ms: 14, last_down_ms: 60, last_up_ms: 210, rpm: 420, dauer_s: 30 } });
+  const lauf = (zeit, rpm, down) => ({ zeit, ergebnis: { down_bps: down, up_bps: 48e6, ruhe_ms: 14, last_down_ms: 60, last_up_ms: 210, rpm, dauer_s: 30 } });
+  const hot = marken.includes('last-hotspot');
+  VORSCHAU.last_vorab = async () => ({
+    hinweis: 'Misst Download, Upload und die Antwortzeit unter Last. Die Leitung ist dabei etwa 30 Sekunden voll ausgelastet.',
+    hotspot: hot,
+    hotspot_frage: hot ? 'Dieses Netz sieht nach einem Mobilfunk-Hotspot aus. Der Test kann mehrere hundert Megabyte deines Datenvolumens verbrauchen.' : '',
+    verlauf: marken.includes('last-verlauf') ? [lauf(1793000000, 90, 310e6), lauf(1793040000, 650, 470e6)] : [],
+  });
+  VORSCHAU.last_messen = async () => {
+    if (marken.includes('last-fehler')) throw 'networkQuality ist fehlgeschlagen: Zeitüberschreitung. Prüfe die Verbindung und versuche es noch mal.';
+    return lauf(1793050200, 420, 480e6);
+  };
+  if (marken.some((m) => m.startsWith('last-'))) {
+    setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+    setTimeout(() => { const k = document.querySelector('.last-karte .knopf'); k?.click(); k?.scrollIntoView(); }, 700);
+  }
 })();
 
 // Gruppe „Ausfälle“ (#51). Marken: ,ausfaelle (zwei Ausfälle, mehrere Aussetzer) ,ausfaelle-leer. Alle Werte erfunden.

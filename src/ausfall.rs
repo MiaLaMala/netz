@@ -49,7 +49,7 @@ impl Ort {
                 "Der Router war nicht erreichbar. Das spricht für ein Problem im WLAN oder am Router."
             }
             Ort::AnbieterOderWeiter => {
-                "Der Router war erreichbar, das Internet nicht. Das spricht für eine Störung beim Anbieter."
+                "Der Router war erreichbar, das Internet nicht. Das spricht für eine Störung beim Anbieter oder weiter weg."
             }
             Ort::NurDns => {
                 "Nur die Namensauflösung fiel aus, eine direkte Verbindung ging. Das liegt am DNS-Server, nicht an der Leitung."
