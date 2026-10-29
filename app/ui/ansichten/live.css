@@ -29,3 +29,6 @@
 [data-ansicht='live'] .ergebnis { margin-top: 8px; }
 [data-ansicht='live'] .ziel-feld:disabled { color: var(--fg2); -webkit-text-fill-color: var(--fg2); opacity: 1; }
 [data-ansicht='live'] [hidden] { display: none !important; }
+/* Kompakt in „Tempo“: nur Kennzahlen und Kurve je Ziel */
+[data-ansicht='live'].kompakt .live-ziel > :is(.unter, .liste, .fuss) { display: none; }
+[data-ansicht='live'].kompakt .steuerung { margin-top: 0; }

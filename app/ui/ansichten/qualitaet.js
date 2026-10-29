@@ -1,4 +1,5 @@
 // „Qualität“: misst alle 5 s, solange die Ansicht offen ist, und zeigt Kurve und Kennzahlen.
+// „Tempo“ (tempo.js) baut aus denselben Teilen seine Details und das Störungsprotokoll: `Netz.qualitaet.bauen(wurzel, tempo)`.
 // Die Kennzahlen folgen `netzinfo bericht` (src/messen.rs).
 (() => {
   const { el, zeit, gruppe, zeile, status, meldung, leerZustand } = Netz;
@@ -147,9 +148,9 @@
     return el('li', {}, el('span', { class: `punkt ${ampel}` }), el('span', { class: 'diagnose-name', text: 'Funk' }),
       el('span', { class: 'diagnose-wert', text: zahlen ? `${zahlen} · ${wort}` : wort }));
   }
-  function diagnoseKarte() {
+  function diagnoseKarte(tempo) {
     const ort = el('div', { 'aria-live': 'polite' });
-    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Jetzt prüfen', 'aria-label': 'Wo hakt es? Jetzt prüfen' });
+    const knopf = el('button', { class: tempo ? 'knopf' : 'knopf haupt', type: 'button', text: 'Jetzt prüfen', 'aria-label': 'Wo hakt es? Jetzt prüfen' }); // in Tempo gehört die Hauptaktion „Tempo messen“
     knopf.addEventListener('click', async () => {
       const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
@@ -272,7 +273,7 @@
     const sig = med((q) => q.rssi), rate = med((q) => q.rate);
     const ereig = a.ereignisse.filter((q) => q.zeit >= von);
     g.setAttribute('aria-label', `Signal und Senderate der letzten ${Math.max(1, Math.round((bis - von) / 60))} Minuten`
-      + `${sig != null ? `: Signal im Median ${sig} dBm` : ''}${rate != null ? `, Senderate im Median ${fmt(rate, 0)} MBit/s` : ''}. `
+      + `${sig != null ? `: Signal im Median ${sig} dBm` : ''}${rate != null ? `, Senderate im Median ${fmt(rate, 0)} Mbit/s` : ''}. `
       + (ereig.length ? `${anzahl(ereig.length, 'Ereignis', 'Ereignisse')}: ${ereig.slice(0, 4).map((e) => `${ARTEN[e.art][0]} um ${uhr(e.zeit)}`).join(', ')}${ereig.length > 4 ? ' und weitere' : ''}.` : 'Keine Ereignisse.'));
     for (const f of [0, 0.5, 1]) {
       const yy = Y1 - f * (Y1 - T);
@@ -281,7 +282,7 @@
         sv('text', { x: B - R + 8, y: yy + 4, class: 'achse rate' }, `${fmt(rmax * f, 0)}`));
     }
     g.append(sv('text', { x: L - 8, y: T - 12, class: 'achse signal', 'text-anchor': 'end' }, 'Signal'),
-      sv('text', { x: B - R + 8, y: T - 12, class: 'achse rate' }, 'MBit/s'));
+      sv('text', { x: B - R + 8, y: T - 12, class: 'achse rate' }, 'Mbit/s'));
     for (const t of zeitTicks(von, bis)) {
       g.append(sv('line', { x1: x(t), x2: x(t), y1: T, y2: Y1, class: 'gitter senkrecht' }),
         sv('text', { x: x(t), y: H - 8, class: 'achse', 'text-anchor': 'middle' }, uhr(t)));
@@ -336,7 +337,7 @@
           })),
         b && gruppe('Dieser Besuch', [
           zeile('Signal', b.signal ? `Median ${b.signal.median} dBm (${b.signal.min} bis ${b.signal.max})` : '-'),
-          zeile('Senderate', b.rate ? `Median ${fmt(b.rate.median, 0)} MBit/s (${fmt(b.rate.min, 0)} bis ${fmt(b.rate.max, 0)})` : '-'),
+          zeile('Senderate', b.rate ? `Median ${fmt(b.rate.median, 0)} Mbit/s (${fmt(b.rate.min, 0)} bis ${fmt(b.rate.max, 0)})` : '-'),
           zeile('Wechsel des Zugangspunkts', a.roaming_erkennbar ? String(b.wechsel) : 'nicht erkennbar', EV.marken),
           zeile('Abbrüche', String(b.abbrueche)),
         ]),
@@ -587,38 +588,39 @@
   }
 
   // ---- Karte „Unter Last“ (`netzinfo last`, src/last.rs): misst nur auf Klick, belastet die Leitung ----
-  const mbit = (b) => (b == null ? '-' : `${fmt(b / 1e6, 0)} MBit/s`);
+  const mbit = (b) => (b == null ? '-' : `${fmt(b / 1e6, 0)} Mbit/s`);
   const einstufung = (r) => (r >= 800 ? 'sehr reaktionsfähig' : r >= 200 ? 'gut' : r >= 100 ? 'mäßig' : 'schlecht');
-  function lastZahlen(e) {
+  function lastZahlen(e, tempo) {
     const rpm = e.rpm;
     return [
-      zeile('Download / Upload', `${mbit(e.down_bps)} / ${mbit(e.up_bps)}`),
+      tempo ? zeile('Upload', mbit(e.up_bps)) : zeile('Download / Upload', `${mbit(e.down_bps)} / ${mbit(e.up_bps)}`),
       zeile('Antwortzeit in Ruhe', ms(e.ruhe_ms), 'Wie lange eine kleine Anfrage braucht, wenn sonst nichts läuft.'),
       zeile('Antwortzeit unter Last', `${ms(e.last_down_ms)} (Download) / ${ms(e.last_up_ms)} (Upload)`, 'Dieselbe Anfrage, während die Leitung voll ausgelastet ist. Steigt sie stark, staut der Router Pakete (Bufferbloat) und Anrufe ruckeln.'),
       zeile('Antworten pro Minute', rpm == null ? 'nicht gemeldet' : `${fmt(rpm, 0)}, ${einstufung(rpm)}`, 'Je mehr, desto besser. Ab 800 sehr reaktionsfähig, 200 bis 799 gut, 100 bis 199 mäßig, darunter schlecht.'),
     ];
   }
+  const lastVerlauf = (v) => (v.length === 0 ? [] : [
+    el('h4', { text: 'Verlauf (neueste zuerst)' }),
+    el('ul', { class: 'last-verlauf' }, [...v].reverse().map((l) => el('li', { text: `${zeit(l.zeit)}: ${l.ergebnis.rpm == null ? 'keine Antworten pro Minute' : `${fmt(l.ergebnis.rpm, 0)} pro Minute, ${einstufung(l.ergebnis.rpm)}`}, ${mbit(l.ergebnis.down_bps)} runter` }))),
+  ]);
 
-  function lastKarte() {
-    const ort = el('div', { 'aria-live': 'polite' });
-    const verlauf = el('div');
-    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Reaktionsfähigkeit messen' });
-    const hinweis = el('p', { class: 'last-hinweis' });
+  // Messung `netzinfo last` auf Knopfdruck, mit Hotspot-Rückfrage, Fortschritt und Verlauf. Die Karte „Unter Last“ und
+  // die Hauptaktion „Tempo messen“ (tempo.js) teilen sich diesen Ablauf. `nach(ergebnis)` bekommt jedes frische Ergebnis,
+  // `vorab(v)` die Antwort von `last_vorab` (letzter gespeicherter Lauf steht in v.verlauf).
+  function lastSteuerung({ knopf, ort, verlauf, hinweis, nach, vorab, tempo }) {
     let hotspot = false;
     let frage = '';
-    const zeigeVerlauf = (v) => verlauf.replaceChildren(...(v.length === 0 ? [] : [
-      el('h4', { text: 'Verlauf (neueste zuerst)' }),
-      el('ul', { class: 'last-verlauf' }, [...v].reverse().map((l) => el('li', { text: `${zeit(l.zeit)}: ${l.ergebnis.rpm == null ? 'keine Antworten pro Minute' : `${fmt(l.ergebnis.rpm, 0)} pro Minute, ${einstufung(l.ergebnis.rpm)}`}, ${mbit(l.ergebnis.down_bps)} runter` }))),
-    ]));
+    const zeigeVerlauf = (v) => verlauf.replaceChildren(...lastVerlauf(v));
     async function lauf(trotz) {
       const zurueck = halteFokus(knopf, ort);
       knopf.disabled = true;
-      ort.replaceChildren(status('grau', 'Misst etwa 30 Sekunden, die Leitung ist dabei voll ausgelastet'));
+      ort.replaceChildren(status('grau', 'Misst bis zu 30 Sekunden, die Leitung ist dabei voll ausgelastet'));
       try {
         const l = await Netz.invoke('last_messen', { trotzHotspot: trotz });
-        ort.replaceChildren(el('dl', { class: 'liste' }, lastZahlen(l.ergebnis)));
+        ort.replaceChildren(el('dl', { class: 'liste' }, lastZahlen(l.ergebnis, tempo)));
         knopf.textContent = 'Noch einmal messen';
         zeigeVerlauf((await Netz.invoke('last_vorab')).verlauf);
+        await nach?.(l.ergebnis);
       } catch (e) {
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
         knopf.textContent = 'Noch einmal versuchen';
@@ -637,7 +639,16 @@
       hotspot = v.hotspot;
       frage = v.hotspot_frage;
       zeigeVerlauf(v.verlauf);
-    }, (f) => hinweis.replaceChildren(fehlerAus(f)));
+      vorab?.(v);
+    }, (f) => { hinweis.replaceChildren(fehlerAus(f)); vorab?.(null); });
+  }
+
+  function lastKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const verlauf = el('div');
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Reaktionsfähigkeit messen' });
+    const hinweis = el('p', { class: 'last-hinweis' });
+    lastSteuerung({ knopf, ort, verlauf, hinweis });
     return el('section', { class: 'gruppe last-karte', 'aria-labelledby': 'g-last' }, el('h3', { id: 'g-last', text: 'Unter Last' }),
       el('div', { class: 'karte' }, hinweis, knopf, ort, verlauf));
   }
@@ -651,7 +662,7 @@
     nur_dns: 'Nur die Namensauflösung fiel aus, eine direkte Verbindung ging. Das liegt am DNS-Server, nicht an der Leitung.',
     unklar: 'Der Router lässt sich in diesem Netz nicht messen, deshalb ist die Ursache nicht zuzuordnen.',
   };
-  function ausfallKarte() {
+  function ausfallKarte(tempo) {
     const ort = el('div', { 'aria-live': 'polite' });
     const hinweis = el('p', { class: 'fuss' });
     const fuss = el('div', { class: 'ausfall-fuss' });
@@ -692,9 +703,9 @@
     lade();
     return {
       lade,
-      wurzel: el('section', { class: 'gruppe ausfall-karte', 'aria-labelledby': 'g-ausfall' }, el('h3', { id: 'g-ausfall', text: 'Ausfälle' }),
+      wurzel: el('section', { class: 'gruppe ausfall-karte', 'aria-labelledby': 'g-ausfall' }, el('h3', { id: 'g-ausfall', text: tempo ? 'Störungen' : 'Ausfälle' }),
         el('div', { class: 'karte' }, hinweis, ort, el('div', { class: 'ausfall-fuss' }, knopf, rueck))),
-      misst(an) { hinweis.textContent = an ? '' : 'Ausfälle werden nur gezählt, solange gemessen wird.'; },
+      misst(an) { hinweis.textContent = an ? '' : tempo ? 'Ausfälle werden nur gezählt, solange unter „Details“ „Antwortzeiten aufzeichnen“ an ist.' : 'Ausfälle werden nur gezählt, solange gemessen wird.'; },
     };
   }
 
@@ -703,21 +714,37 @@
     teil: true,
     titel: 'Qualität',
     icon: Netz.icons.qualitaet,
-    async render(wurzel) {
+    render: (wurzel) => bauen(wurzel),
+  });
+  Netz.qualitaet = { bauen, lastSteuerung };
+
+  // `tempo` (aus tempo.js): `{ ausfall }` bekommt das Störungsprotokoll; `wurzel` nimmt dann nur die Details auf,
+  // ohne Kopf, ohne „Unter Last“ (das ist die Hauptaktion der Karte) und mit dem Schalter „Antwortzeiten aufzeichnen“.
+  async function bauen(wurzel, tempo) {
+      const SCHALTER = tempo ? 'Antwortzeiten aufzeichnen' : 'Messen';
       // Reload of the same view (⌘R) keeps measuring; leaving the view stopped it.
       const weiter = alt?.wurzel.isConnected && alt.an;
       alt?.stop();
+      const ausfaelle = ausfallKarte(tempo);
+      if (tempo) tempo.ausfall = ausfaelle.wurzel;
       let b;
       try {
         b = await Netz.invoke('bericht', { name: null });
       } catch (e) {
         const unbekannt = e?.art === 'nicht_gemerkt';
+        if (tempo) {
+          wurzel.append(unbekannt
+            ? el('div', { class: 'fehler-karte' }, meldung('Merke das Netz in der Übersicht, dann speichert Netzinfo Messungen dazu.', 'orange'),
+              el('button', { class: 'knopf', type: 'button', text: 'Zur Übersicht', onclick: () => Netz.zeige('uebersicht') }))
+            : fehlerAus(e, () => Netz.neuLaden()));
+          return;
+        }
         wurzel.append(
           el('div', { class: 'kopf' }, el('h2', { text: 'Qualität' }),
             status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Netz nicht gemerkt' : 'Messen gerade nicht möglich')),
           unbekannt
             ? el('div', { class: 'fehler-karte' }, meldung('Merke das Netz unter „Dieses Netz“, dann speichert Netzinfo Messungen dazu.', 'orange'),
-              el('button', { class: 'knopf haupt', type: 'button', text: 'Zu „Dieses Netz“', onclick: () => document.getElementById('tab-dieses-netz')?.click() }))
+              el('button', { class: 'knopf haupt', type: 'button', text: 'Zu „Dieses Netz“', onclick: () => Netz.zeige('dieses-netz') }))
             : fehlerAus(e));
         return;
       }
@@ -727,12 +754,11 @@
       let gezeigt = null; // report the table was drawn for
       let seit = 0; // probes since the last full report
       const zustand = { wurzel, an: false, stop: () => { zustand.an = false; clearTimeout(timer); document.removeEventListener('visibilitychange', sicht); } };
-      const ausfaelle = ausfallKarte();
       const stat = el('div'); // no live region: it is redrawn with every probe, the switch announces its own state
       const kurvenOrt = el('div', { class: 'karte' });
       const zahlen = el('div');
       const fehler = el('div', { 'aria-live': 'polite' });
-      const schalter = el('button', { class: 'erklaeren-schalter', role: 'switch', 'aria-checked': 'false', type: 'button' }, el('span', { class: 'spur' }), el('span', { text: 'Messen' }));
+      const schalter = el('button', { class: 'erklaeren-schalter', role: 'switch', 'aria-checked': 'false', type: 'button' }, el('span', { class: 'spur' }), el('span', { text: SCHALTER }));
       const zeitraum = el('select', { 'aria-label': 'Zeitraum der Kurve', onchange: () => { std = Number(zeitraum.value); zeichne(); } },
         el('option', { value: '1', text: 'Kurve: 1 Stunde' }), el('option', { value: '6', text: 'Kurve: 6 Stunden' }));
       const kopieren = el('button', { class: 'knopf', type: 'button', text: 'Bericht kopieren', onclick: async () => {
@@ -750,12 +776,12 @@
         const letzte = Math.max(0, ...b.reihen.map((r) => r.punkte.at(-1)?.zeit ?? 0));
         stat.replaceChildren(leer
           ? status('grau', 'Noch keine Messungen')
-          : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : `Misst gerade nicht${letzte ? `, letzte Messung ${zeit(letzte)}` : ''}. Schalte „Messen“ ein`));
+          : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : `Misst gerade nicht${letzte ? `, letzte Messung ${zeit(letzte)}` : ''}. Schalte „${SCHALTER}“ ein`));
         kopieren.disabled = leer;
         kopieren.title = leer ? 'Erst nach der ersten Messung möglich' : '';
         ausfaelle.misst(zustand.an);
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
-          kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.', 'keine-messungen'));
+          kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, `Noch keine Messungen für dieses Netz. Schalte „${SCHALTER}“ ein, dann entsteht die Kurve.`, 'keine-messungen'));
           zahlen.replaceChildren();
           gezeigt = null;
           return;
@@ -763,7 +789,7 @@
         const jetzt = Math.floor(Date.now() / 1000);
         const leerer = !b.reihen.some((r) => r.punkte.some((p) => p.zeit >= jetzt - std * 3600));
         kurvenOrt.replaceChildren(el('h3', { class: 'nur-vorlesen', text: 'Antwortzeit' }), kurve(b.reihen, std, jetzt), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']),
-          leerer ? el('p', { class: 'fuss', text: `Im gewählten Zeitraum gibt es keine Messung.${std === 1 ? ' Wähle 6 Stunden oder schalte' : ' Schalte'} „Messen“ ein, dann wächst die Kurve.` }) : '');
+          leerer ? el('p', { class: 'fuss', text: `Im gewählten Zeitraum gibt es keine Messung.${std === 1 ? ' Wähle 6 Stunden oder schalte' : ' Schalte'} „${SCHALTER}“ ein, dann wächst die Kurve.` }) : '');
         if (gezeigt !== b) { zahlen.replaceChildren(kennzahlen(b)); gezeigt = b; } // the table changes only with a new report: VoiceOver is not thrown out of it every 5 s
       }
 
@@ -802,9 +828,10 @@
       schalter.addEventListener('click', () => schalte(!zustand.an));
       alt = zustand;
 
-      wurzel.append(el('div', { class: 'kopf' }, el('h2', { text: b.netz })), stat,
+      wurzel.append(tempo ? el('p', { class: 'fuss', text: `Netz: ${b.netz}` }) : el('div', { class: 'kopf' }, el('h2', { text: b.netz })), stat,
         el('div', { class: 'werkzeuge' }, schalter, zeitraum, kopieren), fehler, kurvenOrt, zahlen);
-      wurzel.append(diagnoseKarte(), ausfaelle.wurzel);
+      wurzel.append(diagnoseKarte(tempo));
+      if (!tempo) wurzel.append(ausfaelle.wurzel);
       zeichne();
       wurzel.append(wegKarte());
       wurzel.append(wlanKarte());
@@ -814,8 +841,7 @@
       wurzel.append(zeitKarte());
       wurzel.append(egressKarte());
       wurzel.append(umfeldKarte());
-      wurzel.append(lastKarte());
+      if (!tempo) wurzel.append(lastKarte());
       if (weiter) schalte(true);
-    },
-  });
+  }
 })();

@@ -142,3 +142,33 @@
 [data-ansicht='qualitaet'] .karte .fuss + .knopf, [data-ansicht='qualitaet'] .karte .fuss + .egress-werkzeuge { margin-top: 12px; }
 [data-ansicht='qualitaet'] .diagnose > div:empty, [data-ansicht='qualitaet'] .ipv6-karte > div:empty { display: none; }
 [data-ansicht='qualitaet'] .karte .knopf + div:not(:empty) { margin-top: 16px; }
+
+/* Ansicht „Tempo“ (tempo.js, #207, #208): Engpass-Karte oben. Die eingebetteten Teile bringen ihre eigene data-ansicht mit. */
+[data-ansicht='tempo'] .gruppe > h3 { margin: 0 0 8px 16px; }
+[data-ansicht='tempo'] .gruppe > .karte { margin-top: 0; padding: 16px; }
+[data-ansicht='tempo'] .kopf + .karte, [data-ansicht='tempo'] .kopf + .gruppe { margin-top: 24px; }
+[data-ansicht='tempo'] .engpass-zahlen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+[data-ansicht='tempo'] .zahl-feld { min-width: 0; padding: 12px; border: 1px solid var(--linie); border-radius: 8px; }
+[data-ansicht='tempo'] .zahl-feld.bremst { padding: 11px; border: 2px solid var(--orange); }
+[data-ansicht='tempo'] .zahl-feld .label { color: var(--fg2); font-size: 12px; }
+[data-ansicht='tempo'] .zahl-feld .gross { margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; }
+[data-ansicht='tempo'] .zahl-feld .klein { margin: 2px 0 0; color: var(--fg2); font-size: 12px; }
+[data-ansicht='tempo'] .engpass-wort { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; color: var(--orange); font-size: 12px; font-weight: 600; }
+[data-ansicht='tempo'] .engpass-rat { margin: 16px 0 0; font-size: 14px; line-height: 1.45; }
+[data-ansicht='tempo'] .engpass-ausweg { margin: 12px 0 0; }
+[data-ansicht='tempo'] .engpass-ausweg.fuss { margin: 12px 0 0; }
+[data-ansicht='tempo'] .engpass-aktion { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; }
+[data-ansicht='tempo'] .engpass-aktion .fuss { margin: 0; flex: 1; min-width: 200px; }
+[data-ansicht='tempo'] .engpass-karte .karte > div:empty { display: none; }
+[data-ansicht='tempo'] .engpass-karte .liste { margin-top: 16px; background: none; border: 0; border-radius: 0; }
+[data-ansicht='tempo'] .engpass-karte .zeile { margin: 0; }
+[data-ansicht='tempo'] .engpass-karte .karte > .fuss { margin: 16px 0 0; }
+[data-ansicht='tempo'] .engpass-karte .karte a { color: color-mix(in srgb, var(--accent) 65%, var(--fg)); }
+[data-ansicht='tempo'] .engpass-karte .karte [aria-live]:not(:empty) { margin-top: 16px; }
+[data-ansicht='tempo'] .engpass-karte h4 { margin: 16px 0 0; font-size: 12px; font-weight: 600; color: var(--fg2); }
+[data-ansicht='tempo'] .verlauf-details { margin-top: 12px; }
+[data-ansicht='tempo'] .verlauf-details:has(.verlauf:empty) { display: none; }
+[data-ansicht='tempo'] .last-verlauf { margin: 4px 0 0; padding-left: 18px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+[data-ansicht='tempo'] > .details { margin-top: 24px; }
+[data-ansicht='tempo'] .details > .eingebettet > :first-child { margin-top: 16px; }
+[data-ansicht='tempo'] .eingebettet .gruppe:first-child { margin-top: 24px; }

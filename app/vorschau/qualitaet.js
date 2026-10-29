@@ -2,6 +2,8 @@
 // Marks: #qualitaet (curve with some losses), ,qualitaet-luecken (20 min pause), ,qualitaet-leer,
 // ,qualitaet-fehler, ,qualitaet-unbekannt, Karte „Weg zum Ziel“: ,pfad-laeuft ,pfad-verlust ,pfad-nicht-erreicht ,pfad-ok
 // (misst sofort), optional ,qualitaet-6h and ,erklaeren.
+// „Tempo“ (#207): #tab-tempo mit den Marken aus engpass.js; dazu ,tempo-messen (klickt „Tempo messen“) und ,tempo-details (klappt „Details“ auf).
+// Ausfälle dort: ,ausfaelle und ,ausfaelle-leer; die Live-Kurve startet mit ,live-gut.
 (() => {
   const NAMEN = ['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)'];
   const jetzt = () => Math.floor(Date.now() / 1000);
@@ -295,7 +297,11 @@
   });
   VORSCHAU.last_messen = async () => {
     if (marken.includes('last-fehler')) throw 'networkQuality ist fehlgeschlagen: Zeitüberschreitung. Prüfe die Verbindung und versuche es noch mal.';
-    return lauf(1793050200, 420, 480e6);
+    // In „Tempo“ gehört der Download zur Engpass-Zahl (vorschau/engpass.js), sonst passen Karte und Messung nicht zusammen.
+    const tempo = marken.includes('tab-tempo');
+    const mac = ['engpass-wlan', 38, 'engpass-leitung', 15, 'engpass-ohne-router', 94, 'engpass-kabel', 231];
+    const i = mac.findIndex((x) => marken.includes(x));
+    return lauf(1793050200, 420, tempo ? (i < 0 ? 104 : mac[i + 1]) * 1e6 : 480e6);
   };
   if (marken.some((m) => m.startsWith('last-'))) {
     setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
@@ -320,4 +326,13 @@
       text: 'Störungsmeldung (Vorschau)',
     };
   };
+})();
+
+// Ansicht „Tempo“: die Marken klicken nur, was ein Mensch klicken würde.
+(() => {
+  if (!marken.includes('tab-tempo')) return;
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.includes('tempo-details')) setTimeout(() => document.querySelectorAll('[data-ansicht=tempo] > details.details').forEach((d) => { d.open = true; }), 500);
+    if (marken.includes('tempo-messen')) setTimeout(() => document.querySelector('[data-ansicht=tempo] .engpass-aktion .knopf')?.click(), 700);
+  });
 })();
