@@ -121,6 +121,10 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
                 "geraete --karten",
                 "Gerätekarten mit Typ und Hinweisen aus dem Gemerkten",
             ),
+            (
+                "fritzbox [--zugang <Benutzer>|--entfernen]",
+                "Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund",
+            ),
             ("ports <Host>", "Offene Ports eines eigenen Geräts"),
             (
                 "ports --raus [--ziel <Server>]",
@@ -294,6 +298,7 @@ fn main() -> ExitCode {
         "messen" => messen::run_messen(rest, explain_on),
         "bericht" => messen::run_bericht(rest, explain_on),
         "geraete" => geraete::run(rest, explain_on),
+        "fritzbox" => netzinfo::fritzbox::run(rest, explain_on),
         "pfad" => pfad::run(rest, explain_on),
         "mtu" => netzinfo::mtu::run(rest, explain_on),
         "portal" => portal::run(rest, explain_on),
@@ -412,6 +417,7 @@ mod tests {
             "messen" => vec![messen::OPTIONEN],
             "last" => vec![last::OPTIONEN],
             "geraete" => vec![geraete::OPTIONEN],
+            "fritzbox" => vec![netzinfo::fritzbox::OPTIONEN],
             "pfad" => vec![pfad::OPTIONEN],
             "portal" => vec![portal::OPTIONEN],
             "offen" => vec![offen::OPTIONEN],

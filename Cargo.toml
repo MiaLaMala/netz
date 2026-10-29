@@ -20,9 +20,11 @@ x509-cert = { version = "0.3.0", default-features = false }
 socket2 = { version = "0.6.5", features = ["all"] }
 libc = "0.2.191"
 maxminddb = { version = "0.32.0", default-features = false }
+md-5 = { version = "0.11.0", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-wlan = { version = "=0.3.2", default-features = false, features = ["std", "CWInterface", "CWWiFiClient", "CWChannel", "CWNetwork", "CoreWLANTypes"] }
 objc2-core-location = { version = "=0.3.2", default-features = false, features = ["std", "CLLocationManager"] }
 objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSEnumerator"] }
 objc2 = { version = "=0.6.5", default-features = false, features = ["std"] }
+security-framework = "3.7.0"

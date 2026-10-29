@@ -15,6 +15,7 @@
     ptr: 'PTR ist die Rückwärtsauflösung im DNS: von der IP zum Namen, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.',
     mac: 'Die MAC-Adresse ist die Hardware-Nummer der Netzkarte und bleibt gleich, auch wenn der Router dem Gerät eine andere IP gibt. Der Mac kennt sie aus seiner Nachbartabelle (ARP): Er fragt „Wer hat diese IP?“ und merkt sich die Antwort. Darum erkenne ich ein Gerät wieder und zeige seine früheren IPs.',
     typ: 'Der Typ kommt aus Regeln: Bietet ein Gerät per Bonjour „Drucken“ an oder hat Port 631 offen, hält Netzinfo es für einen Drucker. Mehrere Hinweise zählen zusammen; bei Gleichstand bleibt es „Unbekannt“. Ein Gerät kann sich anders ausgeben, als es ist. Was du selbst einträgst, ändert kein neuer Lauf.',
+    fritz: 'Diese Liste kommt vom Router selbst. Der Router weiß auch von Geräten, die auf Netzinfo nicht antworten. Netzinfo fragt die Fritz!Box über TR-064, ihren Fernzugriff im Heimnetz, und meldet sich dort mit HTTP Digest an: Das Passwort geht nicht im Klartext über das Netz, nur ein MD5-Wert aus Passwort und einer Zahl, die die Fritz!Box vorgibt. Gelesen wird nur die Geräteliste. Das Passwort liegt im macOS-Schlüsselbund, nie in einer Datei.',
     fehlen: 'Ohne Root-Rechte kann der Mac weder pingen noch ARP lesen. Ein Gerät, das jedes Paket verwirft (Firewall im Tarnmodus, Handy im Standby), antwortet auf nichts und bleibt unsichtbar. „Verschwunden“ heißt deshalb nur: diesmal nicht gefunden.',
   };
 
@@ -108,6 +109,7 @@
         wort && el('span', { class: 'status geraet-status' }, el('span', { class: `punkt ${wort[0]}` }), el('span', { text: wort[1] }))),
       el('div', { class: 'fein num', text: [k.ip, k.mac && `MAC ${k.mac}`].filter(Boolean).join(' · ') }),
       k.upnp && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
+      k.router && el('div', { class: 'fein', text: `${k.router.nur_router ? 'Nur vom Router bekannt' : 'Router'}: ${[k.router.verbindung !== 'unbekannt' && k.router.verbindung, k.router.aktiv ? 'aktiv' : 'nicht verbunden'].filter(Boolean).join(', ')}` }),
       el('div', { class: 'fein', text: zeiten(k) }),
       liste.length > 0 && el('ul', { class: 'karte-ports', 'aria-label': 'Offene Ports und Dienste' },
         liste.map(([port, name, wer]) => el('li', {}, el('span', { class: 'num', text: port }), el('span', {}, name, wer && el('span', { class: 'marke', text: ` · ${wer}` }))))),
@@ -136,7 +138,8 @@
   let freigabenErgebnis = null;
   const seiteOrt = el('div', { class: 'router-seite', 'aria-live': 'polite' });
   const freigabenOrt = el('div', { class: 'router-seite', 'aria-live': 'polite' });
-  const routerOrt = el('div', { class: 'karte-router' }, seiteOrt, freigabenOrt);
+  const fritzOrt = el('div', { class: 'router-seite fritz', 'aria-live': 'polite' });
+  const routerOrt = el('div', { class: 'karte-router' }, seiteOrt, freigabenOrt, fritzOrt);
 
   function zeigeSeite(r) {
     const s = r.seite;
@@ -193,6 +196,116 @@
     return el('span', { class: 'router-knoepfe' }, seite, freigaben);
   }
 
+  // Fritz!Box (Rust: fritzbox::Abruf): die Geräteliste vom Router selbst über TR-064. Der Zugang liegt im
+  // Schlüsselbund, hier kennt die Oberfläche nur den Benutzernamen, nie das Passwort.
+  const istFritzbox = (k) => k.gateway && (/(^|\.)fritz\.box$/i.test(k.name ?? '') || /AVM|FRITZ/i.test(k.hersteller ?? ''));
+  const fritz = { erkannt: false, geladen: false, benutzer: null, formular: false, ergebnis: null, fehler: null, laeuft: false };
+  const FRITZ_ZUSTAND = {
+    zugang_falsch: ['rot', 'Zugang abgelehnt'],
+    tr064_aus: ['orange', 'TR-064 ist aus'],
+    nicht_erreichbar: ['orange', 'Nicht erreichbar'],
+    keine_fritzbox: ['grau', 'Keine Fritz!Box'],
+  };
+
+  function fritzFormular() {
+    const benutzer = el('input', { type: 'text', value: fritz.benutzer ?? '', placeholder: 'Benutzer', 'aria-label': 'Benutzer der Fritz!Box', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', maxlength: '60' });
+    const passwort = el('input', { type: 'password', placeholder: 'Passwort', 'aria-label': 'Passwort der Fritz!Box', autocomplete: 'off', maxlength: '200' });
+    const fehler = el('div');
+    const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
+    return el('form', {
+      class: 'karte-formular fritz-formular',
+      onsubmit: async (e) => {
+        e.preventDefault();
+        speichern.disabled = true;
+        try {
+          await Netz.invoke('fritzbox_speichern', { benutzer: benutzer.value, passwort: passwort.value });
+          passwort.value = '';
+          Object.assign(fritz, { benutzer: benutzer.value.trim(), formular: false, ergebnis: null, fehler: null });
+          fritzZeichne();
+          await fritzLesen();
+        } catch (f) {
+          fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
+          speichern.disabled = false;
+        }
+      },
+      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); fritz.formular = false; fritzZeichne('.fritz-einrichten'); } },
+    }, benutzer, passwort,
+    el('p', { class: 'fein hinweis', text: 'Lege in der Fritz!Box unter System, Fritz!Box-Benutzer einen eigenen Benutzer an und gib ihm das Recht „FRITZ!Box Einstellungen“. Das Passwort speichert Netzinfo nur im macOS-Schlüsselbund.' }),
+    el('div', { class: 'knoepfe' },
+      el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: () => { fritz.formular = false; fritzZeichne('.fritz-einrichten'); } }), speichern),
+    fehler);
+  }
+
+  function fritzEntfernen(zeile) {
+    zeile.replaceChildren(Netz.bestaetigung({
+      frage: 'Zugang aus dem Schlüsselbund entfernen? Die Geräte aus der Router-Liste bleiben in deiner Liste.',
+      label: 'Fritz!Box-Zugang entfernen?',
+      aria: 'Fritz!Box-Zugang endgültig entfernen',
+      knopf: 'Entfernen',
+      abbrechen: () => fritzZeichne('.fritz-entfernen'),
+      aktion: async () => {
+        await Netz.invoke('fritzbox_entfernen');
+        Object.assign(fritz, { benutzer: null, ergebnis: null, fehler: null });
+        fritzZeichne('.fritz-einrichten');
+      },
+      fehler: (f) => zeile.append(meldung(Netz.text(f), 'rot')),
+    }));
+  }
+
+  function fritzZeichne(fokus) {
+    if (!fritz.erkannt || !fritz.geladen) { fritzOrt.replaceChildren(); return; }
+    const teile = [el('p', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
+    const e = fritz.ergebnis;
+    if (fritz.formular) {
+      teile.push(fritzFormular());
+    } else if (!fritz.benutzer) {
+      teile.push(el('div', { class: 'fein', text: 'Die Fritz!Box kennt jedes Gerät im Heimnetz, auch die, die auf keinen Scan antworten. Dafür braucht Netzinfo einen eigenen Zugang.' }),
+        el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-einrichten', type: 'button', text: 'Fritz!Box-Zugang einrichten', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } })));
+      if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), 'rot'));
+    } else {
+      const zeile = el('div', { class: 'karte-aktionen' },
+        el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen }),
+        el('button', { class: 'knopf leise', type: 'button', text: 'Zugang ändern', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } }),
+        el('button', { class: 'knopf leise fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => fritzEntfernen(zeile) }));
+      teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund` }), zeile);
+      if (fritz.laeuft) teile.push(el('div', { class: 'fein', text: 'Lese die Liste …' }));
+      else if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), fritz.fehler?.art === 'nicht_meins' ? 'orange' : 'rot'));
+      else if (e?.zustand === 'ok') {
+        teile.push(status('gruen', `${e.gefunden} ${e.gefunden === 1 ? 'Gerät' : 'Geräte'} vom Router gelesen`),
+          el('div', { class: 'fein', text: e.neu ? `${e.neu} ${e.neu === 1 ? 'davon war' : 'davon waren'} neu in deiner Liste.` : 'Alle waren schon in deiner Liste.' }));
+      } else if (e && FRITZ_ZUSTAND[e.zustand]) {
+        teile.push(status(...FRITZ_ZUSTAND[e.zustand]), el('div', { class: 'fein', text: e.satz }));
+      }
+    }
+    teile.push(el('p', { class: 'erklaerung', text: E.fritz }));
+    fritzOrt.replaceChildren(...teile);
+    if (fokus) fritzOrt.querySelector(fokus)?.focus();
+  }
+
+  async function fritzLesen() {
+    Object.assign(fritz, { laeuft: true, fehler: null });
+    fritzZeichne();
+    try {
+      fritz.ergebnis = await Netz.invoke('fritzbox_lesen');
+      if (fritz.ergebnis.zustand === 'ok') karten = await Netz.invoke('geraete_karten');
+    } catch (f) {
+      Object.assign(fritz, { ergebnis: null, fehler: f });
+    }
+    fritz.laeuft = false;
+    zeichne();
+    fritzZeichne('.fritz-lesen');
+  }
+
+  async function fritzLaden() {
+    try {
+      fritz.benutzer = await Netz.invoke('fritzbox_zugang');
+    } catch (f) {
+      fritz.fehler = f;
+    }
+    fritz.geladen = true;
+    fritzZeichne();
+  }
+
   const kartenOrt = el('div', { class: 'karten-ort' });
   function zeichne() {
     const vorhanden = new Set(karten.map((k) => k.typ));
@@ -217,6 +330,9 @@
     try {
       karten = await Netz.invoke('geraete_karten');
       zeichne();
+      fritz.erkannt = karten.some(istFritzbox);
+      if (fritz.erkannt && !fritz.geladen) await fritzLaden();
+      else fritzZeichne();
     } catch (f) {
       kartenOrt.replaceChildren(meldung(Netz.text(f), 'rot'));
     }
@@ -255,6 +371,7 @@
           letztes = await laufend;
           ort.replaceChildren(...ergebnis(letztes).filter(Boolean));
           await ladeKarten();
+          if (fritz.erkannt && fritz.benutzer) await fritzLesen(); // der Zugang ist eingerichtet: die Liste des Routers dazu
         } catch (f) {
           const nein = abgelehnt(f);
           ort.replaceChildren(...[meldung(Netz.text(f), nein ? 'orange' : 'rot'),
@@ -280,6 +397,7 @@
           zeile('Name (PTR)', 'Rückwärts-DNS', E.ptr),
           zeile('MAC-Adresse', 'bleibt gleich', E.mac),
           zeile('Typ eines Geräts', 'eine Vermutung', E.typ),
+          zeile('Geräteliste der Fritz!Box', 'vom Router selbst', E.fritz),
           zeile('Fehlende Geräte', 'können sich verstecken', E.fehlen),
         ]), { className: 'gruppe erklaer-gruppe' }));
       if (letztes) ort.replaceChildren(...ergebnis(letztes).filter(Boolean));

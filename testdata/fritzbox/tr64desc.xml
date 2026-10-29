@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<root xmlns="urn:dslforum-org:device-1-0">
+ <specVersion><major>1</major><minor>0</minor></specVersion>
+ <systemVersion><HW>1</HW><Major>7</Major><Minor>57</Minor></systemVersion>
+ <device>
+  <deviceType>urn:dslforum-org:device:InternetGatewayDevice:1</deviceType>
+  <friendlyName>FRITZ!Box Beispiel</friendlyName>
+  <manufacturer>AVM Beispiel</manufacturer>
+  <manufacturerURL>http://www.example</manufacturerURL>
+  <modelName>FRITZ!Box Beispiel</modelName>
+  <serviceList>
+   <service>
+    <serviceType>urn:dslforum-org:service:DeviceInfo:1</serviceType>
+    <controlURL>/upnp/control/deviceinfo</controlURL>
+   </service>
+  </serviceList>
+  <deviceList>
+   <device>
+    <deviceType>urn:dslforum-org:device:LANDevice:1</deviceType>
+    <serviceList>
+     <service>
+      <serviceType>urn:dslforum-org:service:Hosts:1</serviceType>
+      <serviceId>urn:LanHosts-com:serviceId:Hosts1</serviceId>
+      <controlURL>/upnp/control/hosts</controlURL>
+      <eventSubURL>/upnp/control/hosts</eventSubURL>
+      <SCPDURL>/hostsSCPD.xml</SCPDURL>
+     </service>
+    </serviceList>
+   </device>
+  </deviceList>
+ </device>
+</root>

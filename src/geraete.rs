@@ -61,6 +61,10 @@ pub struct Device {
     /// in `von_mia`, `mdns_name` and `name` are not copied here; `namen::kandidaten` joins all.
     #[serde(default)]
     pub namen: Vec<crate::namen::Name>,
+    /// What the router (Fritz!Box via TR-064, issue #65) says about the device. The name from
+    /// there sits in `namen`.
+    #[serde(default)]
+    pub router: Option<crate::fritzbox::RouterInfo>,
 }
 
 impl Default for Device {
@@ -83,6 +87,7 @@ impl Default for Device {
             besuche: 0,
             upnp: None,
             namen: vec![],
+            router: None,
         }
     }
 }
@@ -246,6 +251,9 @@ pub(crate) fn merge(
                 }
                 k.ports = d.ports;
                 k.last_seen = d.last_seen;
+                if let Some(r) = &mut k.router {
+                    r.nur_router = false;
+                }
                 k.besuche = k.besuche.max(1) + 1;
             }
             None => {
@@ -259,6 +267,8 @@ pub(crate) fn merge(
     let gone = known
         .iter()
         .filter(|d| (lo..=hi).contains(&d.ip) && !found_ips.contains(&d.ip))
+        // Was nur der Router kennt, hat ein Scan nie gesehen: kein „verschwunden“.
+        .filter(|d| !d.router.as_ref().is_some_and(|r| r.nur_router))
         .cloned()
         .collect();
     (new, gone)
