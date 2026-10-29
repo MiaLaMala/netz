@@ -1,7 +1,7 @@
 /* Styles for the view „dieses-netz“ only (WLAN card, #34). */
-.wert.wlan-signal.gut { color: var(--gruen); }
-.wert.wlan-signal.mittel { color: var(--orange); }
-.wert.wlan-signal.schwach, .wert.wlan-warn { color: var(--rot); }
+[data-ansicht='dieses-netz'] .wert.wlan-signal.gut { color: var(--gruen); }
+[data-ansicht='dieses-netz'] .wert.wlan-signal.mittel { color: var(--orange); }
+[data-ansicht='dieses-netz'] .wert.wlan-signal.schwach, [data-ansicht='dieses-netz'] .wert.wlan-warn { color: var(--rot); }
 /* Standortfreigabe (#35) */
 [data-ansicht='dieses-netz'] .ort-karte .zeile { display: block; }
 [data-ansicht='dieses-netz'] .ort-karte summary { cursor: pointer; }

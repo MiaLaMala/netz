@@ -195,3 +195,10 @@ button, input { font: inherit; color: inherit; }
 .formular .liste { padding: 8px 0; }
 .formular .zeile { padding: 12px 0; }
 .formular .zeile:has(input[type="text"]) { align-items: center; }
+
+/* Karte: Qualität und Geräte teilen die Grundform (Geräte überschreibt Füllung und Abstände). */
+.karte { margin-top: 16px; padding: 12px 10px 8px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+
+/* Erklärzeilen in Geräte und Verbindungen: nur im Erklärmodus. */
+.erklaer-gruppe { display: none; }
+.erklaeren .erklaer-gruppe { display: block; }
