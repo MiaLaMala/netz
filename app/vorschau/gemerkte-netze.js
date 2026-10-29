@@ -32,3 +32,7 @@ addEventListener('DOMContentLoaded', () => setTimeout(() => {
   if (marken.includes('netze-umbenennen')) eingabe(2, 'WG');
   if (marken.includes('netze-fehler')) eingabe(3, '  ');
 }, 600));
+// Start mit der Anmeldung (#9)
+let autostartAn = false;
+VORSCHAU.autostart_lesen = async () => autostartAn;
+VORSCHAU.autostart_setzen = async ({ an }) => (autostartAn = an);
