@@ -334,6 +334,13 @@ fn fritzbox_lesen() -> Result<netzinfo::fritzbox::Abruf, Fehler> {
     netzinfo::fritzbox::abrufen(netzinfo::fritzbox::zugang_lesen).map_err(Into::into)
 }
 
+/// Leitung laut Router, WLAN und der am Mac gemessene Durchsatz nebeneinander, siehe Issue #207.
+/// Misst nichts; `mac_down_mbit` kommt aus `last_messen`. Fragt den Router nur lesend.
+#[tauri::command(async)]
+fn engpass_lesen(mac_down_mbit: Option<f64>) -> Result<netzinfo::engpass::Ergebnis, Fehler> {
+    netzinfo::engpass::lesen(mac_down_mbit).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -397,6 +404,7 @@ fn main() {
             fritzbox_speichern,
             fritzbox_entfernen,
             fritzbox_lesen,
+            engpass_lesen,
         ])
         .build(tauri::generate_context!())
         .map(|app| {

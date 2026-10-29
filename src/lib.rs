@@ -9,6 +9,7 @@ pub mod dns;
 pub mod dnstempo;
 pub mod dnsverschl;
 pub mod egress;
+pub mod engpass;
 pub mod fritzbox;
 pub mod gatewaywache;
 pub mod geraete;
@@ -60,7 +61,7 @@ pub fn explain(on: bool, text: &str) {
 }
 
 /// Beginn jeder Erklärzeile. Ein Wort statt eines Pfeils: Screenreader lesen Symbole als „Pfeil“.
-const ERKLAERUNG: &str = "  Erklärung: ";
+pub(crate) const ERKLAERUNG: &str = "  Erklärung: ";
 
 /// Gibt Fließtext umgebrochen aus (ein Satz oder mehrere, ohne Einrückung).
 pub fn satz(text: &str) {

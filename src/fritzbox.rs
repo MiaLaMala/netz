@@ -22,8 +22,14 @@ const ZEIT: Duration = Duration::from_secs(3);
 const MAX_BYTES: u64 = 64 * 1024;
 const MAX_GERAETE: u32 = 512;
 const DIENST: &str = "urn:dslforum-org:service:Hosts:1";
-/// Die einzigen SOAP-Aktionen dieses Moduls. Nichts, was die Fritz!Box ändert.
-const AKTIONEN: [&str; 2] = ["GetHostNumberOfEntries", "GetGenericHostEntry"];
+const WAN_DIENST: &str = "urn:dslforum-org:service:WANCommonInterfaceConfig:1";
+/// Die einzigen SOAP-Aktionen dieses Moduls (Dienst, Aktion). Nichts, was die Fritz!Box ändert.
+const ERLAUBT: [(&str, &str); 4] = [
+    (DIENST, "GetHostNumberOfEntries"),
+    (DIENST, "GetGenericHostEntry"),
+    (WAN_DIENST, "GetCommonLinkProperties"),
+    (WAN_DIENST, "X_AVM-DE_GetAddonInfos"),
+];
 
 /// Was ein Abruf ergeben hat; die App zeigt je Wert einen eigenen Zustand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -287,21 +293,22 @@ fn anfrage(
     ip: Ipv4Addr,
     port: u16,
     pfad: &str,
+    dienst: &str,
     aktion: &str,
     argumente: &str,
     auth: Option<&str>,
 ) -> Result<String, String> {
-    if !AKTIONEN.contains(&aktion) {
+    if !ERLAUBT.contains(&(dienst, aktion)) {
         return Err(format!(
-            "Die Aktion „{aktion}“ sendet Netzinfo nicht: Es wird nur die Geräteliste gelesen, nie etwas geändert."
+            "Die Aktion „{aktion}“ sendet Netzinfo nicht: Es werden nur die Geräteliste und die Leitungswerte gelesen, nie etwas geändert."
         ));
     }
     let body = format!(
-        "<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:{aktion} xmlns:u=\"{DIENST}\">{argumente}</u:{aktion}></s:Body></s:Envelope>"
+        "<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:{aktion} xmlns:u=\"{dienst}\">{argumente}</u:{aktion}></s:Body></s:Envelope>"
     );
     let auth = auth.map_or(String::new(), |a| format!("Authorization: {a}\r\n"));
     Ok(format!(
-        "POST {pfad} HTTP/1.0\r\nHost: {ip}:{port}\r\nContent-Type: text/xml; charset=\"utf-8\"\r\nSOAPAction: \"{DIENST}#{aktion}\"\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "POST {pfad} HTTP/1.0\r\nHost: {ip}:{port}\r\nContent-Type: text/xml; charset=\"utf-8\"\r\nSOAPAction: \"{dienst}#{aktion}\"\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     ))
 }
@@ -348,10 +355,13 @@ fn zerlegen(roh: &str) -> Option<(u16, &str, &str)> {
 
 /// Eine Aktion mit Anmeldung. Der erste Versuch zeigt die Herausforderung (401) oder nutzt die
 /// Sitzung weiter; nach einem 401 gibt es genau einen zweiten Versuch mit frischem `nonce`.
+// ponytail: acht Argumente statt einer Parameter-Struktur; bündeln, wenn eine neunte Angabe dazukommt.
+#[allow(clippy::too_many_arguments)]
 fn aufruf(
     ip: Ipv4Addr,
     port: u16,
     pfad: &str,
+    dienst: &str,
     aktion: &str,
     arg: &str,
     z: &Zugang,
@@ -359,7 +369,7 @@ fn aufruf(
 ) -> Result<String, Stoerung> {
     for versuch in 0..2 {
         let auth = sitzung.as_mut().map(|s| auth_kopf(z, s, pfad));
-        let a = anfrage(ip, port, pfad, aktion, arg, auth.as_deref())
+        let a = anfrage(ip, port, pfad, dienst, aktion, arg, auth.as_deref())
             .map_err(|e| (Zustand::NichtErreichbar, e))?;
         let roh = senden(ip, port, &a).map_err(|e| io_stoerung(ip, &e))?;
         let Some((status, kopf, body)) = zerlegen(&roh) else {
@@ -395,7 +405,7 @@ fn aufruf(
                 return match tag(body, "errorCode").and_then(|c| c.parse::<u32>().ok()) {
                     Some(606) => Err(stoerung(
                         Zustand::ZugangFalsch,
-                        "Dieser Benutzer darf die Geräteliste nicht lesen. Gib ihm in der Fritz!Box das Recht „FRITZ!Box Einstellungen“.",
+                        "Dieser Benutzer darf das nicht lesen. Gib ihm in der Fritz!Box das Recht „FRITZ!Box Einstellungen“.",
                     )),
                     Some(c) => Err((
                         Zustand::NichtErreichbar,
@@ -434,20 +444,21 @@ fn host_lesen(xml: &str) -> Option<Host> {
 }
 
 /// Pfad der `Hosts:1`-Steuerung aus der Beschreibung; `None`, wenn es keine Fritz!Box ist.
-fn steuerpfad(xml: &str) -> Option<String> {
+fn steuerpfad(xml: &str, dienst: &str) -> Option<String> {
     if !tag(xml, "manufacturer")?.contains("AVM") {
         return None;
     }
     let pfad = xml
         .split("<service>")
         .skip(1)
-        .find(|s| tag(s, "serviceType").as_deref() == Some(DIENST))
+        .find(|s| tag(s, "serviceType").as_deref() == Some(dienst))
         .and_then(|s| tag(s, "controlURL"))?;
     // Der Pfad kommt in die Anfragezeile: nur sichtbare Zeichen, keine Leerzeichen.
     (pfad.starts_with('/') && pfad.chars().all(|c| c.is_ascii_graphic())).then_some(pfad)
 }
 
-fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
+/// Der Steuerpfad des Dienstes laut `tr64desc.xml` (ohne Anmeldung lesbar).
+fn pfad_holen(ip: Ipv4Addr, port: u16, dienst: &str) -> Result<String, Stoerung> {
     let get =
         format!("GET /tr64desc.xml HTTP/1.0\r\nHost: {ip}:{port}\r\nConnection: close\r\n\r\n");
     let roh = senden(ip, port, &get).map_err(|e| io_stoerung(ip, &e))?;
@@ -461,7 +472,7 @@ fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
         return Err(stoerung(Zustand::Tr064Aus, SATZ_AUS));
     }
     let pfad = (status == 200)
-        .then(|| steuerpfad(beschreibung))
+        .then(|| steuerpfad(beschreibung, dienst))
         .flatten()
         .ok_or_else(|| {
             stoerung(
@@ -469,11 +480,22 @@ fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
                 "Der Router ist keine Fritz!Box (oder meldet TR-064 anders). Netzinfo liest nur die Fritz!Box.",
             )
         })?;
+    Ok(pfad)
+}
+
+/// Ist das Gateway eine Fritz!Box (die `tr64desc.xml` nennt AVM und den Dienst)? Ohne Anmeldung.
+pub fn ist_fritzbox(ip: Ipv4Addr) -> bool {
+    pfad_holen(ip, PORT, WAN_DIENST).is_ok()
+}
+
+fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
+    let pfad = pfad_holen(ip, port, DIENST)?;
     let mut sitzung = None;
     let anzahl = aufruf(
         ip,
         port,
         &pfad,
+        DIENST,
         "GetHostNumberOfEntries",
         "",
         z,
@@ -495,6 +517,7 @@ fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
             ip,
             port,
             &pfad,
+            DIENST,
             "GetGenericHostEntry",
             &arg,
             z,
@@ -503,6 +526,16 @@ fn holen(ip: Ipv4Addr, port: u16, z: &Zugang) -> Result<Vec<Host>, Stoerung> {
         out.extend(host_lesen(&xml));
     }
     Ok(out)
+}
+
+/// Roh-XML von `GetCommonLinkProperties` und, wenn der Benutzer das Recht hat, von
+/// `X_AVM-DE_GetAddonInfos` (sonst `None`: dann fehlt nur der Vertragswert). Für `engpass`.
+pub fn leitung_xml(ip: Ipv4Addr, z: &Zugang) -> Result<(String, Option<String>), Stoerung> {
+    let pfad = pfad_holen(ip, PORT, WAN_DIENST)?;
+    let mut sitzung = None;
+    let mut lesen = |aktion| aufruf(ip, PORT, &pfad, WAN_DIENST, aktion, "", z, &mut sitzung);
+    let link = lesen("GetCommonLinkProperties")?;
+    Ok((link, lesen("X_AVM-DE_GetAddonInfos").ok()))
 }
 
 // ---- Zusammenführen ----
@@ -875,9 +908,11 @@ mod tests {
 
     #[test]
     fn nur_leseaktionen_werden_gebaut() {
-        for a in AKTIONEN {
-            assert!(anfrage(LO, PORT, "/upnp/control/hosts", a, "", None).is_ok());
+        for (d, a) in ERLAUBT {
+            assert!(anfrage(LO, PORT, "/upnp/control/hosts", d, a, "", None).is_ok());
         }
+        // richtige Aktion, falscher Dienst
+        assert!(anfrage(LO, PORT, "/x", DIENST, "GetCommonLinkProperties", "", None).is_err());
         for a in [
             "X_AVM-DE_SetFriendlyNameByMAC",
             "SetHostNameByMACAddress",
@@ -886,7 +921,7 @@ mod tests {
             "",
         ] {
             assert!(
-                anfrage(LO, PORT, "/upnp/control/hosts", a, "", None)
+                anfrage(LO, PORT, "/upnp/control/hosts", DIENST, a, "", None)
                     .unwrap_err()
                     .contains("nie etwas geändert")
             );
@@ -913,9 +948,12 @@ mod tests {
 
     #[test]
     fn beschreibung_nur_von_avm() {
-        assert_eq!(steuerpfad(DESC).as_deref(), Some("/upnp/control/hosts"));
-        assert!(steuerpfad(&DESC.replace("AVM", "Andere")).is_none());
-        assert!(steuerpfad(&DESC.replace("/upnp/control/hosts", "/a b\r\nX: y")).is_none());
+        assert_eq!(
+            steuerpfad(DESC, DIENST).as_deref(),
+            Some("/upnp/control/hosts")
+        );
+        assert!(steuerpfad(&DESC.replace("AVM", "Andere"), DIENST).is_none());
+        assert!(steuerpfad(&DESC.replace("/upnp/control/hosts", "/a b\r\nX: y"), DIENST).is_none());
     }
 
     #[test]
