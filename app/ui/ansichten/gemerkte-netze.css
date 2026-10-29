@@ -2,7 +2,7 @@
 [data-ansicht='gemerkte-netze'] .netz-zeile { padding: 16px 0; gap: 8px 0; }
 [data-ansicht='gemerkte-netze'] .kopf-zeile { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
 [data-ansicht='gemerkte-netze'] .name-ort { flex: 1; min-width: 0; min-height: 30px; display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
-[data-ansicht='gemerkte-netze'] .netz-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+[data-ansicht='gemerkte-netze'] .netz-name { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 [data-ansicht='gemerkte-netze'] .hier { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg); }
 [data-ansicht='gemerkte-netze'] .felder { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px 16px; }
 [data-ansicht='gemerkte-netze'] .feld { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -23,7 +23,16 @@
 [data-ansicht='gemerkte-netze'] .netz-zeile > * { order: 2; }
 [data-ansicht='gemerkte-netze'] .netz-zeile > .kopf-zeile { order: 0; }
 [data-ansicht='gemerkte-netze'] .netz-zeile > .zeilenfehler { order: 1; }
-[data-ansicht='gemerkte-netze'] .bearbeiten .kopf-zeile .knopf { display: none; }
+[data-ansicht='gemerkte-netze'] .bearbeiten .kopf-zeile .umbenennen-knopf, [data-ansicht='gemerkte-netze'] .bearbeiten .kopf-zeile .gefahr { display: none; }
+[data-ansicht='gemerkte-netze'] .bearbeiten .name-ort { flex-basis: 160px; }
+[data-ansicht='gemerkte-netze'] .gruppe > h2 { margin: 0 0 8px 14px; font-size: 12px; font-weight: 600; color: var(--fg2); }
+[data-ansicht='gemerkte-netze'] dt, [data-ansicht='gemerkte-netze'] dd { margin: 0; }
+[data-ansicht='gemerkte-netze'] .leer-zustand p:focus { outline: none; }
 [data-ansicht='gemerkte-netze'] .fw.leer { color: var(--fg2); }
 [data-ansicht='gemerkte-netze'] .autostart .fein { text-wrap: balance; }
 [data-ansicht='gemerkte-netze'] .felder > .feld:only-child { grid-column: 1 / -1; }
+/* Kontrast 3:1 (WCAG 1.4.11), in dieser Ansicht gerechnet: Feldrand, Schalterspur aus, Fokusring. */
+[data-ansicht='gemerkte-netze'] .netz-zeile .umbenennen { border-color: color-mix(in srgb, var(--fg) 55%, transparent); }
+[data-ansicht='gemerkte-netze'] .netz-zeile .umbenennen[aria-invalid='true'] { border-color: var(--rot); }
+[data-ansicht='gemerkte-netze'] [aria-checked='false'] > .spur { background: color-mix(in srgb, var(--fg) 55%, transparent); }
+[data-ansicht='gemerkte-netze'] :focus-visible { outline-color: var(--accent-lesbar); }

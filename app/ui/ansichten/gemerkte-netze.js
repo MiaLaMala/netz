@@ -22,30 +22,38 @@
     const umbenennen = () => {
       const feld = el('input', { type: 'text', class: 'umbenennen', value: n.name, 'aria-label': `Neuer Name für ${n.name}`, autocomplete: 'off', spellcheck: 'false' });
       ort.classList.add('bearbeiten');
-      feld.addEventListener('keydown', async (e) => {
-        if (e.key === 'Escape') zurueck();
-        if (e.key !== 'Enter' || feld.disabled) return;
-        e.preventDefault();
+      const sichern = el('button', { class: 'knopf haupt', type: 'button', text: 'Sichern', 'aria-label': `Neuen Namen für ${n.name} sichern` });
+      const abbrechen = el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', 'aria-label': `Umbenennen von ${n.name} abbrechen`, onclick: zurueck });
+      const speichern = async () => {
+        if (feld.disabled) return;
         if (feld.value.trim() === n.name) return zurueck();
-        feld.disabled = true;
+        feld.disabled = sichern.disabled = true;
         try {
           n = await Netz.invoke('netz_umbenennen', { alt: n.name, neu: feld.value });
           zurueck();
           rueckmeldung(`Umbenannt in „${n.name}“.`);
         } catch (err) {
           zeigeFehler(err);
-          feld.disabled = false;
+          feld.setAttribute('aria-invalid', 'true');
+          feld.disabled = sichern.disabled = false;
           feld.focus();
         }
-      });
+      };
+      sichern.addEventListener('click', speichern);
+      // Escape cancels from the field and from both buttons; Enter in the field saves.
+      ort.onkeydown = (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); zurueck(); }
+        else if (e.key === 'Enter' && e.target === feld) { e.preventDefault(); speichern(); }
+      };
       ort.querySelector('.name-ort').replaceChildren(feld);
+      ort.querySelector('.kopf-zeile').append(sichern, abbrechen);
       fehler.replaceChildren();
       feld.focus();
       feld.select();
     };
 
     const schalter = () => {
-      const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(!!n.meins), 'aria-label': `${n.name} ist mein Netz`, 'aria-describedby': 'meins-hilfe' },
+      const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': String(!!n.meins), 'aria-label': `${n.name} ist meins`, 'aria-describedby': 'meins-hilfe' },
         el('span', { class: 'spur' }), el('span', { text: 'meins' }));
       s.addEventListener('click', async () => {
         s.disabled = true;
@@ -64,12 +72,13 @@
     };
 
     // Label über Wert, in einem Raster: bricht nie mitten im Satz, sondern nur als ganzes Feld um.
-    const feld = (label, wert, farbe, leer) => el('div', { class: 'feld' }, el('span', { class: 'fl', text: label }),
-      el('span', { class: `fw wert${leer ? ' leer' : ''}` }, farbe && el('span', { class: `punkt ${farbe}` }), wert));
+    // Für VoiceOver eine Beschreibungsliste: „DoT: ja“. Der Punkt ist nur Zierde, das Wort steht daneben.
+    const feld = (label, wert, farbe, leer) => el('div', { class: 'feld' }, el('dt', { class: 'fl', text: label }),
+      el('dd', { class: `fw wert${leer ? ' leer' : ''}` }, farbe && el('span', { class: `punkt ${farbe}`, 'aria-hidden': 'true' }), wert));
     // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, steht ein Feld mit „noch nicht geprüft“.
     const tag = (s) => new Date(s * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' });
     const ja = { Erreichbar: ['ja', 'gruen'], Blockiert: ['nein', 'orange'], Abgefangen: ['abgefangen', 'rot'] };
-    const dns = el('div', { class: 'felder' }, feld('Verschlüsseltes DNS', 'noch nicht geprüft', null, true));
+    const dns = el('dl', { class: 'felder' }, feld('Verschlüsseltes DNS', 'noch nicht geprüft', null, true));
     Netz.invoke('dns_gespeichert', { name: n.name }).then((g) => {
       if (!g) return;
       const m = g.messung;
@@ -83,22 +92,23 @@
       feld('Router', n.fingerprint.router), feld('Domain', n.fingerprint.domain || 'ohne Domain', null, !n.fingerprint.domain)];
     const normal = () => {
       ort.classList.remove('bearbeiten');
+      ort.onkeydown = null;
       knopf.setAttribute('aria-label', `${n.name} vergessen`);
       fehler.replaceChildren();
       ort.replaceChildren(
         el('div', { class: 'kopf-zeile' },
-          el('div', { class: 'name-ort' }, el('span', { class: 'netz-name', text: n.name, ondblclick: umbenennen }),
-            hier && el('span', { class: 'hier' }, el('span', { class: 'punkt gruen' }), 'Verbunden')),
+          el('div', { class: 'name-ort' }, el('h3', { class: 'netz-name', text: n.name, ondblclick: umbenennen }),
+            hier && el('span', { class: 'hier' }, el('span', { class: 'punkt gruen', 'aria-hidden': 'true' }), 'Verbunden')),
           el('button', { class: 'knopf umbenennen-knopf', type: 'button', text: 'Umbenennen', 'aria-label': `${n.name} umbenennen`, onclick: umbenennen }),
           knopf),
-        el('div', { class: 'felder' }, fein()), dns,
+        el('dl', { class: 'felder' }, fein()), dns,
         el('div', { class: 'meins-zeile' }, schalter()),
         fehler);
     };
     knopf.addEventListener('click', () => {
       fehler.replaceChildren();
       ort.replaceChildren(
-        el('div', { class: 'kopf-zeile' }, el('div', { class: 'name-ort' }, el('span', { class: 'netz-name', text: n.name }))),
+        el('div', { class: 'kopf-zeile' }, el('div', { class: 'name-ort' }, el('h3', { class: 'netz-name', text: n.name }))),
         Netz.bestaetigung({
           frage: `„${n.name}“ vergessen? Beim nächsten Besuch gilt das Netz wieder als neu, und die Markierung „meins“ ist weg.${hier ? ' Die Verbindung bleibt, nur Netzinfo vergisst das Netz.' : ''}`,
           label: `${n.name} vergessen?`,
@@ -110,7 +120,11 @@
             await Netz.neuLaden();
             // The row is gone: focus the one that moved up, not the page.
             const rest = document.querySelectorAll('[data-ansicht="gemerkte-netze"] .umbenennen-knopf');
-            rest[Math.min(nr, rest.length - 1)]?.focus();
+            if (rest.length) return rest[Math.min(nr, rest.length - 1)].focus();
+            // Last one gone: the empty state takes the focus, not the page.
+            const leer = document.querySelector('[data-ansicht="gemerkte-netze"] .leer-zustand p');
+            leer?.setAttribute('tabindex', '-1');
+            leer?.focus();
           },
           fehler: zeigeFehler,
         }),
@@ -161,7 +175,7 @@
       }
       const titel = `${liste.length} ${liste.length === 1 ? 'Netz' : 'Netze'}`;
       wurzel.append(el('section', { class: 'gruppe', 'aria-labelledby': 'g-netze' },
-        el('h3', { id: 'g-netze', text: titel }),
+        el('h2', { id: 'g-netze', text: titel }),
         el('div', { class: 'liste', role: 'list' }, liste.map((n, i) => zeile(n, i, n.name === jetzt))),
         el('p', { class: 'fuss', id: 'meins-hilfe', text: '„meins“ erlaubt Gerätesuche und Portscans in diesem Netz. Schalte es nur für Netze ein, die dir gehören.' }),
         el('p', { class: 'fuss erklaer-gruppe', text: 'DoT und DoH verschlüsseln deine DNS-Anfragen (die Frage nach der Adresse zu einem Namen). DDR heißt: Der Router verrät selbst, welchen verschlüsselten Server er anbietet. „nein“ heißt: Bei der letzten Prüfung ging das in diesem Netz nicht.' })));
