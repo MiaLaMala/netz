@@ -262,7 +262,7 @@ pub fn lesen() -> Result<Option<Funkverbindung>, String> {
     let kein_iw = |e: std::io::Error| {
         match e.kind() {
         std::io::ErrorKind::NotFound => "Das Programm `iw` fehlt. Installiere das Paket `iw` (z. B. `sudo apt install iw`) und starte den Befehl neu.".to_string(),
-        _ => format!("`iw` ließ sich nicht starten ({e})."),
+        _ => format!("`iw` ließ sich nicht starten ({}).", crate::io_satz(&e)),
     }
     };
     let Some(ifname) = parse_iw_dev(&befehl("iw", &["dev"]).map_err(kein_iw)?) else {

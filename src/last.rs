@@ -115,7 +115,8 @@ fn starten(programm: &str, args: &[&str], frist: Duration) -> Result<String, Str
                 format!("{programm} fehlt. networkQuality gibt es ab macOS 12.")
             } else {
                 format!(
-                    "{programm} ließ sich nicht starten ({e}). networkQuality gibt es ab macOS 12."
+                    "{programm} ließ sich nicht starten ({}). networkQuality gibt es ab macOS 12.",
+                    crate::io_satz(&e)
                 )
             }
         })?;
@@ -143,7 +144,12 @@ fn starten(programm: &str, args: &[&str], frist: Duration) -> Result<String, Str
                     frist.as_secs_f64().round()
                 ));
             }
-            Err(e) => return Err(format!("Der Test ließ sich nicht überwachen ({e}).")),
+            Err(e) => {
+                return Err(format!(
+                    "Der Test ließ sich nicht überwachen ({}).",
+                    crate::io_satz(&e)
+                ));
+            }
         }
     };
     let (out, err) = (

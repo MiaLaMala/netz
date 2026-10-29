@@ -174,7 +174,7 @@ pub(crate) struct Icmp {
 impl Icmp {
     pub(crate) fn open(target: Ipv4Addr) -> Result<Self, String> {
         let s = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).map_err(|e| {
-            format!("Kann keinen ICMP-Socket öffnen ({e}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.")
+            format!("Kann keinen ICMP-Socket öffnen ({}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.", crate::io_satz(&e))
         })?;
         Ok(Icmp {
             // the std type gives a safe receive buffer; the fd stays the ICMP socket
@@ -187,7 +187,7 @@ impl Icmp {
 
 impl Prober for Icmp {
     fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String> {
-        let fail = |e: std::io::Error| format!("Senden schlug fehl ({e}).");
+        let fail = |e: std::io::Error| format!("Senden schlug fehl ({}).", crate::io_satz(&e));
         self.sock.set_ttl(u32::from(ttl)).map_err(fail)?;
         self.sock
             .send_to(&echo_request(self.id, seq), self.to)
@@ -223,7 +223,8 @@ impl Icmp6 {
     pub(crate) fn open(target: Ipv6Addr) -> Result<Self, String> {
         let fail = |e: std::io::Error| {
             format!(
-                "Kann keinen ICMPv6-Socket öffnen ({e}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt."
+                "Kann keinen ICMPv6-Socket öffnen ({}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.",
+                crate::io_satz(&e)
             )
         };
         let sock = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::ICMPV6)).map_err(fail)?;
@@ -240,7 +241,7 @@ impl Icmp6 {
 
 impl Prober<Ipv6Addr> for Icmp6 {
     fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String> {
-        let fail = |e: std::io::Error| format!("Senden schlug fehl ({e}).");
+        let fail = |e: std::io::Error| format!("Senden schlug fehl ({}).", crate::io_satz(&e));
         self.sock
             .set_unicast_hops_v6(u32::from(ttl))
             .map_err(fail)?;

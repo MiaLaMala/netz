@@ -150,21 +150,24 @@ pub(crate) fn fetch(addr: impl ToSocketAddrs, host: &str, path: &str) -> Result<
     };
     let sa = addr
         .to_socket_addrs()
-        .map_err(|e| format!("Namensauflösung fehlgeschlagen: {e}"))?
+        .map_err(|_| {
+            "Namensauflösung fehlgeschlagen. Prüfe den Namen und die Verbindung.".to_string()
+        })?
         .next()
         .ok_or("Keine Adresse gefunden.")?;
-    let mut s = TcpStream::connect_timeout(&sa, TIMEOUT).map_err(|e| e.to_string())?;
+    let mut s = TcpStream::connect_timeout(&sa, TIMEOUT).map_err(|e| crate::io_satz(&e))?;
     s.set_write_timeout(Some(left()))
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| crate::io_satz(&e))?;
     let req = format!(
         "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: netzinfo\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     );
-    s.write_all(req.as_bytes()).map_err(|e| e.to_string())?;
+    s.write_all(req.as_bytes())
+        .map_err(|e| crate::io_satz(&e))?;
     let mut buf = Vec::new();
     let mut chunk = [0u8; 4096];
     while buf.len() < MAX_BYTES && start.elapsed() < TIMEOUT {
         s.set_read_timeout(Some(left()))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::io_satz(&e))?;
         match s.read(&mut chunk) {
             Ok(0) | Err(_) => break,
             Ok(n) => buf.extend_from_slice(&chunk[..n]),

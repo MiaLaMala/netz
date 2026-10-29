@@ -121,14 +121,13 @@ fn parse_antwort(roh: &[u8]) -> Result<Antwort, String> {
     Ok(a)
 }
 
-/// Fehler des Betriebssystems auf Deutsch: `{e}` käme englisch („No route to host (os error 65)“).
-pub(crate) fn io_satz(e: &std::io::Error) -> &'static str {
+/// Wie `crate::io_satz`, nur dass „Ziel nicht erreichbar“ hier „Router nicht erreichbar“ heißt.
+pub(crate) fn io_satz(e: &std::io::Error) -> String {
     match e.kind() {
-        ErrorKind::ConnectionRefused => "Verbindung abgelehnt",
-        ErrorKind::TimedOut | ErrorKind::WouldBlock => "keine Antwort",
-        ErrorKind::HostUnreachable | ErrorKind::NetworkUnreachable => "Router nicht erreichbar",
-        ErrorKind::PermissionDenied => "vom System verweigert",
-        _ => "Netzwerkfehler",
+        ErrorKind::HostUnreachable | ErrorKind::NetworkUnreachable => {
+            "Router nicht erreichbar".into()
+        }
+        _ => crate::io_satz(e),
     }
 }
 
@@ -382,8 +381,8 @@ mod tests {
     fn systemfehler_kommen_auf_deutsch() {
         let e = std::io::Error::from_raw_os_error(libc::EHOSTUNREACH); // englisch: „No route to host“
         assert_eq!(io_satz(&e), "Router nicht erreichbar");
-        let e = std::io::Error::from(ErrorKind::Other);
-        assert!(io_satz(&e).chars().all(|c| !c.is_ascii_digit()));
+        let e = std::io::Error::from_raw_os_error(1); // EPERM
+        assert_eq!(io_satz(&e), "keine Berechtigung");
     }
 
     const BOX: &[u8] = b"HTTP/1.1 200 OK\r\nServer: Beispiel-Router\r\nContent-Type: text/html\r\n\r\n<html><head>\n<TITLE>\n  Beispiel Box  </TITLE></head></html>";

@@ -104,7 +104,10 @@ fn parse_scutil_dns(out: &str) -> Vec<String> {
 
 fn sh(program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program).args(args).output().map_err(|e| {
-        format!("`{program}` ließ sich nicht starten ({e}). Läuft das auf einem Mac?")
+        format!(
+            "`{program}` ließ sich nicht starten ({}). Läuft das auf einem Mac?",
+            crate::io_satz(&e)
+        )
     })?;
     if !out.status.success() {
         return Err(format!("`{program}` meldete einen Fehler."));

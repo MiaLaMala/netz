@@ -654,7 +654,12 @@ fn passwort_fragen() -> Result<String, String> {
         unsafe { libc::tcsetattr(0, libc::TCSANOW, &alt) };
         eprintln!();
     }
-    r.map_err(|e| format!("Das Passwort ließ sich nicht lesen ({e})."))?;
+    r.map_err(|e| {
+        format!(
+            "Das Passwort ließ sich nicht lesen ({}).",
+            crate::io_satz(&e)
+        )
+    })?;
     Ok(zeile.trim_end_matches(['\n', '\r']).to_string())
 }
 

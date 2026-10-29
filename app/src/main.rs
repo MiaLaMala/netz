@@ -100,7 +100,7 @@ fn portal_im_browser_oeffnen() -> Result<(), String> {
             .arg("http://captive.apple.com")
             .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Der Browser ließ sich nicht öffnen ({e}). Öffne http://captive.apple.com von Hand."))
+            .map_err(|e| format!("Der Browser ließ sich nicht öffnen ({}). Öffne http://captive.apple.com von Hand.", netzinfo::io_satz(&e)))
     }
     #[cfg(not(target_os = "macos"))]
     Err("Den Browser öffnet nur die Mac-App. Öffne http://captive.apple.com von Hand.".into())
@@ -183,7 +183,7 @@ fn ort_einstellungen_oeffnen() -> Result<(), String> {
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
             .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Die Systemeinstellungen ließen sich nicht öffnen ({e}). Öffne sie von Hand unter Datenschutz & Sicherheit > Ortungsdienste."))
+            .map_err(|e| format!("Die Systemeinstellungen ließen sich nicht öffnen ({}). Öffne sie von Hand unter Datenschutz & Sicherheit > Ortungsdienste.", netzinfo::io_satz(&e)))
     }
     #[cfg(not(target_os = "macos"))]
     Err("Die Systemeinstellungen gibt es nur auf dem Mac.".into())
