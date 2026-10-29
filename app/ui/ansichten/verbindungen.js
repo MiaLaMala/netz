@@ -9,6 +9,7 @@
     verbunden: 'ESTABLISHED heißt: Beide Seiten haben den TCP-Handschlag abgeschlossen, die Verbindung steht. Die Liste zeigt nur diese. Wartende oder gerade endende Verbindungen fehlen.',
     ptr: 'Der Name kommt per Rückwärts-DNS (PTR) vom DNS-Server deines Systems, höchstens 500 ms lang. Oft nennt er den Hoster statt des Dienstes. Fehlt er, siehst du nur die Adresse. Bei Geräten im eigenen Netz hat der Gerätename aus „Geräte“ Vorrang.',
     neu: 'Ein Ziel mit „neu“ hat dein Rechner in diesem Netz noch nie angesprochen. Das ist nicht gefährlich, aber neu. Netzinfo sperrt nichts. Gemerkt wird nur in „meins“-Netzen oder mit dem Schalter „Merken“.',
+    herkunft: 'Land und Anbieter stehen in einer Datei, die mit Netzinfo kommt. Dafür geht keine Adresse ins Netz. Gehört ein Ziel zu einem großen Cloud-Anbieter in Irland, sagt die Adresse allein nicht, welcher Dienst dahinter steckt. Bei Anbietern mit vielen Standorten kann das Land falsch sein.',
     fremd: 'Programme anderer Nutzer und Systemdienste sind ohne Root nicht sichtbar.',
   };
   const ART = { netz: 'im eigenen Netz', lokal: 'dieser Mac' };
@@ -55,7 +56,7 @@
   // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
     const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
-    const fein = [v.name && adresse, `Port ${v.ziel_port}`, v.dienst, ART[v.art], NAME_QUELLE[v.name_quelle]].filter(Boolean);
+    const fein = [v.name && adresse, `Port ${v.ziel_port}`, v.dienst, ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
     const [knopf, inhalt] = woher(v.pid, v.programm);
     return el('div', { class: 'netz-zeile' },
       el('div', { class: 'text' },
@@ -63,6 +64,26 @@
         el('div', { class: 'fein', text: fein.join(' · ') })),
       v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })),
       knopf, inhalt);
+  }
+
+  // „Nach Land“: Zählung der Verbindungen je Land, nur wenn die Datenbank da ist und etwas trifft.
+  function nachLand(r) {
+    const zaehler = new Map();
+    for (const g of r.gruppen) for (const v of g.verbindungen) if (v.land) zaehler.set(v.land, (zaehler.get(v.land) || 0) + 1);
+    if (!zaehler.size) return null;
+    const sortiert = [...zaehler].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'));
+    const n = (x) => `${x} ${x === 1 ? 'Verbindung' : 'Verbindungen'}`;
+    const rest = sortiert.slice(6).reduce((s, [, x]) => s + x, 0);
+    return gruppe('Nach Land', [
+      ...sortiert.slice(0, 6).map(([land, x]) => zeile(land, n(x))),
+      rest && zeile(`${sortiert.length - 6} weitere Länder`, n(rest)),
+    ].filter(Boolean));
+  }
+
+  function herkunftFuss(r) {
+    return el('p', { class: 'fuss', text: r.datenbank_stand
+      ? `Land und Anbieter aus einer Datei mit Stand ${r.datenbank_stand.slice(5)}/${r.datenbank_stand.slice(0, 4)}, nichts wird nachgefragt. IP Geolocation by DB-IP (db-ip.com), Anbieter von IPtoASN.`
+      : 'Die Datenbank für Land und Anbieter fehlt, deshalb sind diese Angaben leer.' });
   }
 
   function liste(r) {
@@ -87,7 +108,7 @@
       return el('section', { class: 'gruppe', 'aria-label': g.programm },
         el('h3', { text: `${g.programm} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
         el('div', { class: 'liste' }, g.verbindungen.map(verbindung)));
-    })];
+    }), nachLand(r), herkunftFuss(r)];
   }
 
   // „Wer sendet gerade“ (#58): measures only on click; repeats only while this view is on screen.
@@ -206,6 +227,7 @@
         Object.assign(gruppe('So entsteht die Liste', [
           zeile('Verbunden', 'nur ESTABLISHED', E.verbunden),
           zeile('Name', 'Rückwärts-DNS (PTR)', E.ptr),
+          zeile('Land und Anbieter', 'aus einer Datei im Programm', E.herkunft),
           zeile('Neu', 'in diesem Netz noch nie gesehen', E.neu),
           zeile('Sichtbar', 'nur deine Programme', E.fremd),
         ]), { className: 'gruppe erklaer-gruppe' }));

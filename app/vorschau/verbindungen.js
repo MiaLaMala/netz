@@ -1,28 +1,32 @@
 // Fake answers for the view „verbindungen“ in vorschau.html.
-// Marks: verbindungen (grouped list), verbindungen-neu (filter „nur neue“ on), verbindungen-leer; add ,erklaeren.
+// Marks: verbindungen (grouped list), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database); add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
-  const v = (ziel, ziel_port, dienst, art, name, quelle, neu) => ({
+  const v = (ziel, ziel_port, dienst, art, name, quelle, neu, land = null, anbieter = null) => ({
     protokoll: 'TCP', lokal: '192.0.2.20:50123', ziel, ziel_port, dienst, zustand: 'ESTABLISHED', pid: 4242,
     programm: '', pfad: null, art, name, name_quelle: quelle, neu,
+    land, asn: anbieter ? 64496 : null, anbieter,
   });
   const g = (programm, vs) => ({ programm, neu: vs.filter((x) => x.neu).length, verbindungen: vs.map((x) => ({ ...x, programm })) });
   const gruppen = [
     g('Safari', [
-      v('203.0.113.10', 443, 'HTTPS', 'internet', 'server-1.cdn.example', 'PTR', false),
-      v('203.0.113.11', 443, 'HTTPS', 'internet', null, null, true),
-      v('2001:db8::9', 443, 'HTTPS', 'internet', 'www.beispiel.example', 'PTR', false),
+      v('203.0.113.10', 443, 'HTTPS', 'internet', 'server-1.cdn.example', 'PTR', false, 'Irland', 'BEISPIEL-CLOUD'),
+      v('203.0.113.11', 443, 'HTTPS', 'internet', null, null, true, 'Irland', 'BEISPIEL-CLOUD'),
+      v('2001:db8::9', 443, 'HTTPS', 'internet', 'www.beispiel.example', 'PTR', false, 'Deutschland', 'BEISPIEL-HOSTING'),
     ]),
     g('Mail', [
-      v('203.0.113.40', 993, 'IMAPS', 'internet', 'imap.beispiel.example', 'PTR', false),
-      v('203.0.113.41', 5223, 'Apple Push', 'internet', null, null, true),
+      v('203.0.113.40', 993, 'IMAPS', 'internet', 'imap.beispiel.example', 'PTR', false, 'Deutschland', 'BEISPIEL-HOSTING'),
+      v('203.0.113.41', 5223, 'Apple Push', 'internet', null, null, true, 'USA', 'BEISPIEL-NETZ'),
     ]),
-    g('Backup', [v('198.51.100.40', 443, 'HTTPS', 'internet', 'speicher.beispiel.example', 'PTR', false)]),
+    g('Backup', [v('198.51.100.40', 443, 'HTTPS', 'internet', 'speicher.beispiel.example', 'PTR', false, 'USA', 'BEISPIEL-CLOUD')]),
     g('Systemeinstellungen', [v('192.0.2.9', 631, 'IPP', 'netz', 'drucker.fritz.box', 'Gerät', false)]),
   ];
   VORSCHAU.verbindungen_zeigen = async () => {
-    if (m('verbindungen-leer')) return { gruppen: [], netz_name: 'WG', erster_lauf: false, gespeichert: true };
-    return { gruppen, netz_name: 'WG', erster_lauf: false, gespeichert: true };
+    const stand = m('verbindungen-ohnedb') ? null : '2026-06';
+    if (m('verbindungen-leer')) return { gruppen: [], netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: stand };
+    if (stand) return { gruppen, netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: stand };
+    const ohne = gruppen.map((g) => ({ ...g, verbindungen: g.verbindungen.map((x) => ({ ...x, land: null, asn: null, anbieter: null })) }));
+    return { gruppen: ohne, netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: null };
   };
   VORSCHAU.verbindungen_loeschen = async () => {};
 

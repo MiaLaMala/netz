@@ -2,6 +2,7 @@
 
 use crate::dns;
 use crate::geraete::Device;
+pub mod herkunft_ip;
 use crate::netze;
 use crate::offen::{Socket, sockets};
 use serde::Serialize;
@@ -48,6 +49,10 @@ pub struct Verbindung {
     pub name_quelle: Option<String>,
     /// Program and target were not seen in this network before.
     pub neu: bool,
+    /// Country name and provider (AS name) from the offline database, only for public targets.
+    pub land: Option<String>,
+    pub asn: Option<u32>,
+    pub anbieter: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -65,6 +70,8 @@ pub struct Ergebnis {
     /// No earlier data of this network: nothing can be „neu“.
     pub erster_lauf: bool,
     pub gespeichert: bool,
+    /// Build month of the offline database (`JJJJ-MM`); None: no database, country and provider stay empty.
+    pub datenbank_stand: Option<String>,
 }
 
 /// Per network (key = `Fingerprint::key()`) program name to remembered targets.
@@ -133,6 +140,9 @@ fn aus_sockets(
                 name: None,
                 name_quelle: None,
                 neu: false,
+                land: None,
+                asn: None,
+                anbieter: None,
             })
         })
         .collect()
@@ -228,10 +238,14 @@ fn namen(ips: &[IpAddr], cache: &mut Zwischenspeicher, aufloeser: &Aufloeser, fr
     }
 }
 
-/// Key under which a target is remembered: its name, else the network prefix (/24 or /48).
+/// Key under which a target is remembered: its name, else its provider (`AS<nr>`), else the
+/// network prefix (/24 or /48).
 fn schluessel(v: &Verbindung) -> String {
     if let Some(n) = &v.name {
         return n.to_lowercase();
+    }
+    if let (Some(asn), Some(_)) = (v.asn, &v.anbieter) {
+        return format!("AS{asn}");
     }
     match v.ziel.parse::<IpAddr>().map(|ip| ip.to_canonical()) {
         Ok(IpAddr::V4(a)) => {
@@ -342,7 +356,15 @@ pub fn sammeln(speichern: bool) -> Result<Ergebnis, String> {
         };
     }
     drop(cache);
-    sammeln_in(&pfad, netz, speichern, vs)
+    let db = herkunft_ip::datenbank();
+    for v in &mut vs {
+        if let Some(z) = v.ziel.parse().ok().and_then(|ip| db.nachschlagen(ip)) {
+            (v.land, v.asn, v.anbieter) = (z.land, z.asn, z.anbieter);
+        }
+    }
+    let mut r = sammeln_in(&pfad, netz, speichern, vs)?;
+    r.datenbank_stand = db.stand();
+    Ok(r)
 }
 
 fn sammeln_in(
@@ -366,6 +388,7 @@ fn sammeln_in(
         netz_name,
         erster_lauf,
         gespeichert,
+        datenbank_stand: None,
     })
 }
 
@@ -459,6 +482,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             } else {
                 format!("  {}", v.dienst)
             };
+            let herkunft = match (&v.land, &v.anbieter) {
+                (Some(l), Some(a)) => format!("  {l}, {a}"),
+                (Some(x), None) | (None, Some(x)) => format!("  {x}"),
+                _ => String::new(),
+            };
             let neu = if v.neu { "  neu" } else { "" };
             let quelle = v
                 .name_quelle
@@ -469,7 +497,10 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             } else {
                 ziel.to_string()
             };
-            println!("  {ziel}:{}{dienst}{art}{quelle}{neu}", v.ziel_port);
+            println!(
+                "  {ziel}:{}{dienst}{art}{herkunft}{quelle}{neu}",
+                v.ziel_port
+            );
         }
         if let Some((ziel, k)) = zaehler.iter().max_by_key(|(_, k)| **k) {
             e(&format!(
@@ -478,6 +509,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     let neu: usize = r.gruppen.iter().map(|g| g.neu).sum();
+    e(
+        "Land und Anbieter schlage ich nur in einer Datei nach, die mit Netzinfo kommt. Dafür geht keine Adresse ins Netz. Das Land kann bei Anbietern mit vielen Standorten falsch sein, und die Adresse allein sagt nicht, welcher Dienst dahinter steckt.",
+    );
     e(
         "Ein Ziel mit „neu“ hat dein Rechner in diesem Netz noch nie angesprochen. Das ist nicht gefährlich, aber neu. Netzinfo sperrt nichts.",
     );
@@ -505,6 +539,26 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     println!(
         "Programme anderer Nutzer sind ohne Root nicht sichtbar. Die Namen stammen aus PTR und sind oft die des Hosters."
     );
+    let mut laender: BTreeMap<&str, usize> = BTreeMap::new();
+    for v in r.gruppen.iter().flat_map(|g| &g.verbindungen) {
+        if let Some(l) = &v.land {
+            *laender.entry(l).or_default() += 1;
+        }
+    }
+    if !laender.is_empty() {
+        let mut nach: Vec<_> = laender.into_iter().collect();
+        nach.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+        let teile: Vec<String> = nach.iter().map(|(l, n)| format!("{l} {n}")).collect();
+        println!("Nach Land: {}", teile.join(", "));
+    }
+    match &r.datenbank_stand {
+        Some(s) => println!(
+            "Land und Anbieter stammen aus der eingebauten Datenbank (Stand {s}, IP Geolocation by DB-IP, https://db-ip.com, und IPtoASN). Sie kann falsch liegen, vor allem bei Anbietern mit weltweiten Adressen."
+        ),
+        None => println!(
+            "Die Datenbank für Land und Anbieter fehlt, deshalb bleiben diese Angaben leer (Ordner mit land.mmdb und asn.mmdb: Umgebungsvariable NETZ_IPDB, Bauen: tools/ipdb-bauen.sh)."
+        ),
+    }
     Ok(())
 }
 
@@ -527,6 +581,9 @@ mod tests {
             name: None,
             name_quelle: None,
             neu: false,
+            land: None,
+            asn: None,
+            anbieter: None,
         }
     }
 
@@ -602,6 +659,16 @@ mod tests {
         let mut vs = vec![v("a", "203.0.113.7", 443)];
         assert!(auswerten(&mut s, "andere", &mut vs));
         assert!(!vs[0].neu);
+    }
+
+    #[test]
+    fn provider_is_the_store_key_without_a_name() {
+        let mut x = v("a", "203.0.113.7", 443);
+        assert_eq!(schluessel(&x), "203.0.113.0/24");
+        (x.asn, x.anbieter) = (Some(13335), Some("CLOUDFLARENET".into()));
+        assert_eq!(schluessel(&x), "AS13335");
+        x.name = Some("Host.Example".into());
+        assert_eq!(schluessel(&x), "host.example");
     }
 
     #[test]
