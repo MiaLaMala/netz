@@ -48,7 +48,7 @@ fn parse_route(text: &str) -> Option<(String, Ipv4Addr)> {
         {
             continue;
         }
-        beste = Some((metrik, name.to_string(), Ipv4Addr::from(gw.to_le_bytes())));
+        beste = Some((metrik, name.to_string(), Ipv4Addr::from(gw.to_ne_bytes())));
     }
     beste.map(|(_, n, g)| (n, g))
 }

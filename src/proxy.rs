@@ -106,7 +106,7 @@ pub fn messen() -> Result<ProxyBefund, String> {
     let out = Command::new("scutil")
         .arg("--proxy")
         .output()
-        .map_err(|e| format!("`scutil` ließ sich nicht starten ({e}). Läuft das auf einem Mac?"))?;
+        .map_err(|e| format!("`scutil` ließ sich nicht starten ({e}). Proxy-Einstellungen liest Netzinfo bisher nur auf dem Mac."))?;
     let mut b = parse_scutil(&String::from_utf8_lossy(&out.stdout));
     if let Ok(info) = hier::collect() {
         b.wpad_dhcp = crate::plattform::wpad_dhcp(&info.interface);
