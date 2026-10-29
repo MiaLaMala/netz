@@ -46,6 +46,8 @@
     if (klasse) z.querySelector('.wert').classList.add(klasse);
     return z;
   };
+  // Nach dem Neuzeichnen steht der Fokus an der neuen Überschrift (sonst im Nichts am Seitenanfang).
+  const zumKopf = () => document.querySelector("[data-ansicht='dieses-netz'] h2")?.focus();
   // Seltene Werte hinter ein Aufklappen (`details` ist mit der Tastatur bedienbar).
   const mehr = (titel, zeilen) => el('details', { class: 'mehr' }, el('summary', { text: titel }), el('dl', {}, zeilen));
 
@@ -55,16 +57,16 @@
   function kopf(d, funk) {
     const { netz } = d;
     const zeile2 = (farbe, wort, rest) => el('p', { class: 'status' },
-      el('span', { class: `punkt ${farbe}` }), el('span', { class: 'status-wort', text: wort }),
+      el('span', { class: `punkt ${farbe}`, 'aria-hidden': 'true' }), el('span', { class: 'status-wort', text: wort }),
       rest && el('span', { class: 'status-rest', text: rest }));
     // Zweite Zeile: das Funksignal auf einen Blick (die Zahlen stehen in der WLAN-Gruppe).
     const st = funk && staerkeVon(funk.rssi_dbm);
     const signal = st && zeile2({ gut: 'gruen', mittel: 'orange', schwach: 'rot' }[st], `WLAN-Signal ${st}`);
     if (netz) {
-      return el('div', { class: 'kopf' }, el('h2', { text: netz.name }),
+      return el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: netz.name }),
         zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`), signal);
     }
-    return el('div', { class: 'kopf' }, el('h2', { text: 'Unbekanntes Netz' }),
+    return el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: 'Unbekanntes Netz' }),
       d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar') : zeile2('grau', 'Noch nicht gemerkt'), signal);
   }
 
@@ -72,8 +74,8 @@
   function merkenFormular(ort, nachher) {
     const name = el('input', { type: 'text', id: 'netz-name', placeholder: 'z. B. WG', autocomplete: 'off', spellcheck: 'false' });
     const meins = el('input', { type: 'checkbox', id: 'netz-meins' });
-    const fehler = el('div', { 'aria-live': 'polite' });
-    const merken = el('button', { class: 'knopf haupt', type: 'submit', text: 'Merken' });
+    const fehler = el('div', { id: 'netz-fehler' });
+    const merken = el('button', { class: 'knopf haupt', type: 'submit', text: 'Merken', 'aria-label': 'Dieses Netz merken' });
     const zu = () => {
       ort.replaceChildren(offenKnopf());
       ort.querySelector('button').focus();
@@ -93,12 +95,17 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       fehler.replaceChildren();
+      name.removeAttribute('aria-invalid');
+      name.removeAttribute('aria-describedby');
       merken.disabled = true;
       try {
         await Netz.invoke('netz_merken', { name: name.value, meins: meins.checked });
-        nachher();
+        await nachher();
+        zumKopf();
       } catch (err) {
         fehler.replaceChildren(meldung(Netz.text(err)));
+        name.setAttribute('aria-invalid', 'true');
+        name.setAttribute('aria-describedby', 'netz-fehler');
         merken.disabled = false;
         name.focus();
       }
@@ -148,8 +155,8 @@
   const ORT_WARUM = 'macOS behandelt den Namen eines WLANs als Ortsangabe, denn aus ihm lässt sich ableiten, wo du bist. Deshalb zeigt es Name und Kennung nur Apps mit Standortfreigabe. Netzinfo liest damit nur das WLAN, mit dem du verbunden bist, und merkt sich keinen Standort. Ohne Freigabe erkennt Netzinfo Netze etwas ungenauer, alles andere geht weiter.';
   function ortKarte(status) {
     if (status === 'Erlaubt') return null;
-    const aktion = (text, fn) => el('button', { class: 'knopf', type: 'button', text, onclick: fn });
-    const fehler = el('div', { 'aria-live': 'polite' });
+    const aktion = (text, fn, label) => el('button', { class: 'knopf', type: 'button', text, 'aria-label': label, onclick: fn });
+    const fehler = el('div');
     const nachrichten = {
       NichtGefragt: 'Netzinfo hat noch nicht nach dem Standort gefragt, deshalb zeigt macOS Name und Kennung des WLANs nicht.',
       Abgelehnt: 'Der Standort ist abgelehnt. Netzinfo funktioniert weiter, erkennt Netze aber ungenauer. Ändern geht in den Systemeinstellungen unter Datenschutz & Sicherheit > Ortungsdienste.',
@@ -157,21 +164,24 @@
     };
     const knopf = status === 'NichtGefragt'
       ? aktion('Standort freigeben …', async (e) => {
-        e.currentTarget.disabled = true;
-        e.currentTarget.textContent = 'Warte auf deine Antwort …';
+        const knopfEl = e.currentTarget;
+        knopfEl.disabled = true;
+        knopfEl.textContent = 'Warte auf deine Antwort …';
         try {
           await Netz.invoke('ort_anfragen');
           // Die Antwort kommt erst nach dem Klick im Systemdialog: kurz warten und neu lesen.
           for (let i = 0; i < 60 && (await Netz.invoke('ort_status')) === 'NichtGefragt'; i++) await new Promise((r) => setTimeout(r, 1000));
-          Netz.neuLaden();
+          await Netz.neuLaden();
+          zumKopf();
         } catch (err) {
           fehler.replaceChildren(meldung(Netz.text(err)));
-          e.currentTarget.disabled = false;
-          e.currentTarget.textContent = 'Standort freigeben …';
+          knopfEl.disabled = false;
+          knopfEl.textContent = 'Standort freigeben …';
+          knopfEl.focus();
         }
-      })
+      }, 'Netzinfo darf den Standort nutzen: Freigabe anfragen')
       : status === 'Abgelehnt'
-        ? aktion('Systemeinstellungen öffnen', () => Netz.invoke('ort_einstellungen_oeffnen').catch((err) => fehler.replaceChildren(meldung(Netz.text(err)))))
+        ? aktion('Systemeinstellungen öffnen', () => Netz.invoke('ort_einstellungen_oeffnen').catch((err) => fehler.replaceChildren(meldung(Netz.text(err)))), 'Systemeinstellungen öffnen, Ortungsdienste')
         : null;
     return el('section', { class: 'gruppe ort-karte', 'aria-labelledby': 'g-ort' },
       el('h3', { id: 'g-ort', text: 'Standortfreigabe' }),
@@ -207,12 +217,12 @@
         zeile('WPAD per DNS', b.wpad_dns ? 'gefunden' : 'nicht gefunden', 'Ich frage den DNS-Server des Netzes nach wpad.<Domain>. Ein Treffer ist nur ein Hinweis, die Datei lade ich nicht.'),
       ]);
       if (b.pac_url) {
-        const hosts = el('div', { 'aria-live': 'polite' });
-        neu.querySelector('dl').append(el('div', { class: 'zeile aktionszeile' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', onclick: (e) => {
+        const hosts = el('div', { 'aria-live': 'polite' }); // Ergebnis kommt einmal, nach dem Klick
+        neu.querySelector('dl').append(el('div', { class: 'zeile' }, el('dt', { class: 'label', text: 'Proxy-Hostnamen' }), el('dd', { class: 'wert' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', 'aria-label': 'PAC-Datei ansehen, Proxy-Hostnamen auflisten', onclick: (e) => {
           e.currentTarget.disabled = true;
           Netz.invoke('proxy_pac_ansehen').then((h) => hosts.replaceChildren(el('p', { class: 'fuss', text: h.length ? `Hostnamen in der PAC-Datei: ${h.join(', ')}` : 'In der PAC-Datei stehen keine Proxy-Hostnamen.' })))
             .catch((err) => hosts.replaceChildren(meldung(Netz.text(err), 'orange')));
-        } }), hosts));
+        } }), hosts)));
       }
       dienste.after(neu);
     }).catch(() => platz.replaceWith(zeile('Proxy', 'nicht lesbar', erkl)));
@@ -292,23 +302,30 @@
         stapel('Resolver vom Netz (DDR)', m.ddr || ['keiner angeboten'], E.ddr),
       ];
       const stand = (satz, knopf) => el('div', { class: 'zeile stand' }, el('dt', { class: 'label', text: satz }), knopf && el('dd', { class: 'wert' }, knopf));
-      const neuKnopf = (vorher) => el('button', { class: 'knopf', type: 'button', text: 'Neu messen', onclick: () => messen(vorher) });
+      const neuKnopf = (vorher) => el('button', { class: 'knopf', type: 'button', text: 'Neu messen', 'aria-label': 'Verschlüsseltes DNS neu messen', onclick: () => messen(vorher) });
       const gespeichert = d.netz ? await Netz.invoke('dns_gespeichert', { name: d.netz.name }).catch(() => null) : null;
       let dnsOrt = gruppe('Verschlüsseltes DNS', [zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
-      const zeigeDns = (zeilen) => {
+      // Das Ergebnis meldet VoiceOver einmal (höflich), nicht bei jedem Neuzeichnen der Gruppe.
+      const ansage = el('p', { class: 'nur-vorlesen', 'aria-live': 'polite' });
+      const zeigeDns = (zeilen, sage) => {
         const neu = gruppe('Verschlüsseltes DNS', zeilen);
         neu.classList.add('frisch');
+        const fokusDrin = dnsOrt.contains(document.activeElement);
         dnsOrt.replaceWith(neu);
         dnsOrt = neu;
+        if (sage) ansage.textContent = sage;
+        if (fokusDrin) { const h = neu.querySelector('h3'); h.tabIndex = -1; (neu.querySelector('button') || h).focus(); }
       };
       const messen = (vorher) => {
         if (vorher) zeigeDns([...dnsZeilen(vorher.messung), stand(`Messung vom ${zeit(vorher.messung.zeit)}, wird neu gemessen …`)]);
         Netz.invoke('dns_verschluesselt').then((r) => zeigeDns([...dnsZeilen(r.messung), stand(
           `Gemessen am ${zeit(r.messung.zeit)}${r.netz ? '' : '. Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert'}.`,
-          neuKnopf({ messung: r.messung }))]))
-          .catch((err) => zeigeDns([...(vorher ? dnsZeilen(vorher.messung) : []), stand(`Messung fehlgeschlagen. ${Netz.text(err)}`, neuKnopf(vorher))]));
+          neuKnopf({ messung: r.messung }))],
+        `Verschlüsseltes DNS gemessen: DNS über TLS ${w[r.messung.dot]}, DNS über HTTPS ${w[r.messung.doh]}.`))
+          .catch((err) => zeigeDns([...(vorher ? dnsZeilen(vorher.messung) : []), stand(`Messung fehlgeschlagen. ${Netz.text(err)}`, neuKnopf(vorher))],
+            'Messung des verschlüsselten DNS fehlgeschlagen.'));
       };
-      wurzel.append(dnsOrt);
+      wurzel.append(dnsOrt, ansage);
       if (gespeichert?.frisch) {
         zeigeDns([...dnsZeilen(gespeichert.messung), stand(`Gespeichert, gemessen am ${zeit(gespeichert.messung.zeit)}.`, neuKnopf(gespeichert))]);
       } else {

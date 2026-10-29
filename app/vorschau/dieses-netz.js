@@ -2,8 +2,17 @@
 // Die Grunddaten stehen in vorschau.html (Gerüst), hier werden sie nur umgeschrieben.
 (() => {
   const grund = VORSCHAU.dieses_netz;
+  // Nach „Merken“ ist das Netz in der Vorschau bekannt (zeigt die neue Überschrift samt Fokus).
+  const merken = VORSCHAU.netz_merken;
+  let gemerkt = null;
+  VORSCHAU.netz_merken = async (a) => { await merken(a); gemerkt = a.name.trim(); };
   VORSCHAU.dieses_netz = async () => JSON.parse(JSON.stringify(await grund())
     .replaceAll('192.168.178.', '192.0.2.').replaceAll('100.64.0.', '198.51.100.').replaceAll('fd7a:115c:a1e0::53', '2001:db8::53'));
+  const offen = VORSCHAU.dieses_netz;
+  VORSCHAU.dieses_netz = async () => {
+    const d = await offen();
+    return gemerkt && !d.netz ? { ...d, netz: { name: gemerkt, meins: false, last_seen: t } } : d;
+  };
   // Marke hinweis: die Liste gemerkter Netze ist nicht lesbar (Hinweis oben, Netz bleibt unbekannt).
   if (marken.includes('hinweis')) {
     const roh = VORSCHAU.dieses_netz;
