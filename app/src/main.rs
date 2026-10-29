@@ -204,6 +204,12 @@ fn sni_pruefen() -> Result<netzinfo::sni::SniErgebnis, Fehler> {
     netzinfo::sni::messen().map_err(Into::into)
 }
 
+/// IPv4 against IPv6 with Happy Eyeballs, see issue #48. Takes a few seconds.
+#[tauri::command(async)]
+fn ipv6_messen() -> Result<netzinfo::ipv6::Ergebnis, Fehler> {
+    netzinfo::ipv6::daten().map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -237,6 +243,7 @@ fn main() {
             live_sonde,
             mtu_messen,
             sni_pruefen,
+            ipv6_messen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
