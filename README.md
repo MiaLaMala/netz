@@ -70,6 +70,8 @@ Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App 
 
 Im Terminal gehen Schritt 2 und 3 auch so: `xattr -dr com.apple.quarantine /Applications/Netzinfo.app`, genauso für das entpackte `netzinfo`. Nach einem Update kann macOS „Lokales Netzwerk“ noch einmal abfragen, weil die Ad-hoc-Signatur bei jedem Build anders ist.
 
+Unter Linux gibt es die Kommandozeile, nicht die App: `netzinfo-<tag>-x86_64-unknown-linux-musl.tar.gz` für PCs und Server, `netzinfo-<tag>-aarch64-unknown-linux-musl.tar.gz` für den Raspberry Pi mit 64-Bit-System. Beide sind statisch gebaut und laufen auf jeder Distribution. Entpacken und `./netzinfo hier` starten, der Ordner `ipdb` muss neben dem Programm liegen. Was unter Linux fehlt, steht bei [Wie es gebaut ist](#wie-es-gebaut-ist).
+
 ## Kommandozeile
 
 `netzinfo --help` zeigt alle Befehle nach Thema, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
@@ -218,12 +220,14 @@ testdata/       Aufgezeichnete Antworten für die Tests
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
+- Unter Linux liest Netzinfo Default-Route, Adresse und DHCP ohne Root (`/proc/net/route`, `getifaddrs`, systemd-networkd oder NetworkManager), danach laufen `hier`, `dns`, `pruefen`, `merken`, `messen`, `diagnose`, `mtu`, `pfad`, `bonjour`, `upnp`, `router` und `wlan` (mit `iw`). `geraete` läuft ohne `--nachbarn`; auch `proxy` und das Prüfen der Proxy-Einstellungen gibt es dort nicht.
+- Nur auf dem Mac gehen `offen`, `verbindungen`, `woher`, `traffic`, `last`, `wlan --umfeld`, `geraete --nachbarn`, `proxy` und die Standortfreigabe, weil sie libproc, CoreWLAN, `nettop`, `networkQuality` oder `scutil` brauchen. Sie melden das mit einem klaren Satz. Die Linux-Fassung ist bisher nur in der CI und im Release-Probelauf gelaufen, nicht von Hand auf einem Server oder Raspberry Pi.
 
 Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## English in short
 
-Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before: a new router, changed DNS answers, TLS interception, new devices. It is a Rust command line tool plus a Tauri Mac app. Output and docs are in German; `--erklaer` (or the “Erklären” switch in the app) explains in plain German what each step does on the wire. Scanning only targets private addresses on networks you marked as yours. macOS 13+ on Apple Silicon is the main platform; the core also builds on Linux (CI). No telemetry, no account, MIT licensed.
+Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before: a new router, changed DNS answers, TLS interception, new devices. It is a Rust command line tool (macOS and Linux, x86_64 and arm64) plus a Tauri Mac app. Output and docs are in German; `--erklaer` (or the “Erklären” switch in the app) explains in plain German what each step does on the wire. Scanning only targets private addresses on networks you marked as yours. macOS 13+ on Apple Silicon is the main platform; the core also builds on Linux (CI). No telemetry, no account, MIT licensed.
 
 ## Lizenz
 

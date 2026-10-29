@@ -1,0 +1,7 @@
+DHCP4.OPTION[1]:dhcp_lease_time = 3600
+DHCP4.OPTION[2]:dhcp_server_identifier = 192.0.2.2
+DHCP4.OPTION[3]:domain_name = example.net
+DHCP4.OPTION[4]:domain_name_servers = 192.0.2.53 198.51.100.53
+DHCP4.OPTION[5]:ip_address = 192.0.2.20
+DHCP4.OPTION[6]:requested_domain_name_servers = 1
+DHCP4.OPTION[7]:routers = 192.0.2.1

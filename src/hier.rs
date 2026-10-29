@@ -4,7 +4,7 @@ use crate::explain;
 use crate::subnetz::{self, Subnet};
 use std::net::Ipv4Addr;
 
-/// What we know about the current network. Fields are None when macOS has no answer.
+/// What we know about the current network. Fields are None when the system has no answer.
 #[derive(Debug, Default, PartialEq, serde::Serialize)]
 pub struct NetInfo {
     pub interface: String,
@@ -15,7 +15,7 @@ pub struct NetInfo {
     pub dhcp_server: Option<Ipv4Addr>,
     /// DNS servers handed out by DHCP.
     pub dhcp_dns: Vec<Ipv4Addr>,
-    /// DNS servers the system really asks first (from scutil --dns), IPv4 and IPv6.
+    /// DNS servers the system really asks first (scutil --dns on macOS, resolv.conf on Linux), IPv4 and IPv6.
     pub system_dns: Vec<String>,
     pub domain: Option<String>,
 }
@@ -45,16 +45,18 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let a = crate::netze::aktuell()?;
     crate::netze::hier_hinweis(&a, explain_on);
     let n = a.info;
-    let vpn = n.interface.starts_with("utun");
+    let vpn = ["utun", "tun", "wg", "tailscale"]
+        .iter()
+        .any(|p| n.interface.starts_with(p));
     println!("Schnittstelle: {}", n.interface);
     explain(
         explain_on,
         &format!(
             "Die Default-Route sagt, über welche Schnittstelle Pakete ins Internet gehen. {}",
             if vpn {
-                "„utun“ ist ein Tunnel, also ein VPN wie Tailscale oder WireGuard: Dein Verkehr geht gerade durch den Tunnel, nicht direkt ins WLAN."
+                "Diese Schnittstelle ist ein Tunnel, also ein VPN wie Tailscale oder WireGuard: Dein Verkehr geht gerade durch den Tunnel, nicht direkt ins Netz."
             } else {
-                "„en0“ ist beim Mac meistens das WLAN, andere „en“-Nummern sind Kabel oder Adapter."
+                "Beim Mac ist „en0“ meistens das WLAN, andere „en“-Nummern sind Kabel oder Adapter. Unter Linux steht „eth“ oder „enp“ für Kabel, „wlan“ oder „wlp“ für WLAN."
             }
         ),
     );
@@ -81,14 +83,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             println!("Maske:         unbekannt");
             explain(
                 explain_on,
-                "Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) kennt der Mac die Maske nicht, deshalb lässt sich das Subnetz nicht ausrechnen.",
+                "Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) kennt der Rechner die Maske nicht, deshalb lässt sich das Subnetz nicht ausrechnen.",
             );
         }
     }
     println!("Router:        {}", show(n.router));
     explain(
         explain_on,
-        "Der Router (Gateway) ist die Tür aus dem eigenen Subnetz. Alles, was nicht im Subnetz liegt, schickt der Mac an ihn.",
+        "Der Router (Gateway) ist die Tür aus dem eigenen Subnetz. Alles, was nicht im Subnetz liegt, schickt der Rechner an ihn.",
     );
     println!("DHCP-Server:   {}", show(n.dhcp_server));
     explain(
@@ -103,7 +105,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         if magic {
             "DNS übersetzt Namen in IP-Adressen. 100.100.100.100 ist der DNS-Dienst von Tailscale (MagicDNS), er sitzt vor dem DNS aus dem DHCP und reicht normale Fragen weiter."
         } else {
-            "DNS übersetzt Namen in IP-Adressen. „System“ ist, was der Mac wirklich fragt, „DHCP“ ist, was das Netz angeboten hat. Beides sollte meist übereinstimmen."
+            "DNS übersetzt Namen in IP-Adressen. „System“ ist, was der Rechner wirklich fragt, „DHCP“ ist, was das Netz angeboten hat. Beides sollte meist übereinstimmen."
         },
     );
     println!("Domain:        {}", show(n.domain.as_ref()));
