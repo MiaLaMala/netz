@@ -285,6 +285,7 @@ fn wort(s: Status) -> &'static str {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "sni")?;
     if let Some(a) = args.first() {
         return Err(format!(
             "`netzinfo sni` kennt „{a}“ nicht. Es braucht keine weiteren Angaben, `--erklaer` erklärt die Schritte."

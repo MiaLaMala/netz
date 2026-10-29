@@ -218,7 +218,10 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--ansehen"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "proxy")?;
     let ansehen = match args {
         [] => false,
         [a] if a == "--ansehen" => true,

@@ -328,7 +328,10 @@ pub fn ausfuehren(ziel: Option<String>) -> Result<EgressAntwort, String> {
     })
 }
 
+pub const OPTIONEN: &[&str] = &["--raus", "--ziel"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "ports --raus")?;
     let mut ziel = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {

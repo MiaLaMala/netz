@@ -131,7 +131,10 @@ fn menge(b: f64) -> String {
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--json", "--sekunden"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "traffic")?;
     let (mut sekunden, mut json) = (10, false);
     let mut it = args.iter();
     while let Some(a) = it.next() {

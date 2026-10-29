@@ -355,6 +355,7 @@ fn wort(s: Status) -> &'static str {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "dns --verschluesselt")?;
     if let Some(a) = args.first() {
         return Err(format!(
             "`netzinfo dns --verschluesselt` kennt „{a}“ nicht. Es braucht keine weiteren Angaben, `--erklaer` erklärt die Schritte."

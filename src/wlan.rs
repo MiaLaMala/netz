@@ -460,7 +460,10 @@ fn bekanntes_netz() -> Option<(std::path::PathBuf, String)> {
     Some((path.with_file_name("wlan.json"), fp.key()))
 }
 
+pub const OPTIONEN: &[&str] = &["--json", "--verlauf", "--umfeld"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "wlan")?;
     if let Some((a, rest)) = args.split_first()
         && a == "--verlauf"
     {

@@ -463,6 +463,7 @@ pub fn mtu_daten(ziel: &str) -> Result<MtuErgebnis, String> {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "mtu")?;
     let mut ziel = None;
     for a in args {
         match a.as_str() {

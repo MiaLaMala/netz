@@ -529,7 +529,10 @@ fn hint(typ: &str) -> Option<&'static str> {
     })
 }
 
+pub const OPTIONEN: &[&str] = &["--txt", "--lauschen"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "bonjour")?;
     let e = |t: &str| crate::explain(explain_on, t);
     let (mut lauschen, mut txt) = (None, false);
     let mut it = args.iter();

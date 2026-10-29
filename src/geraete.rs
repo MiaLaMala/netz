@@ -460,7 +460,10 @@ fn suchen_in(
     })
 }
 
+pub const OPTIONEN: &[&str] = &["--gross", "--nachbarn", "--karten"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "geraete")?;
     let e = |t: &str| crate::explain(explain_on, t);
     let mut cidr = None;
     let mut gross = false;

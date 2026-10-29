@@ -50,7 +50,10 @@ pub(crate) enum State {
     Filtered,
 }
 
+pub const OPTIONEN: &[&str] = &["--raus", "--ziel", "--meins", "--ports", "--timeout"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "ports")?;
     if args.iter().any(|a| a == "--raus") {
         return crate::egress::run(args, explain_on);
     }

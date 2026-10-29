@@ -412,7 +412,10 @@ fn auswerten(store: &mut Store, key: String, new: Messung, portal: bool) -> Prue
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--pfad"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "pruefen")?;
     if let Some(a) = args.iter().find(|a| *a != "--pfad") {
         return Err(format!(
             "`netzinfo pruefen` kennt „{a}“ nicht. Es kennt nur `--pfad`, `--erklaer` erklärt die Schritte."

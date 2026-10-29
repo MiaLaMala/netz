@@ -545,7 +545,10 @@ fn ms(v: Option<f64>) -> String {
     v.map_or("-".into(), |x| format!("{x:.1}"))
 }
 
+pub const OPTIONEN: &[&str] = &["--max-hops", "--runden", "--ohne-namen"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "pfad")?;
     let mut ziel = None;
     let (mut max_hops, mut runden, mut namen) = (20u8, 10u8, true);
     let mut it = args.iter();

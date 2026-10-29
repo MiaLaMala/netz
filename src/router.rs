@@ -292,7 +292,10 @@ fn status_text(s: &Status) -> String {
     }
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "router")?;
     let json = match args.first().map(String::as_str) {
         None => false,
         Some("--json") if args.len() == 1 => true,

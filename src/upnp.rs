@@ -258,6 +258,7 @@ fn speichern(treffer: &BTreeMap<Ipv4Addr, Upnp>) -> Result<usize, String> {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "upnp")?;
     let e = |t: &str| crate::explain(explain_on, t);
     if let Some(s) = args.first() {
         return Err(format!(

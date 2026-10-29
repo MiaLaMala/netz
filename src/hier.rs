@@ -182,7 +182,8 @@ fn list<T: std::fmt::Display>(v: &[T]) -> String {
     }
 }
 
-pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
+pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "hier")?;
     let a = crate::netze::aktuell()?;
     crate::netze::hier_hinweis(&a, explain_on);
     let n = a.info;
@@ -257,6 +258,7 @@ pub fn run(_args: &[String], explain_on: bool) -> Result<(), String> {
 }
 
 pub fn run_subnet(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &[], "subnetz")?;
     let (ip, prefix) = subnetz::parse_args(args)?;
     let s = subnetz::calc(ip, prefix)?;
     println!("Adresse:       {ip}/{prefix}");

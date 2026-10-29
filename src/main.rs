@@ -402,6 +402,67 @@ mod tests {
         }
     }
 
+    /// Erlaubte Optionen je Befehl (Varianten wie `wlan --verlauf` haben eigene Listen).
+    fn optionen_von(befehl: &str) -> Vec<&'static [&'static str]> {
+        match befehl {
+            "dns" => vec![dns::OPTIONEN],
+            "ports" => vec![ports::OPTIONEN],
+            "merken" => vec![netze::OPTIONEN_MERKEN],
+            "pruefen" => vec![pruefen::OPTIONEN],
+            "messen" => vec![messen::OPTIONEN],
+            "last" => vec![last::OPTIONEN],
+            "geraete" => vec![geraete::OPTIONEN],
+            "pfad" => vec![pfad::OPTIONEN],
+            "portal" => vec![portal::OPTIONEN],
+            "offen" => vec![offen::OPTIONEN],
+            "bonjour" => vec![bonjour::OPTIONEN],
+            "diagnose" => vec![diagnose::OPTIONEN],
+            "wlan" => vec![
+                wlan::OPTIONEN,
+                netzinfo::wlanverlauf::OPTIONEN,
+                netzinfo::kanal::OPTIONEN,
+            ],
+            "proxy" => vec![proxy::OPTIONEN],
+            "verbindungen" => vec![verbindungen::OPTIONEN],
+            "woher" => vec![woher::OPTIONEN],
+            "live" => vec![live::OPTIONEN],
+            "ipv6" => vec![ipv6::OPTIONEN],
+            "zeit" => vec![netzinfo::zeit::OPTIONEN],
+            "traffic" => vec![traffic::OPTIONEN],
+            "router" => vec![router::OPTIONEN],
+            _ => vec![],
+        }
+    }
+
+    #[test]
+    fn optionen_aus_der_hilfe_werden_nicht_abgelehnt() {
+        let mut geprueft = 0;
+        for (aufruf, _) in GRUPPEN.iter().flat_map(|(_, z)| z.iter()) {
+            let befehl = aufruf.split_whitespace().next().unwrap_or("");
+            let listen = optionen_von(befehl);
+            for opt in aufruf
+                .split(|c: char| !(c == '-' || c.is_alphanumeric()))
+                .filter(|w| w.starts_with("--"))
+            {
+                geprueft += 1;
+                let args = vec![opt.to_string()];
+                assert!(
+                    listen
+                        .iter()
+                        .any(|l| netzinfo::optionen::nur(&args, l, befehl).is_ok()),
+                    "{befehl} lehnt {opt} ab, steht aber in der Hilfe"
+                );
+            }
+        }
+        assert!(geprueft > 20, "Hilfe nicht gelesen: {geprueft}");
+    }
+
+    #[test]
+    fn unbekannte_option_ist_bedienfehler() {
+        let e = netzinfo::optionen::nur(&["--x".to_string()], &[], "hier").unwrap_err();
+        assert!(ist_bedienfehler(&e), "{e}");
+    }
+
     #[test]
     fn bedienfehler_werden_erkannt() {
         assert!(ist_bedienfehler("Es fehlt das Ziel."));

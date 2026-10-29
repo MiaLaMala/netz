@@ -320,6 +320,7 @@ fn ausgeben(e: &Ergebnis, gekuerzt: bool, explain_on: bool) {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, &["--namen"], "dns --tempo")?;
     let usage = "Aufruf: netzinfo dns --tempo [--namen a.de,b.de] (höchstens 50 eigene Namen)";
     let mut eigene = String::new();
     let mut it = args.iter();

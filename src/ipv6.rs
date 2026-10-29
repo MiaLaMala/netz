@@ -420,7 +420,10 @@ fn rennen_text(r: &Rennen) -> String {
     t
 }
 
+pub const OPTIONEN: &[&str] = &["--json"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "ipv6")?;
     let (json, extra) = match args {
         [] => (false, None),
         [a] if a == "--json" => (true, None),

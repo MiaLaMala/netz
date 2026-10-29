@@ -41,7 +41,10 @@ pub struct Lauscher {
     pub von_aussen: bool,
 }
 
+pub const OPTIONEN: &[&str] = &["--json", "--aussen", "--meins"];
+
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    crate::optionen::nur(args, OPTIONEN, "offen")?;
     let (mut json, mut aussen, mut meins) = (false, false, false);
     for a in args {
         match a.as_str() {
