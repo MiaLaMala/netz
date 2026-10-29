@@ -222,9 +222,65 @@ pub fn lesen() -> Result<Option<Funkverbindung>, String> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+/// First interface of `iw dev` ("Interface wlan0"). `None`: the machine has no Wi-Fi card.
+pub fn parse_iw_dev(text: &str) -> Option<String> {
+    text.lines()
+        .find_map(|l| l.trim().strip_prefix("Interface "))
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+}
+
+/// Security from `wpa_cli status` (`key_mgmt=`). `None`: not readable, `key_mgmt=NONE` could be
+/// open or WEP and stays unknown rather than raising a false alarm.
+pub fn parse_wpa_status(text: &str) -> Option<Sicherheit> {
+    let km = text
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("key_mgmt="))?;
+    Some(if km.contains("SAE") {
+        if km.contains("PSK") {
+            Sicherheit::Wpa2Wpa3Gemischt
+        } else {
+            Sicherheit::Wpa3
+        }
+    } else if km.contains("WPA2") {
+        Sicherheit::Wpa2
+    } else if km.contains("WPA") {
+        Sicherheit::Wpa
+    } else {
+        return None;
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn befehl(prog: &str, args: &[&str]) -> std::io::Result<String> {
+    let o = std::process::Command::new(prog).args(args).output()?;
+    Ok(String::from_utf8_lossy(&o.stdout).into_owned())
+}
+
+#[cfg(target_os = "linux")]
 pub fn lesen() -> Result<Option<Funkverbindung>, String> {
-    Err("`netzinfo wlan` liest die Funkverbindung bisher nur auf dem Mac (CoreWLAN). Starte den Befehl auf einem Mac.".into())
+    let kein_iw = |e: std::io::Error| {
+        match e.kind() {
+        std::io::ErrorKind::NotFound => "Das Programm `iw` fehlt. Installiere das Paket `iw` (z. B. `sudo apt install iw`) und starte den Befehl neu.".to_string(),
+        _ => format!("`iw` ließ sich nicht starten ({e})."),
+    }
+    };
+    let Some(ifname) = parse_iw_dev(&befehl("iw", &["dev"]).map_err(kein_iw)?) else {
+        return Ok(None);
+    };
+    let Some(mut f) = parse_iw(&befehl("iw", &["dev", &ifname, "link"]).map_err(kein_iw)?)? else {
+        return Ok(None);
+    };
+    // ponytail: only wpa_supplicant; NetworkManager (`nmcli`) as a second source if it is missed.
+    f.sicherheit = befehl("wpa_cli", &["-i", &ifname, "status"])
+        .ok()
+        .and_then(|t| parse_wpa_status(&t));
+    Ok(Some(f))
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub fn lesen() -> Result<Option<Funkverbindung>, String> {
+    Err("`netzinfo wlan` liest die Funkverbindung nur auf dem Mac (CoreWLAN) und unter Linux (iw). Starte den Befehl auf einem dieser Systeme.".into())
 }
 
 /// What the store remembers per network (key: `Fingerprint::key()`).
@@ -718,6 +774,20 @@ mod tests {
         assert!(st["k"].funkpunkte.is_empty() && st["k"].ssid.is_none());
         // die Sicherheitsregel läuft weiter, die neuen Felder bleiben beim Fortschreiben erhalten
         assert!(aufzeichnen_in(&mut st, "k", &mit(Sicherheit::Wpa2), 2).is_some());
+    }
+
+    #[test]
+    fn iw_dev_und_wpa_status() {
+        let dev = "phy#0\n\tInterface wlan0\n\t\tifindex 3\n\t\taddr 00:00:5e:00:53:09\n\t\ttype managed\n";
+        assert_eq!(parse_iw_dev(dev).as_deref(), Some("wlan0"));
+        assert_eq!(parse_iw_dev(""), None);
+        let wpa = |km: &str| parse_wpa_status(&format!("ssid=Beispielnetz\nkey_mgmt={km}\n"));
+        assert_eq!(wpa("WPA2-PSK"), Some(Sicherheit::Wpa2));
+        assert_eq!(wpa("SAE"), Some(Sicherheit::Wpa3));
+        assert_eq!(wpa("WPA2-PSK SAE"), Some(Sicherheit::Wpa2Wpa3Gemischt));
+        assert_eq!(wpa("WPA-PSK"), Some(Sicherheit::Wpa));
+        assert_eq!(wpa("NONE"), None);
+        assert_eq!(parse_wpa_status("Failed to connect"), None);
     }
 
     #[test]
