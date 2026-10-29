@@ -104,7 +104,16 @@
   // „Wo hakt es?“ (issue #31): own block, `netzinfo diagnose` in the app.
   const AMPEL = { ok: 'gruen', schlecht: 'orange', stumm: 'rot', fehlt: 'grau' };
   const WORT = { ok: 'in Ordnung', schlecht: 'auffällig', stumm: 'stumm', fehlt: 'nicht gemessen' };
-  const URTEIL = { in_ordnung: 'gruen', weit_weg: 'orange', wlan_oder_router: 'rot', anbieter: 'rot', kein_internet: 'rot' };
+  const URTEIL = { funk: 'rot', in_ordnung: 'gruen', weit_weg: 'orange', wlan_oder_router: 'rot', anbieter: 'rot', kein_internet: 'rot' };
+  // Funk (issue #37): bottom row; no Wi-Fi = row says so, never an error.
+  const FUNK = { gut: ['gruen', 'in Ordnung'], schwach: ['orange', 'schwach'], nicht_geprueft: ['grau', 'nicht geprüft'], kabel: ['grau', 'kein WLAN (Kabel), entfällt'] };
+  function funkZeile(f) {
+    if (!f) return null;
+    const [ampel, wort] = FUNK[f.status] || FUNK.nicht_geprueft;
+    const zahlen = [f.rssi_dbm != null && `Signal ${f.rssi_dbm} dBm`, f.snr_db != null && `Abstand zum Rauschen ${f.snr_db} dB`].filter(Boolean).join(', ');
+    return el('li', {}, el('span', { class: `punkt ${ampel}` }), el('span', { class: 'diagnose-name', text: 'Funk' }),
+      el('span', { class: 'diagnose-wert', text: zahlen ? `${zahlen} · ${wort}` : wort }));
+  }
   function diagnoseKarte() {
     const ort = el('div', { 'aria-live': 'polite' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Wo hakt es?' });
@@ -114,13 +123,14 @@
       try {
         const r = await Netz.invoke('diagnose');
         ort.replaceChildren(
-          el('ul', { class: 'diagnose-ziele' }, r.ziele.map((z) => el('li', {},
+          el('ul', { class: 'diagnose-ziele' }, funkZeile(r.funk), r.ziele.map((z) => el('li', {},
             el('span', { class: `punkt ${AMPEL[z.status]}` }),
             el('span', { class: 'diagnose-name', text: z.name }),
             el('span', { class: 'diagnose-wert', text: z.status === 'fehlt' ? 'nicht gemessen'
               : `${z.beantwortet === 0 ? 'keine Antwort' : `${ms(z.median_ms)}, Verlust ${fmt(z.verlust_prozent)} %`} · ${WORT[z.status]}` })))),
           el('p', { class: 'diagnose-urteil' }, el('span', { class: `punkt ${URTEIL[r.urteil]}` }), el('strong', { text: r.satz })),
           el('ul', { class: 'diagnose-gruende' }, r.begruendung.map((t) => el('li', { text: t }))),
+          r.verlauf ? el('p', { class: 'diagnose-verlauf', text: r.verlauf }) : '',
           el('p', { class: 'diagnose-hinweis', text: `${r.mit_basis ? 'Verglichen mit den gespeicherten Werten dieses Netzes.' : 'Für dieses Netz gibt es noch keine gespeicherten Werte, es gelten feste Grenzen.'} Das Urteil ist eine Vermutung, kein Beweis.` }));
       } catch (e) {
         ort.replaceChildren(meldung(Netz.text(e)));

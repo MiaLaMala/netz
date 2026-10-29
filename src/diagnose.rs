@@ -2,7 +2,9 @@
 //! provider, two independent internet targets), one sentence on where it probably hangs.
 //! Measuring is `pfad` (ICMP sockets, path run); the verdict compares with the stored values of
 //! the network (`diagnose.json` next to `netze.json`, same key as `qualitaet.json`).
-//! ponytail: no signal strength and noise (CoreWLAN) here, that is #37 after #34.
+//! Bottom layer (issue #37): signal and noise from `wlan::lesen()`. A weak radio link plus a bad
+//! router is rated `Funk`; the older verdicts keep their names. Last verdicts per network are
+//! stored (`urteile`) for „Hier war es zuletzt 3 von 5 Mal der Funk“.
 
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -11,7 +13,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::pfad::{self, Icmp, Prober};
-use crate::{explain, hier, netze};
+use crate::{explain, hier, netze, wlan};
 
 const EINS: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
 const NEUN: Ipv4Addr = Ipv4Addr::new(9, 9, 9, 9);
@@ -24,6 +26,13 @@ const LOSS_PCT: f64 = 5.0;
 /// P95 above this multiple of the stored P95 counts as bad.
 const FACTOR: f64 = 3.0;
 const MAX_BASIS: usize = 10;
+/// Radio limits (start values, one place): signal below this many dBm or distance to the noise
+/// below this many dB counts as weak.
+const FUNK_RSSI_MIN: i32 = -75;
+const FUNK_SNR_MIN: i32 = 15;
+/// Verdicts kept per network, and how many of the last ones the history sentence looks at.
+const MAX_URTEILE: usize = 20;
+const VERLAUF_FENSTER: usize = 5;
 const NAMES: [&str; 4] = [
     "Router",
     "Erster Rechner des Anbieters",
@@ -43,9 +52,11 @@ pub enum Status {
     Fehlt,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Schicht {
+    /// Weak radio link and the router is bad too (issue #37).
+    Funk,
     WlanOderRouter,
     Anbieter,
     WeitWeg,
@@ -54,8 +65,23 @@ pub enum Schicht {
 }
 
 impl Schicht {
+    /// Subject of „Hier war es zuletzt 3 von 5 Mal …“.
+    fn wer(self) -> &'static str {
+        match self {
+            Schicht::Funk => "der Funk",
+            Schicht::WlanOderRouter => "das WLAN oder der Router",
+            Schicht::Anbieter => "der Anbieter",
+            Schicht::WeitWeg => "ein weit entferntes Ziel",
+            Schicht::InOrdnung => "alles in Ordnung",
+            Schicht::KeinInternet => "kein Internet",
+        }
+    }
+
     pub fn satz(self) -> &'static str {
         match self {
+            Schicht::Funk => {
+                "Das Problem liegt sehr wahrscheinlich im Funk (schwaches WLAN-Signal), nicht beim Internet."
+            }
             Schicht::WlanOderRouter => "Das Problem liegt wahrscheinlich im WLAN oder am Router.",
             Schicht::Anbieter => "Das Problem liegt wahrscheinlich beim Anbieter.",
             Schicht::WeitWeg => {
@@ -64,6 +90,81 @@ impl Schicht {
             Schicht::InOrdnung => "Keine Auffälligkeit gemessen.",
             Schicht::KeinInternet => "Kein Internet oder ICMP gesperrt.",
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FunkStatus {
+    Gut,
+    Schwach,
+    /// Wi-Fi is there but the values cannot be read (permission, Linux, no signal value).
+    NichtGeprueft,
+    /// No Wi-Fi link (cable): the stage is dropped.
+    Kabel,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Funk {
+    pub status: FunkStatus,
+    pub rssi_dbm: Option<i32>,
+    pub snr_db: Option<i32>,
+    pub band: Option<String>,
+    pub kanal: Option<u32>,
+}
+
+impl Funk {
+    fn leer(status: FunkStatus) -> Funk {
+        Funk {
+            status,
+            rssi_dbm: None,
+            snr_db: None,
+            band: None,
+            kanal: None,
+        }
+    }
+
+    /// „Signal -78 dBm, Abstand zum Rauschen 12 dB“, only what was read.
+    fn zahlen(&self) -> String {
+        let mut t = Vec::new();
+        if let Some(r) = self.rssi_dbm {
+            t.push(format!("Signal {r} dBm"));
+        }
+        if let Some(n) = self.snr_db {
+            t.push(format!("Abstand zum Rauschen {n} dB"));
+        }
+        t.join(", ")
+    }
+}
+
+/// Rating of the radio link: weak below `FUNK_RSSI_MIN` or `FUNK_SNR_MIN`.
+/// `Err` or no readable value is „not checked“, `Ok(None)` is a cable.
+fn funk_bewerten(w: Result<Option<wlan::Funkverbindung>, String>) -> Funk {
+    let f = match w {
+        Ok(Some(f)) => f,
+        Ok(None) => return Funk::leer(FunkStatus::Kabel),
+        Err(_) => return Funk::leer(FunkStatus::NichtGeprueft),
+    };
+    // A negative distance to the noise is a bogus reading (seen on a real Mac: noise -15 dBm).
+    let f = wlan::Funkverbindung {
+        snr_db: f.snr_db.filter(|n| *n >= 0),
+        ..f
+    };
+    if f.rssi_dbm.is_none() && f.snr_db.is_none() {
+        return Funk::leer(FunkStatus::NichtGeprueft);
+    }
+    let schwach =
+        f.rssi_dbm.is_some_and(|r| r < FUNK_RSSI_MIN) || f.snr_db.is_some_and(|n| n < FUNK_SNR_MIN);
+    Funk {
+        status: if schwach {
+            FunkStatus::Schwach
+        } else {
+            FunkStatus::Gut
+        },
+        rssi_dbm: f.rssi_dbm,
+        snr_db: f.snr_db,
+        band: f.band,
+        kanal: f.kanal,
     }
 }
 
@@ -89,6 +190,10 @@ pub struct DiagnoseErgebnis {
     /// One sentence, same as `urteil.satz()`.
     pub satz: String,
     pub begruendung: Vec<String>,
+    /// Radio layer, always there; `status` says whether it was checked.
+    pub funk: Funk,
+    /// „Hier war es zuletzt 3 von 5 Mal der Funk“, only with enough history.
+    pub verlauf: Option<String>,
     /// TCP check on 1.1.1.1:443, only when all targets were silent.
     pub tcp_443: Option<bool>,
     /// Compared with stored values of this network (else fixed limits).
@@ -112,6 +217,34 @@ struct NetDiag {
     /// TTL and address of the remembered first public hop.
     hop: Option<(u8, Ipv4Addr)>,
     basis: Vec<Lauf>,
+    /// Last verdicts (at most `MAX_URTEILE`); missing in stores from before #37.
+    #[serde(default)]
+    urteile: Vec<Eintrag>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Eintrag {
+    zeit: u64,
+    ort: Schicht,
+}
+
+/// „Hier war es zuletzt 3 von 5 Mal der Funk“ for the current verdict, from the last
+/// `VERLAUF_FENSTER` verdicts (old ones plus the current). Needs 3 of them and 2 equal ones.
+fn verlauf(alt: &[Eintrag], jetzt: Schicht) -> Option<String> {
+    if jetzt == Schicht::InOrdnung {
+        return None;
+    }
+    let mut orte: Vec<Schicht> = alt.iter().map(|e| e.ort).collect();
+    orte.push(jetzt);
+    let orte = &orte[orte.len().saturating_sub(VERLAUF_FENSTER)..];
+    let n = orte.iter().filter(|o| **o == jetzt).count();
+    (orte.len() >= 3 && n >= 2).then(|| {
+        format!(
+            "Hier war es zuletzt {n} von {} Mal {}.",
+            orte.len(),
+            jetzt.wer()
+        )
+    })
 }
 
 type Store = std::collections::BTreeMap<String, NetDiag>;
@@ -151,6 +284,7 @@ fn speichern(
     key: &str,
     hop: Option<(u8, Ipv4Addr)>,
     lauf: Option<Lauf>,
+    eintrag: Eintrag,
 ) -> Result<(), String> {
     let mut store: Store = netze::load_json(path)?;
     let d = store.entry(key.to_string()).or_default();
@@ -160,6 +294,9 @@ fn speichern(
         let weg = d.basis.len().saturating_sub(MAX_BASIS);
         d.basis.drain(..weg);
     }
+    d.urteile.push(eintrag);
+    let weg = d.urteile.len().saturating_sub(MAX_URTEILE);
+    d.urteile.drain(..weg);
     netze::save(path, &store)
 }
 
@@ -330,7 +467,8 @@ fn bewerte(i: usize, m: &Messung, basis: &Basis) -> Ziel {
 }
 
 /// Verdict from the four ratings. `tcp` is the check on 1.1.1.1:443, only asked when all are silent.
-fn urteil(z: &[Ziel], tcp: Option<bool>) -> (Schicht, Vec<String>) {
+fn urteil(z: &[Ziel], tcp: Option<bool>, funk: &Funk) -> (Schicht, Vec<String>) {
+    let schwach = funk.status == FunkStatus::Schwach;
     let st = |i: usize| z[i].status;
     let gruende = |r: std::ops::Range<usize>| -> Vec<String> {
         z[r].iter().flat_map(|x| x.gruende.clone()).collect()
@@ -348,16 +486,38 @@ fn urteil(z: &[Ziel], tcp: Option<bool>) -> (Schicht, Vec<String>) {
             }
             None => "Eine TCP-Gegenprobe zu 1.1.1.1:443 wurde nicht gemacht.",
         };
-        return (
-            Schicht::KeinInternet,
-            vec![
-                "Keine der gemessenen Stellen antwortet auf Ping.".into(),
-                gegenprobe.into(),
-            ],
-        );
+        let mut b = vec![
+            "Keine der gemessenen Stellen antwortet auf Ping.".into(),
+            gegenprobe.into(),
+        ];
+        if schwach {
+            b.push(format!(
+                "Das WLAN-Signal ist schwach ({}), das kann die Ursache sein.",
+                funk.zahlen()
+            ));
+        }
+        return (Schicht::KeinInternet, b);
     }
     if st(0) != Status::Ok {
-        return (Schicht::WlanOderRouter, gruende(0..1));
+        let mut b = gruende(0..1);
+        return if schwach {
+            b.insert(
+                0,
+                format!(
+                    "Das WLAN-Signal ist schwach ({}), Grenzen: unter {FUNK_RSSI_MIN} dBm oder unter {FUNK_SNR_MIN} dB.",
+                    funk.zahlen()
+                ),
+            );
+            (Schicht::Funk, b)
+        } else {
+            if funk.status == FunkStatus::Gut {
+                b.push(format!(
+                    "Der Funk ist gut ({}), also liegt es sehr wahrscheinlich am Router oder am Kabel dahinter.",
+                    funk.zahlen()
+                ));
+            }
+            (Schicht::WlanOderRouter, b)
+        };
     }
     let schicht = match (2..4).filter(|&i| st(i) != Status::Ok).count() {
         2 => Schicht::Anbieter,
@@ -373,17 +533,28 @@ fn urteil(z: &[Ziel], tcp: Option<bool>) -> (Schicht, Vec<String>) {
     } else {
         b.extend(gruende(1..4));
     }
+    if schwach {
+        b.push(format!(
+            "Das WLAN-Signal ist zwar schwach ({}), der Router antwortet aber in Ordnung.",
+            funk.zahlen()
+        ));
+    }
     (schicht, b)
 }
 
 /// Ratings and verdict of four measurements.
-fn auswerten(m: &[Messung], basis: &Basis, tcp: Option<bool>) -> (Vec<Ziel>, Schicht, Vec<String>) {
+fn auswerten(
+    m: &[Messung],
+    basis: &Basis,
+    tcp: Option<bool>,
+    funk: &Funk,
+) -> (Vec<Ziel>, Schicht, Vec<String>) {
     let ziele: Vec<Ziel> = m
         .iter()
         .enumerate()
         .map(|(i, x)| bewerte(i, x, basis))
         .collect();
-    let (s, b) = urteil(&ziele, tcp);
+    let (s, b) = urteil(&ziele, tcp, funk);
     (ziele, s, b)
 }
 
@@ -428,6 +599,7 @@ pub fn diagnose_daten() -> Result<DiagnoseErgebnis, String> {
         None => NetDiag::default(),
     };
     let basis = basis_aus(&alt.basis);
+    let funk = funk_bewerten(wlan::lesen());
     let gemerkt = alt.hop.is_some();
     let mut hop = alt.hop.or_else(finde_hop);
     let plans = vec![
@@ -455,26 +627,30 @@ pub fn diagnose_daten() -> Result<DiagnoseErgebnis, String> {
         .filter(|x| x.gesendet > 0)
         .all(|x| x.rtts.is_empty())
         .then(tcp_443);
-    let (ziele, schicht, begruendung) = auswerten(&m, &basis, tcp);
+    let (ziele, schicht, begruendung) = auswerten(&m, &basis, tcp, &funk);
+    let zeit = netze::now();
+    let verlauf = verlauf(&alt.urteile, schicht);
     if let Some((p, k)) = &ort {
         let ok = ziele
             .iter()
             .all(|z| matches!(z.status, Status::Ok | Status::Fehlt));
         let lauf = (schicht == Schicht::InOrdnung && ok).then(|| Lauf {
-            zeit: netze::now(),
+            zeit,
             median: std::array::from_fn(|i| ziele[i].median_ms),
             p95: std::array::from_fn(|i| ziele[i].p95_ms),
         });
-        speichern(p, k, hop, lauf)?;
+        speichern(p, k, hop, lauf, Eintrag { zeit, ort: schicht })?;
     }
     Ok(DiagnoseErgebnis {
         ziele,
         urteil: schicht,
         satz: schicht.satz().to_string(),
         begruendung,
+        funk,
+        verlauf,
         tcp_443: tcp,
         mit_basis: basis.laeufe > 0,
-        zeitpunkt: netze::now(),
+        zeitpunkt: zeit,
     })
 }
 
@@ -491,8 +667,27 @@ fn status_wort(s: Status) -> &'static str {
     }
 }
 
+fn funk_zeile(f: &Funk) -> String {
+    match f.status {
+        FunkStatus::Kabel => "kein WLAN (Kabel), Stufe entfällt".into(),
+        FunkStatus::NichtGeprueft => "nicht geprüft (Funkwerte nicht lesbar)".into(),
+        s => format!(
+            "{}  {}",
+            f.zahlen(),
+            if s == FunkStatus::Gut {
+                "in Ordnung"
+            } else {
+                "schwach"
+            }
+        ),
+    }
+}
+
 fn schicht_erklaerung(s: Schicht) -> &'static str {
     match s {
+        Schicht::Funk => {
+            "Das WLAN-Signal ist schwach (unter -75 dBm) oder liegt zu nah am Rauschen (unter 15 dB Abstand), und der Router antwortet schlecht. Dann gehen Pakete schon auf der Funkstrecke zwischen Mac und Router verloren oder müssen wiederholt werden. Das passiert bei Abstand, Wänden oder Störung durch Nachbarnetze. Näher an den Router oder ein anderes Band (5 GHz) hilft oft. Eine Messung ist kein Beweis, darum steht dort „sehr wahrscheinlich“."
+        }
         Schicht::WlanOderRouter => {
             "Der Router ist die erste Station hinter deinem WLAN oder Kabel. Antwortet er langsam oder verliert Pakete, liegt es am Funk, am Kabel oder am Router selbst. Ich vergleiche mit den gespeicherten Werten dieses Netzes, etwa „normalerweise antwortet dein Router hier in 3 ms, jetzt in 40 ms“. Das spricht für WLAN oder einen überlasteten Router."
         }
@@ -512,16 +707,27 @@ fn schicht_erklaerung(s: Schicht) -> &'static str {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    if let Some(a) = args.first() {
-        return Err(format!(
-            "„{a}“ passt hier nicht. Aufruf: `netzinfo diagnose` (ohne Optionen, außer `--erklaer`)."
-        ));
+    let mut json = false;
+    for a in args {
+        match a.as_str() {
+            "--json" => json = true,
+            a => {
+                return Err(format!(
+                    "„{a}“ passt hier nicht. Aufruf: `netzinfo diagnose [--json]`, `--erklaer` erklärt die Schritte."
+                ));
+            }
+        }
     }
     explain(
         explain_on,
-        "Ich schicke an vier Stellen gleichzeitig je 20 Ping-Pakete (ICMP Echo) im Abstand von 200 Millisekunden: an deinen Router, an den ersten Rechner deines Anbieters (den finde ich mit einem kurzen Pfadlauf, bei dem ein Paket mit kleiner Lebensdauer, dem TTL, schon dort umkehrt) und an die Server 1.1.1.1 und 9.9.9.9. Das dauert etwa 5 Sekunden und sind zusammen unter 10 kB.",
+        "Ich schicke an vier Stellen gleichzeitig je 20 Ping-Pakete (ICMP Echo) im Abstand von 200 Millisekunden: an deinen Router, an den ersten Rechner deines Anbieters (den finde ich mit einem kurzen Pfadlauf, bei dem ein Paket mit kleiner Lebensdauer, dem TTL, schon dort umkehrt) und an die Server 1.1.1.1 und 9.9.9.9. Das dauert etwa 5 Sekunden und sind zusammen unter 10 kB. Vorher lese ich die Funkwerte deines WLANs (Signalstärke und Rauschen) aus dem Mac, dabei geht nichts ins Netz. Am Kabel entfällt dieser Schritt.",
     );
     let r = diagnose_daten()?;
+    if json {
+        let t = serde_json::to_string_pretty(&r).map_err(|e| format!("JSON-Fehler: {e}"))?;
+        println!("{t}");
+        return Ok(());
+    }
     println!(
         "{}",
         if r.mit_basis {
@@ -530,6 +736,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             "Noch keine gespeicherten Werte für dieses Netz, es gelten feste Grenzen."
         }
     );
+    println!("  {:<30} {}", "Funk", funk_zeile(&r.funk));
     for z in &r.ziele {
         println!(
             "  {:<30} {:>2}/{:<2} Verlust {:>5} %  Median {:>9}  P95 {:>9}  Jitter {:>9}  {}",
@@ -546,6 +753,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     println!("\nUrteil: {}", r.satz);
     for b in &r.begruendung {
         println!("  - {b}");
+    }
+    if let Some(v) = &r.verlauf {
+        println!("  {v}");
     }
     explain(explain_on, schicht_erklaerung(r.urteil));
     explain(
@@ -653,7 +863,7 @@ mod tests {
     }
 
     fn ziele(r: Messung, h: Messung, a: Messung, b: Messung) -> (Schicht, Vec<String>) {
-        let (_, s, g) = auswerten(&[r, h, a, b], &Basis::default(), Some(false));
+        let (_, s, g) = auswerten(&[r, h, a, b], &Basis::default(), Some(false), &kabel());
         (s, g)
     }
 
@@ -709,10 +919,10 @@ mod tests {
         let z: Vec<Ziel> = (0..4)
             .map(|i| bewerte(i, &gleich(0, 0.0), &Basis::default()))
             .collect();
-        let (s, b) = urteil(&z, Some(true));
+        let (s, b) = urteil(&z, Some(true), &kabel());
         assert_eq!(s, Schicht::KeinInternet);
         assert!(b[1].contains("klappt aber"));
-        assert!(urteil(&z, Some(false)).1[1].contains("klappt nicht"));
+        assert!(urteil(&z, Some(false), &kabel()).1[1].contains("klappt nicht"));
     }
 
     /// Fake socket: answers probe `seq` if `antwort(seq)`, after 1 ms.
@@ -762,7 +972,7 @@ mod tests {
             Duration::from_millis(3),
             Duration::from_millis(5),
         );
-        let (z, s, _) = auswerten(&m, &Basis::default(), Some(false));
+        let (z, s, _) = auswerten(&m, &Basis::default(), Some(false), &kabel());
         (s, z)
     }
 
@@ -842,17 +1052,149 @@ mod tests {
             median: [Some(3.0); 4],
             p95: [Some(5.0); 4],
         };
-        for t in 0..12 {
-            speichern(&path, "k", hop, Some(l(t))).unwrap();
+        let e = |t| Eintrag {
+            zeit: t,
+            ort: Schicht::InOrdnung,
+        };
+        for t in 0..25 {
+            speichern(&path, "k", hop, Some(l(t)), e(t)).unwrap();
         }
-        speichern(&path, "k", hop, None).unwrap();
-        speichern(&path, "anderes", None, None).unwrap();
+        speichern(&path, "k", hop, None, e(99)).unwrap();
+        speichern(&path, "anderes", None, None, e(0)).unwrap();
         let s: Store = netze::load_json(&path).unwrap();
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(s["k"].basis.len(), MAX_BASIS);
-        assert_eq!(s["k"].basis[0].zeit, 2);
+        assert_eq!(s["k"].basis[0].zeit, 15);
+        assert_eq!(s["k"].urteile.len(), MAX_URTEILE);
+        assert_eq!(s["k"].urteile.last().map(|x| x.zeit), Some(99));
         assert_eq!(s["k"].hop, hop);
         assert!(s["anderes"].basis.is_empty());
+    }
+
+    fn kabel() -> Funk {
+        Funk::leer(FunkStatus::Kabel)
+    }
+
+    fn funk(rssi: i32, snr: i32) -> Funk {
+        funk_bewerten(Ok(Some(wlan::Funkverbindung {
+            rssi_dbm: Some(rssi),
+            snr_db: Some(snr),
+            ..Default::default()
+        })))
+    }
+
+    #[test]
+    fn radio_limits_and_edges() {
+        assert_eq!(funk(-75, 15).status, FunkStatus::Gut);
+        assert_eq!(funk(-76, 30).status, FunkStatus::Schwach);
+        assert_eq!(funk(-50, 14).status, FunkStatus::Schwach);
+        // bogus negative SNR is ignored, a strong signal stays good
+        assert_eq!(funk(-31, -16).status, FunkStatus::Gut);
+        assert_eq!(funk(-31, -16).snr_db, None);
+        // only one value read
+        let nur = |r, n| {
+            funk_bewerten(Ok(Some(wlan::Funkverbindung {
+                rssi_dbm: r,
+                snr_db: n,
+                ..Default::default()
+            })))
+            .status
+        };
+        assert_eq!(nur(Some(-80), None), FunkStatus::Schwach);
+        assert_eq!(nur(Some(-60), None), FunkStatus::Gut);
+        assert_eq!(nur(None, None), FunkStatus::NichtGeprueft);
+        // cable and unreadable
+        assert_eq!(funk_bewerten(Ok(None)).status, FunkStatus::Kabel);
+        assert_eq!(
+            funk_bewerten(Err("x".into())).status,
+            FunkStatus::NichtGeprueft
+        );
+    }
+
+    #[test]
+    fn funk_verdict_separate_from_router() {
+        let (gut, still, schlecht) = (|| gleich(20, 3.0), || gleich(0, 0.0), || gleich(15, 3.0));
+        let lauf =
+            |f: &Funk, r: Messung| auswerten(&[r, gut(), gut(), gut()], &Basis::default(), None, f);
+        // weak radio and bad router: Funk, with the numbers
+        let (_, s, b) = lauf(&funk(-78, 12), schlecht());
+        assert_eq!(s, Schicht::Funk);
+        assert!(
+            b[0].contains("Signal -78 dBm, Abstand zum Rauschen 12 dB"),
+            "{b:?}"
+        );
+        assert!(s.satz().contains("sehr wahrscheinlich"));
+        // good radio and bad router: the old verdict, with the radio as evidence
+        let (_, s, b) = lauf(&funk(-55, 38), schlecht());
+        assert_eq!(s, Schicht::WlanOderRouter);
+        assert!(
+            b.iter()
+                .any(|x| x.contains("Der Funk ist gut (Signal -55 dBm"))
+        );
+        // cable, not checked: old verdict, no radio sentence
+        for f in [kabel(), Funk::leer(FunkStatus::NichtGeprueft)] {
+            let (_, s, b) = lauf(&f, still());
+            assert_eq!(s, Schicht::WlanOderRouter);
+            assert!(!b.iter().any(|x| x.contains("Funk")));
+        }
+        // weak radio but router fine: verdict unchanged, note added
+        let (_, s, b) = lauf(&funk(-80, 20), gut());
+        assert_eq!(s, Schicht::InOrdnung);
+        assert!(b.last().is_some_and(|x| x.contains("zwar schwach")));
+        // everything silent stays „kein Internet“, weak radio is named as possible cause
+        let z = |f: &Funk| {
+            auswerten(
+                &[still(), still(), still(), still()],
+                &Basis::default(),
+                Some(false),
+                f,
+            )
+        };
+        assert_eq!(z(&funk(-80, 20)).1, Schicht::KeinInternet);
+        assert!(
+            z(&funk(-80, 20))
+                .2
+                .iter()
+                .any(|x| x.contains("kann die Ursache"))
+        );
+    }
+
+    #[test]
+    fn history_sentence() {
+        let e = |ort| Eintrag { zeit: 0, ort };
+        let alt = [
+            Schicht::Funk,
+            Schicht::InOrdnung,
+            Schicht::Funk,
+            Schicht::Anbieter,
+        ]
+        .map(e);
+        // window of 5: last 4 old + now = Funk, Ordnung, Funk, Anbieter, Funk = 3 of 5
+        assert_eq!(
+            verlauf(&alt, Schicht::Funk).as_deref(),
+            Some("Hier war es zuletzt 3 von 5 Mal der Funk.")
+        );
+        assert!(verlauf(&alt, Schicht::InOrdnung).is_none());
+        assert!(verlauf(&alt[..1], Schicht::Funk).is_none());
+        assert!(verlauf(&[], Schicht::Funk).is_none());
+        assert!(verlauf(&alt, Schicht::WeitWeg).is_none());
+    }
+
+    #[test]
+    fn store_from_before_37_still_loads() {
+        let dir = std::env::temp_dir().join(format!("netz-diagnose-alt-{}", std::process::id()));
+        let path = dir.join("diagnose.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"k":{"hop":[2,"203.0.113.1"],"basis":[{"zeit":5,"median":[3.0,null,3.0,3.0],"p95":[5.0,null,5.0,5.0]}]}}"#,
+        )
+        .unwrap();
+        let s: Result<Store, _> = netze::load_json(&path);
+        let _ = std::fs::remove_dir_all(&dir);
+        let s = s.unwrap();
+        assert_eq!(s["k"].basis.len(), 1);
+        assert!(s["k"].urteile.is_empty());
     }
 
     #[test]
@@ -863,6 +1205,7 @@ mod tests {
                 .contains("passt hier nicht")
         );
         for s in [
+            Schicht::Funk,
             Schicht::WlanOderRouter,
             Schicht::Anbieter,
             Schicht::WeitWeg,
