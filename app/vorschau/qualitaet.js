@@ -41,7 +41,7 @@
 
   VORSCHAU.bericht = async () => {
     if (marken.includes('qualitaet-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
-    if (marken.includes('qualitaet-unbekannt')) throw { art: 'nicht_gemerkt', text: 'Dieses Netz ist nicht gemerkt. Merke es zuerst mit `netzinfo merken <Name>`, dann kann ich Messungen darunter speichern.' };
+    if (marken.includes('qualitaet-unbekannt')) throw { art: 'nicht_gemerkt', text: 'Dieses Netz ist nicht gemerkt.' };
     if (marken.includes('qualitaet-leer')) return { netz: 'WG', von: 0, bis: 0, ziele: [], reihen: [] };
     return bericht();
   };
@@ -101,7 +101,7 @@
     return { ...base, hops: [...stationen.slice(0, 4), letzter] };
   };
   addEventListener('DOMContentLoaded', () => {
-    if (marken.some((m) => m.startsWith('pfad-'))) setTimeout(() => { document.querySelector('.weg-karte .haupt')?.click(); document.querySelector('.weg-karte')?.scrollIntoView(); }, 500);
+    if (marken.some((m) => m.startsWith('pfad-'))) setTimeout(() => { document.querySelector('.weg-karte .werkzeuge .knopf:last-child')?.click(); document.querySelector('.weg-karte')?.scrollIntoView(); }, 500);
   });
 })();
 
@@ -192,7 +192,7 @@
   addEventListener('DOMContentLoaded', () => {
     if (marken.some((m) => m.startsWith('mtu-'))) {
       setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
-      setTimeout(() => { document.querySelector('.mtu-karte .haupt')?.click(); document.querySelector('.mtu-karte')?.scrollIntoView(); }, 600);
+      setTimeout(() => { document.querySelector('.mtu-karte .werkzeuge .knopf:last-child')?.click(); document.querySelector('.mtu-karte')?.scrollIntoView(); }, 600);
     }
   });
 })();

@@ -1,118 +1,145 @@
 /* Styles for the view „qualitaet“ only. */
-[data-ansicht='qualitaet'] .werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+/* Raster: 8-px-Schritte. Karten innen 16 px, Abstand Gruppe zu Gruppe 24 px, Titel zur Karte 8 px. */
+[data-ansicht='qualitaet'] { max-width: 720px; }
+[data-ansicht='qualitaet'] .gruppe { margin-top: 24px; }
+[data-ansicht='qualitaet'] .gruppe > h3 { margin: 0 0 8px 16px; }
+[data-ansicht='qualitaet'] .gruppe > .karte, [data-ansicht='qualitaet'] .gruppe .karte { margin-top: 0; padding: 16px; }
+[data-ansicht='qualitaet'] .gruppe > .fuss { margin: 8px 16px 0; }
+[data-ansicht='qualitaet'] .karte .fuss { margin: 8px 0 0; }
+[data-ansicht='qualitaet'] .karte .fuss:first-child { margin-top: 0; }
+[data-ansicht='qualitaet'] .karte .erklaerung { margin-top: 8px; }
+[data-ansicht='qualitaet'] .kopf + .status { margin-top: 6px; }
+/* Gruppen in Karten sind keine zweite Karte: Titel klein, Zeilen bündig zum Karteninhalt */
+[data-ansicht='qualitaet'] .karte .gruppe { margin-top: 16px; }
+[data-ansicht='qualitaet'] .karte .gruppe > h3 { margin-left: 0; }
+[data-ansicht='qualitaet'] .karte .liste { background: none; border: 0; border-radius: 0; }
+[data-ansicht='qualitaet'] .karte .zeile { margin: 0; }
+[data-ansicht='qualitaet'] .karte .status { margin-top: 0; margin-bottom: 8px; font-size: 13px; }
+[data-ansicht='qualitaet'] .karte .meldung { margin-top: 8px; }
+[data-ansicht='qualitaet'] .karte .fehler-karte .meldung { margin-top: 0; }
+[data-ansicht='qualitaet'] > .fehler-karte { margin-top: 16px; }
+[data-ansicht='qualitaet'] > .fehler-karte .meldung { margin-top: 0; }
+[data-ansicht='qualitaet'] .werkzeuge { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
 [data-ansicht='qualitaet'] .werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
-[data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 20px 0; }
+[data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 16px 0; }
 [data-ansicht='qualitaet'] .kurve { display: block; width: 100%; height: auto; }
-[data-ansicht='qualitaet'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
-[data-ansicht='qualitaet'] .kurve .achse { fill: var(--fg2); font-size: 11px; }
-[data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-ansicht='qualitaet'] .kurve .verlust { stroke-width: 2; stroke-linecap: round; }
-[data-ansicht='qualitaet'] .legende { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px 18px; margin: 10px 0 4px 4px; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .kurve .gitter, [data-ansicht='qualitaet'] .wlan-kurve .gitter { stroke: color-mix(in srgb, var(--fg) 12%, transparent); stroke-width: 1; }
+[data-ansicht='qualitaet'] .kurve .gitter.senkrecht, [data-ansicht='qualitaet'] .wlan-kurve .gitter.senkrecht { stroke: color-mix(in srgb, var(--fg) 6%, transparent); }
+[data-ansicht='qualitaet'] .kurve .gitter.basis, [data-ansicht='qualitaet'] .wlan-kurve .gitter.basis { stroke: color-mix(in srgb, var(--fg) 30%, transparent); }
+[data-ansicht='qualitaet'] .kurve .achse, [data-ansicht='qualitaet'] .wlan-kurve .achse { fill: var(--fg2); font-size: 11px; font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .wlan-kurve .achse.signal { fill: color-mix(in srgb, var(--accent) 65%, var(--fg)); }
+[data-ansicht='qualitaet'] .wlan-kurve .achse.rate { fill: color-mix(in srgb, var(--gruen) 70%, var(--fg)); }
+[data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+[data-ansicht='qualitaet'] .kurve .verlust { stroke-width: 2.5; stroke-linecap: round; }
+[data-ansicht='qualitaet'] .legende { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px 16px; margin: 8px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
 [data-ansicht='qualitaet'] .legende li { display: flex; align-items: center; gap: 6px; }
 [data-ansicht='qualitaet'] .legende .muster { width: 28px; height: 8px; }
 
 /* „Wo hakt es?“ */
-[data-ansicht='qualitaet'] .diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; margin-top: 6px; }
+[data-ansicht='qualitaet'] .diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 [data-ansicht='qualitaet'] .diagnose > .fuss { margin: 0; }
 [data-ansicht='qualitaet'] .diagnose > div { width: 100%; }
-[data-ansicht='qualitaet'] .diagnose-ziele, [data-ansicht='qualitaet'] .diagnose-gruende { margin: 10px 0 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .diagnose-ziele, [data-ansicht='qualitaet'] .diagnose-gruende { margin: 8px 0 0; padding: 0; list-style: none; }
 [data-ansicht='qualitaet'] .diagnose-ziele li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-[data-ansicht='qualitaet'] .diagnose-ziele .diagnose-name { min-width: 200px; }
+[data-ansicht='qualitaet'] .diagnose-urteil { font-size: 15px; }
+[data-ansicht='qualitaet'] .diagnose-ziele .diagnose-name { min-width: 200px; font-weight: 500; }
 [data-ansicht='qualitaet'] .diagnose-ziele .diagnose-wert { color: var(--fg2); font-variant-numeric: tabular-nums; }
-[data-ansicht='qualitaet'] .diagnose-urteil { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; }
+[data-ansicht='qualitaet'] .diagnose-urteil { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; }
 [data-ansicht='qualitaet'] .diagnose-gruende li { margin-top: 4px; color: var(--fg2); }
-[data-ansicht='qualitaet'] .diagnose-hinweis { margin: 10px 0 0; color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .diagnose-hinweis { margin: 8px 0 0; color: var(--fg2); font-size: 12px; }
 
 /* Karte „Weg zum Ziel“ */
-[data-ansicht='qualitaet'] .weg-karte .karte { margin-top: 6px; }
-[data-ansicht='qualitaet'] .weg .werkzeuge { margin-top: 0; }
+[data-ansicht='qualitaet'] .weg .werkzeuge, [data-ansicht='qualitaet'] .mtu .werkzeuge { margin-top: 0; }
 [data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; }
 [data-ansicht='qualitaet'] .weg .fortschritt progress { vertical-align: middle; width: 80px; }
-[data-ansicht='qualitaet'] .hops { margin: 10px 0 0; padding: 0; list-style: none; }
-[data-ansicht='qualitaet'] .hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 70px 100px; align-items: center; gap: 8px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
+[data-ansicht='qualitaet'] .hops { margin: 16px 0 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 80px 64px 96px; align-items: center; gap: 8px; padding: 8px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
 [data-ansicht='qualitaet'] .hop .ttl, [data-ansicht='qualitaet'] .hop .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
 [data-ansicht='qualitaet'] .hop .zahl { text-align: right; }
+[data-ansicht='qualitaet'] .hop .zahl.verlust.hat { color: var(--fg); font-weight: 600; }
+[data-ansicht='qualitaet'] .hop .ttl { text-align: right; }
 [data-ansicht='qualitaet'] .hop .adresse { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-ansicht='qualitaet'] .hop.stumm .adresse { color: var(--fg2); }
 [data-ansicht='qualitaet'] .hop .balken { height: 6px; border-radius: 3px; background: var(--linie); overflow: hidden; }
 [data-ansicht='qualitaet'] .hop .balken span { display: block; height: 100%; background: var(--accent); }
 [data-ansicht='qualitaet'] .hop.ende-verlust .adresse, [data-ansicht='qualitaet'] .hop.ende-verlust .zahl.verlust { color: var(--rot); font-weight: 600; }
 [data-ansicht='qualitaet'] .hop.ende-verlust .balken span { background: var(--rot); }
-[data-ansicht='qualitaet'] .weg .erklaerung { margin: 8px 0 0; }
 [data-ansicht='qualitaet'] .diagnose-verlauf { margin: 8px 0 0; font-weight: 600; }
 
 /* Karte „WLAN-Verlauf“ (#36) */
-[data-ansicht='qualitaet'] .wlan-karte .karte { margin-top: 6px; }
 [data-ansicht='qualitaet'] .wlan-kurve { display: block; width: 100%; height: auto; }
-[data-ansicht='qualitaet'] .wlan-kurve .gitter { stroke: var(--linie); stroke-width: 1; }
-[data-ansicht='qualitaet'] .wlan-kurve .achse { fill: var(--fg2); font-size: 11px; }
 [data-ansicht='qualitaet'] .wlan-kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 [data-ansicht='qualitaet'] .wlan-kurve .marke-linie { stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
 [data-ansicht='qualitaet'] .wlan-kurve .marke path { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-ansicht='qualitaet'] .wlan-karte .legende { margin: 6px 0 10px; }
-[data-ansicht='qualitaet'] .wlan-vergleich { margin: 8px 0 0; font-weight: 600; }
+[data-ansicht='qualitaet'] .wlan-karte .legende { margin: 8px 0 0; }
+[data-ansicht='qualitaet'] .wlan-vergleich { margin: 16px 0 0; font-weight: 600; }
 [data-ansicht='qualitaet'] .wlan-karte .legende .zeichen { width: 14px; height: 14px; }
-[data-ansicht='qualitaet'] .wlan-karte .karte > div { padding-bottom: 6px; }
 
 /* Karte „Paketgröße“ (#47) */
-[data-ansicht='qualitaet'] .mtu-karte .karte { margin-top: 6px; }
-[data-ansicht='qualitaet'] .mtu .erklaerung { margin: 8px 0 0; }
-[data-ansicht='qualitaet'] .mtu-satz { margin: 8px 0 0; font-weight: 600; }
+[data-ansicht='qualitaet'] .mtu-satz { margin: 16px 0 0; font-weight: 600; }
 /* Karte „IPv6“ */
-[data-ansicht='qualitaet'] .ipv6-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
+[data-ansicht='qualitaet'] .ipv6-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 [data-ansicht='qualitaet'] .ipv6-karte > div { width: 100%; }
 [data-ansicht='qualitaet'] .ipv6-tabelle { width: 100%; border-collapse: collapse; font-size: 13px; }
 [data-ansicht='qualitaet'] .ipv6-tabelle th { text-align: left; color: var(--fg2); font-weight: 500; }
-[data-ansicht='qualitaet'] .ipv6-tabelle th, [data-ansicht='qualitaet'] .ipv6-tabelle td { padding: 4px 8px 4px 0; border-top: 0.5px solid var(--linie); font-variant-numeric: tabular-nums; }
-[data-ansicht='qualitaet'] .ipv6-satz { margin: 4px 0 0; color: var(--fg2); }
+[data-ansicht='qualitaet'] .ipv6-tabelle th, [data-ansicht='qualitaet'] .ipv6-tabelle td { padding: 8px 8px 8px 0; border-top: 0.5px solid var(--linie); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .ipv6-satz { margin: 8px 0 0; color: var(--fg2); }
 /* Karte „Funkumfeld“ (#55) */
-[data-ansicht='qualitaet'] .umfeld-karte .karte { margin-top: 6px; padding: 12px; }
-[data-ansicht='qualitaet'] .umfeld-hinweis { margin: 0 0 10px; color: var(--fg2); }
-[data-ansicht='qualitaet'] .umfeld-summe { margin: 12px 0 0; font-weight: 600; }
-[data-ansicht='qualitaet'] .umfeld-band h4 { margin: 14px 0 6px; font-size: 12px; color: var(--fg2); }
-[data-ansicht='qualitaet'] .umfeld-balken { display: flex; align-items: flex-end; gap: 8px; margin: 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .umfeld-hinweis { margin: 0 0 12px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .umfeld-summe { margin: 16px 0 0; font-weight: 600; }
+[data-ansicht='qualitaet'] .umfeld-band h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--fg2); }
+[data-ansicht='qualitaet'] .umfeld-balken { display: flex; align-items: flex-end; gap: 8px; margin: 0; padding: 0 0 4px; list-style: none; border-bottom: 1px solid color-mix(in srgb, var(--fg) 30%, transparent); }
 [data-ansicht='qualitaet'] .umfeld-balken li { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 28px; font-size: 12px; }
 [data-ansicht='qualitaet'] .umfeld-balken .saeule { display: block; width: 20px; height: var(--h); min-height: 4px; margin: 2px 0; border-radius: 4px 4px 0 0; background: var(--fg2); opacity: 0.55; }
 [data-ansicht='qualitaet'] .umfeld-balken .jetzt .saeule { background: var(--accent); opacity: 1; }
 [data-ansicht='qualitaet'] .umfeld-balken .rat .saeule { background: var(--gruen); opacity: 1; }
-[data-ansicht='qualitaet'] .umfeld-balken .zahl { color: var(--fg2); }
-[data-ansicht='qualitaet'] .umfeld-legende { margin: 8px 0 0; font-size: 12px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .umfeld-balken .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .umfeld-legende { margin: 16px 0 0; font-size: 12px; color: var(--fg2); }
 [data-ansicht='qualitaet'] .umfeld-balken .jetzt .kanal, [data-ansicht='qualitaet'] .umfeld-balken .rat .kanal { font-weight: 600; }
-[data-ansicht='qualitaet'] .umfeld-rat { margin: 14px 0 0; }
+[data-ansicht='qualitaet'] .umfeld-rat { margin: 16px 0 0; font-weight: 600; }
 
 /* Karte „DNS-Tempo“ */
-[data-ansicht='qualitaet'] .dns-tempo { margin: 10px 0 0; padding: 0; list-style: none; }
-[data-ansicht='qualitaet'] .dns-tempo li { display: grid; grid-template-columns: minmax(0, 1.4fr) 1fr 1fr 80px; align-items: center; gap: 10px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
+[data-ansicht='qualitaet'] .dns-tempo { margin: 16px 0 0; padding: 0; list-style: none; }
+[data-ansicht='qualitaet'] .dns-tempo li { display: grid; grid-template-columns: minmax(0, 1.4fr) 1fr 1fr 80px; align-items: center; gap: 8px 16px; padding: 8px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
+[data-ansicht='qualitaet'] .dns-tempo li:first-child { border-top: 0; }
+[data-ansicht='qualitaet'] .dns-tempo > li > .zahl:last-child { text-align: right; }
 [data-ansicht='qualitaet'] .dns-tempo .werte { display: flex; flex-direction: column; gap: 2px; }
 [data-ansicht='qualitaet'] .dns-tempo .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
 [data-ansicht='qualitaet'] .dns-tempo .balken { height: 6px; border-radius: 3px; background: var(--linie); overflow: hidden; }
 [data-ansicht='qualitaet'] .dns-tempo .balken span { display: block; height: 100%; background: var(--accent); }
 [data-ansicht='qualitaet'] .dns-tempo li.rat .name { font-weight: 600; }
-[data-ansicht='qualitaet'] .egress-karte .karte { padding: 12px; }
-[data-ansicht='qualitaet'] .egress-werkzeuge { display: flex; gap: 8px; margin-bottom: 8px; }
+[data-ansicht='qualitaet'] .egress-werkzeuge { display: flex; gap: 8px; margin-bottom: 16px; }
+[data-ansicht='qualitaet'] .egress-werkzeuge .ziel-feld { flex: 1; min-width: 0; }
 /* Karte „Unter Last“ (#49) */
-[data-ansicht='qualitaet'] .last-karte .karte { margin-top: 6px; padding: 12px; }
-[data-ansicht='qualitaet'] .last-hinweis { margin: 0 0 10px; color: var(--fg2); }
-[data-ansicht='qualitaet'] .last-verlauf { margin: 4px 0 0; padding-left: 18px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .last-hinweis { margin: 0 0 12px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .last-verlauf { margin: 4px 0 0; padding-left: 18px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .last-karte h4 { margin: 16px 0 0; font-size: 12px; font-weight: 600; color: var(--fg2); }
+[data-ansicht='qualitaet'] .last-karte .liste { margin-top: 16px; }
 
 /* Kennzahlen: eine Tabelle, eine Spalte je Ziel */
 [data-ansicht='qualitaet'] .kennzahlen { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-[data-ansicht='qualitaet'] .kennzahlen th, [data-ansicht='qualitaet'] .kennzahlen td { padding: 7px 8px 7px 0; text-align: left; vertical-align: top; }
-[data-ansicht='qualitaet'] .kennzahlen thead th { padding-top: 2px; font-weight: 600; }
-[data-ansicht='qualitaet'] .kennzahlen tbody th { color: var(--fg2); font-weight: 500; white-space: nowrap; }
+[data-ansicht='qualitaet'] .kennzahlen th, [data-ansicht='qualitaet'] .kennzahlen td { padding: 8px 0 8px 16px; text-align: right; vertical-align: top; }
+[data-ansicht='qualitaet'] .kennzahlen th:first-child { padding-left: 0; text-align: left; }
+[data-ansicht='qualitaet'] .kennzahlen thead th { padding-top: 0; padding-bottom: 8px; font-weight: 600; vertical-align: bottom; }
+[data-ansicht='qualitaet'] .kennzahlen tbody th { color: var(--fg2); font-weight: 500; }
 [data-ansicht='qualitaet'] .kennzahlen tbody tr:not(.erkl-zeile) > * { border-top: 0.5px solid var(--linie); }
 [data-ansicht='qualitaet'] .kennzahlen td > span { display: block; }
 [data-ansicht='qualitaet'] .kennzahlen .klein { color: var(--fg2); font-size: 12px; }
 [data-ansicht='qualitaet'] .kennzahlen .nur-lesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: none; }
 .erklaeren [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: table-row; }
-[data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 6px; }
+[data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 8px; text-align: left; }
 
 /* Gruppe „Ausfälle“ (#51): Zeitleiste, rote Balken und graue Striche; Farbe nie allein (Form, Titel, Liste) */
-[data-ansicht='qualitaet'] .ausfall-leiste { position: relative; height: 28px; border-radius: 6px; background: var(--seite-solid); overflow: hidden; }
+[data-ansicht='qualitaet'] .ausfall-leiste { position: relative; height: 32px; border-radius: 6px; background: var(--seite-solid); overflow: hidden; }
 [data-ansicht='qualitaet'] .ausfall-balken { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--rot); }
 [data-ansicht='qualitaet'] .ausfall-leiste .strich { position: absolute; bottom: 0; width: 2px; height: 10px; background: var(--fg2); }
-[data-ansicht='qualitaet'] .ausfall-achse { display: flex; justify-content: space-between; margin: 4px 0 10px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .ausfall-achse { display: flex; justify-content: space-between; margin: 4px 0 16px; font-size: 12px; color: var(--fg2); }
 [data-ansicht='qualitaet'] .ausfall-karte .karte > p:first-child:empty { display: none; }
-[data-ansicht='qualitaet'] .ausfall-fuss { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+[data-ansicht='qualitaet'] .ausfall-karte .karte > p.fuss:first-child { margin: 0 0 8px; }
+[data-ansicht='qualitaet'] .ausfall-fuss { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+[data-ansicht='qualitaet'] .ausfall-fuss:has(> .knopf[hidden]:first-child) { margin-top: 0; }
 [data-ansicht='qualitaet'] .ausfall-fuss .knopf[hidden] { display: none; }
+[data-ansicht='qualitaet'] .karte .fuss + .knopf, [data-ansicht='qualitaet'] .karte .fuss + .egress-werkzeuge { margin-top: 12px; }
+[data-ansicht='qualitaet'] .diagnose > div:empty, [data-ansicht='qualitaet'] .ipv6-karte > div:empty { display: none; }
+[data-ansicht='qualitaet'] .karte .knopf + div:not(:empty) { margin-top: 16px; }

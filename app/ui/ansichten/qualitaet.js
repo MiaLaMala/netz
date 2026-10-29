@@ -31,6 +31,16 @@
     if (text != null) e.textContent = text;
     return e;
   };
+  // Nice time ticks (full minutes / hours) so the axis never reads 21:57, 21:59 ...
+  const zeitTicks = (von, bis) => {
+    const schritt = [60, 120, 300, 600, 900, 1800, 3600].find((s) => (bis - von) / s <= 6) ?? 7200;
+    const t = [];
+    for (let z = Math.ceil(von / schritt) * schritt; z <= bis; z += schritt) t.push(z);
+    return t;
+  };
+  const rund = (v) => [10, 20, 50, 100, 250, 500, 1000, 2500].find((n) => n >= v) ?? Math.ceil(v / 1000) * 1000;
+  // Error with a way out: the button repeats the action (or reloads the view).
+  const fehlerAus = (e, nochmal) => Netz.fehlerKarte(Netz.text(e), nochmal);
   const stunde = (w) => (w ? `${zeit(w.stunde)}, Verlust ${fmt(w.verlust_prozent)} %, Ø ${ms(w.durchschnitt_ms)}` : null); // for the Markdown report
 
   // Same text as `netzinfo bericht --markdown`, times in local time.
@@ -43,7 +53,7 @@
 
   // Chart of the last `std` hours. Lines break at losses and pauses; losses sit on a strip below.
   function kurve(reihen, std, jetzt) {
-    const B = 600, H = 250, L = 56, R = 10, T = 18, Y1 = 150, STREIFEN = 14;
+    const B = 600, H = 284, L = 56, R = 12, T = 12, Y1 = 196, STREIFEN = 16;
     const von = jetzt - std * 3600;
     const sichtbar = reihen.map((r) => r.punkte.filter((p) => p.zeit >= von));
     const hoechst = Math.max(0, ...sichtbar.flat().map((p) => p.ms ?? 0));
@@ -58,13 +68,13 @@
         + (werte.length ? `, Median ${ms(werte[Math.floor(werte.length / 2)])}, Maximum ${ms(werte[werte.length - 1])}` : '');
     });
     g.setAttribute('aria-label', `Antwortzeiten der letzten ${std === 1 ? 'Stunde' : `${std} Stunden`}. ${zusammen.join('. ')}.`);
-    for (const f of [0, 0.5, 1]) {
-      g.append(sv('line', { x1: L, x2: B - R, y1: y(oben * f), y2: y(oben * f), class: 'gitter' }),
-        sv('text', { x: L - 6, y: y(oben * f) + 4, class: 'achse', 'text-anchor': 'end' }, `${fmt(oben * f, 0)} ms`));
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      g.append(sv('line', { x1: L, x2: B - R, y1: y(oben * f), y2: y(oben * f), class: f === 0 ? 'gitter basis' : 'gitter' }),
+        sv('text', { x: L - 8, y: y(oben * f) + 4, class: 'achse', 'text-anchor': 'end' }, f === 1 ? `${fmt(oben * f, 0)} ms` : fmt(oben * f, 0)));
     }
-    for (let i = 0; i <= 4; i++) {
-      const t = von + ((jetzt - von) * i) / 4;
-      g.append(sv('text', { x: x(t), y: H - 6, class: 'achse', 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle' }, uhr(t)));
+    for (const t of zeitTicks(von, jetzt)) {
+      g.append(sv('line', { x1: x(t), x2: x(t), y1: T, y2: Y1 + 28 + (reihen.length - 1) * STREIFEN + 8, class: 'gitter senkrecht' }),
+        sv('text', { x: x(t), y: H - 8, class: 'achse', 'text-anchor': 'middle' }, uhr(t)));
     }
     // last series first, so the solid blue line lies on top of the dashed ones
     for (let k = reihen.length - 1; k >= 0; k--) {
@@ -76,12 +86,14 @@
         zuletzt = p.zeit;
       }
       if (d) g.append(sv('path', { d, class: 'linie', stroke: STIL[k].farbe, 'stroke-dasharray': STIL[k].dash }));
-      const yv = Y1 + 30 + k * STREIFEN;
+      const yv = Y1 + 28 + k * STREIFEN;
       for (const p of sichtbar[k]) {
         if (p.verlust) g.append(sv('line', { x1: x(p.zeit), x2: x(p.zeit), y1: yv - 5, y2: yv + 5, class: 'verlust', stroke: STIL[k].farbe }));
       }
     }
-    g.append(sv('text', { x: L - 6, y: Y1 + 34, class: 'achse', 'text-anchor': 'end' }, 'Verluste'));
+    // strip label with one sample per row (colour and dash), so the rows are not told apart by colour alone
+    g.append(sv('text', { x: 0, y: Y1 + 16, class: 'achse' }, 'Verluste'));
+    reihen.forEach((_, k) => g.append(sv('line', { x1: L - 30, x2: L - 10, y1: Y1 + 28 + k * STREIFEN, y2: Y1 + 28 + k * STREIFEN, stroke: STIL[k].farbe, 'stroke-dasharray': STIL[k].dash, 'stroke-width': 2, 'stroke-linecap': 'round' })));
     return g;
   }
 
@@ -107,7 +119,7 @@
     ];
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-kennzahlen' }, el('h3', { id: 'g-kennzahlen', text: 'Kennzahlen aller gespeicherten Messungen' }),
       el('div', { class: 'karte' }, el('table', { class: 'kennzahlen' },
-        el('thead', {}, el('tr', {}, el('th', { scope: 'col', class: 'leer' }, el('span', { class: 'nur-lesen', text: 'Kennzahl' })), b.ziele.map((z) => el('th', { scope: 'col', text: z.ziel })))),
+        el('thead', {}, el('tr', {}, el('th', { scope: 'col', class: 'leer' }, el('span', { class: 'nur-lesen', text: 'Kennzahl' })), b.ziele.map((z) => el('th', { scope: 'col', text: z.ziel.replace(/ (\d)/g, '\u00a0$1') })))),
         el('tbody', {}, zeilen.map(([name, erkl, wert]) => [
           el('tr', {}, el('th', { scope: 'row', text: name }), b.ziele.map((z) => el('td', {}, wert(z)))),
           el('tr', { class: 'erkl-zeile' }, el('td', { colspan: b.ziele.length + 1, class: 'erklaerung', text: erkl })),
@@ -147,7 +159,7 @@
           r.verlauf ? el('p', { class: 'diagnose-verlauf', text: r.verlauf }) : '',
           el('p', { class: 'diagnose-hinweis', text: `${r.mit_basis ? 'Verglichen mit den gespeicherten Werten dieses Netzes.' : 'Für dieses Netz gibt es noch keine gespeicherten Werte, es gelten feste Grenzen.'} Das Urteil ist eine Vermutung, kein Beweis.` }));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
     });
@@ -175,7 +187,7 @@
       el('span', { class: 'adresse', text: adr + (h.ziel ? ' (Ziel)' : '') }),
       el('span', { class: 'balken', 'aria-hidden': 'true' }, el('span', { style: `width:${breite}%` })),
       el('span', { class: 'zahl', text: ms(h.median_ms) }),
-      el('span', { class: 'zahl verlust', text: `${fmt(h.verlust_prozent, 0)} % Verlust` }));
+      el('span', { class: `zahl verlust${h.verlust_prozent > 0 ? ' hat' : ''}`, text: `${fmt(h.verlust_prozent, 0)} % Verlust` }));
   }
 
   function wegKarte() {
@@ -183,7 +195,7 @@
     const router = el('button', { class: 'knopf', type: 'button', text: 'Router eintragen', title: 'Trägt den Router dieses Netzes als Ziel ein', onclick: async () => {
       try { const r = (await Netz.invoke('dieses_netz')).info.router; if (r) eingabe.value = r; } catch { /* the field keeps its value */ }
     } });
-    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Pfad messen', onclick: messe });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Pfad messen', onclick: messe });
     const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
     const ort = el('div', { 'aria-live': 'polite' });
     const k = el('section', { class: 'gruppe weg-karte', 'aria-labelledby': 'g-weg' },
@@ -199,7 +211,7 @@
       lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe den Weg zu ${wegLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
       if (laeuft) return ort.replaceChildren();
       if (!wegLetzt) return ort.replaceChildren(); // the explanation below already says what the button does
-      if (wegLetzt.fehler) return ort.replaceChildren(meldung(wegLetzt.fehler));
+      if (wegLetzt.fehler) return ort.replaceChildren(Netz.fehlerKarte(wegLetzt.fehler, messe));
       const e = wegLetzt.erg;
       const max = Math.max(0, ...e.hops.map((h) => h.median_ms ?? 0));
       ort.replaceChildren(...[
@@ -237,12 +249,12 @@
 
   // Signal (solid) and rate (dashed) of the ring buffer; events as marks on a strip below.
   function wlanKurve(a) {
-    const B = 600, H = 200, L = 70, R = 46, T = 22, Y1 = 130;
+    const B = 600, H = 270, L = 64, R = 56, T = 28, Y1= 180;
     const p = a.proben;
     const von = p[0].zeit, bis = Math.max(p[p.length - 1].zeit, von + 60);
     const x = (t) => L + ((t - von) / (bis - von)) * (B - L - R);
     const ySig = (v) => Y1 - ((Math.min(-30, Math.max(-90, v)) + 90) / 60) * (Y1 - T);
-    const rmax = Math.max(100, ...p.map((q) => q.rate ?? 0));
+    const rmax = rund(Math.max(100, ...p.map((q) => q.rate ?? 0)));
     const yRate = (v) => Y1 - (v / rmax) * (Y1 - T);
     const g = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'wlan-kurve', role: 'img' });
     const sig = p.filter((q) => q.rssi != null).map((q) => q.rssi).sort((m, n) => m - n);
@@ -251,14 +263,15 @@
       + `${a.ereignisse.length} Ereignisse.`);
     for (const f of [0, 0.5, 1]) {
       const yy = Y1 - f * (Y1 - T);
-      g.append(sv('line', { x1: L, x2: B - R, y1: yy, y2: yy, class: 'gitter' }),
-        sv('text', { x: L - 6, y: yy + 4, class: 'achse', 'text-anchor': 'end' }, `${-90 + f * 60} dBm`),
-        sv('text', { x: B - R + 6, y: yy + 4, class: 'achse' }, `${fmt(rmax * f, 0)}`));
+      g.append(sv('line', { x1: L, x2: B - R, y1: yy, y2: yy, class: f === 0 ? 'gitter basis' : 'gitter' }),
+        sv('text', { x: L - 8, y: yy + 4, class: 'achse signal', 'text-anchor': 'end' }, `${-90 + f * 60} dBm`),
+        sv('text', { x: B - R + 8, y: yy + 4, class: 'achse rate' }, `${fmt(rmax * f, 0)}`));
     }
-    g.append(sv('text', { x: B - R + 6, y: T - 12, class: 'achse' }, 'MBit/s'));
-    for (let i = 0; i <= 4; i++) {
-      const t = von + ((bis - von) * i) / 4;
-      g.append(sv('text', { x: x(t), y: H - 6, class: 'achse', 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle' }, uhr(t)));
+    g.append(sv('text', { x: L - 8, y: T - 12, class: 'achse signal', 'text-anchor': 'end' }, 'Signal'),
+      sv('text', { x: B - R + 8, y: T - 12, class: 'achse rate' }, 'MBit/s'));
+    for (const t of zeitTicks(von, bis)) {
+      g.append(sv('line', { x1: x(t), x2: x(t), y1: T, y2: Y1, class: 'gitter senkrecht' }),
+        sv('text', { x: x(t), y: H - 8, class: 'achse', 'text-anchor': 'middle' }, uhr(t)));
     }
     const linie = (wert, y, attr) => {
       let d = '', vor = null;
@@ -272,12 +285,12 @@
     };
     linie((q) => q.rate, yRate, { stroke: 'var(--gruen)', 'stroke-dasharray': '6 3' });
     linie((q) => q.rssi, ySig, { stroke: 'var(--accent)' });
-    g.append(sv('text', { x: L - 6, y: Y1 + 28, class: 'achse', 'text-anchor': 'end' }, 'Ereignisse'));
+    g.append(sv('text', { x: L - 8, y: Y1 + 28, class: 'achse', 'text-anchor': 'end' }, 'Ereignisse'));
     for (const e of a.ereignisse.filter((q) => q.zeit >= von)) {
       const [name, farbe, form] = ARTEN[e.art];
-      const m = sv('g', { transform: `translate(${x(e.zeit).toFixed(1)} ${Y1 + 24})`, class: 'marke' });
+      const m = sv('g', { transform: `translate(${x(e.zeit).toFixed(1)} ${Y1 + 28})`, class: 'marke' });
       m.append(sv('title', {}, `${uhr(e.zeit)}: ${name}`), sv('path', { d: form, stroke: farbe, fill: e.art === 'Bandwechsel' ? farbe : 'none' }));
-      g.append(sv('line', { x1: x(e.zeit), x2: x(e.zeit), y1: T, y2: Y1 + 14, class: 'marke-linie', stroke: farbe }), m);
+      g.append(sv('line', { x1: x(e.zeit), x2: x(e.zeit), y1: T, y2: Y1 + 18, class: 'marke-linie', stroke: farbe }), m);
     }
     return g;
   }
@@ -326,7 +339,7 @@
       try {
         zeichne(await Netz.invoke('wlan_verlauf_abtasten'));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => { clearTimeout(timer); tick(); }));
       }
       if (k.isConnected) timer = setTimeout(tick, TAKT);
     }
@@ -350,7 +363,7 @@
 
   function mtuKarte() {
     const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: mtuLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
-    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Paketgröße messen', onclick: messe });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Paketgröße messen', onclick: messe });
     const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
     const ort = el('div', { 'aria-live': 'polite' });
     const k = el('section', { class: 'gruppe mtu-karte', 'aria-labelledby': 'g-mtu' },
@@ -364,7 +377,7 @@
       lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe die Paketgröße zu ${mtuLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
       if (laeuft) return ort.replaceChildren();
       if (!mtuLetzt) return ort.replaceChildren();
-      if (mtuLetzt.fehler) return ort.replaceChildren(meldung(mtuLetzt.fehler));
+      if (mtuLetzt.fehler) return ort.replaceChildren(Netz.fehlerKarte(mtuLetzt.fehler, messe));
       const e = mtuLetzt.erg;
       ort.replaceChildren(...[
         status(e.quelle === 'stille' ? 'orange' : MTU_AMPEL[e.einstufung], `${e.ziel} (${e.ziel_ip}) · ${e.pfad_mtu} Byte · ${zeit(e.zeitpunkt)}`),
@@ -417,7 +430,7 @@
           el('p', { class: 'fuss', text: r.datenschutz }),
           el('p', { class: 'erklaerung', text: r.erklaerung }));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
     });
@@ -450,7 +463,7 @@
           el('p', { class: 'diagnose-urteil' }, el('span', { class: `punkt ${ampel}` }), el('strong', { text: wort })),
           el('p', { class: 'ipv6-satz', text: r.satz }));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
     });
@@ -468,7 +481,7 @@
         zeile('Uhr', e.klasse ? { Harmlos: 'stimmt', Auffaellig: 'weicht ab', Alarm: 'Alarm' }[e.klasse] : 'nicht geprüft', 'Abweichung zur Uhr dieses Macs, gemessen per NTP und HTTPS-Date. Ich stelle die Uhr nie.'),
         ...e.befunde.map((b) => zeile(b.quelle, b.versatz_ms == null ? 'keine Antwort' : sek(b.versatz_ms))),
       ], e.satz));
-    }, (f) => ort.replaceChildren(meldung(Netz.text(f))));
+    }, (f) => ort.replaceChildren(fehlerAus(f)));
     return k;
   }
 
@@ -486,7 +499,7 @@
         ort.replaceChildren(gruppe(`Ausgehende Ports zu ${a.ziel}`,
           a.ports.map((p) => zeile(`${p.port} ${p.name}`, p.status === 'offen' || p.status === 'abgelehnt' ? `${WORT[p.status]} (${p.ms} ms)` : `${WORT[p.status]} (keine Antwort)`, p.satz)), a.hinweise.join(' ')));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
     });
@@ -530,7 +543,7 @@
       try {
         ort.replaceChildren(umfeldBalken(await Netz.invoke('wlan_umfeld')));
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
       knopf.disabled = false;
     });
@@ -571,7 +584,7 @@
         knopf.textContent = 'Noch einmal messen';
         zeigeVerlauf((await Netz.invoke('last_vorab')).verlauf);
       } catch (e) {
-        ort.replaceChildren(meldung(Netz.text(e)));
+        ort.replaceChildren(fehlerAus(e, () => knopf.click()));
         knopf.textContent = 'Noch einmal versuchen';
       }
       knopf.disabled = false;
@@ -587,7 +600,7 @@
       hotspot = v.hotspot;
       frage = v.hotspot_frage;
       zeigeVerlauf(v.verlauf);
-    }, (f) => hinweis.replaceChildren(meldung(Netz.text(f))));
+    }, (f) => hinweis.replaceChildren(fehlerAus(f)));
     return el('section', { class: 'gruppe last-karte', 'aria-labelledby': 'g-last' }, el('h3', { id: 'g-last', text: 'Unter Last' }),
       el('div', { class: 'karte' }, hinweis, knopf, ort, verlauf));
   }
@@ -627,7 +640,7 @@
       const x = (t) => `${Math.min(100, Math.max(0, ((t - von) / TAGE7) * 100))}%`;
       knopf.hidden = liste.length === 0;
       if (liste.length === 0) {
-        ort.replaceChildren(el('p', { text: 'Keine Ausfälle in den letzten 7 Tagen' }), aus.length ? el('p', { class: 'fuss', text: `${aus.length} kurze Aussetzer, jeweils unter 15 Sekunden` }) : '');
+        ort.replaceChildren(status('gruen', 'Keine Ausfälle in den letzten 7 Tagen'), aus.length ? el('p', { class: 'fuss', text: `${aus.length} kurze Aussetzer, jeweils unter 15 Sekunden` }) : '');
         return;
       }
       const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${liste.length} Ausfälle und ${aus.length} kurze Aussetzer in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
@@ -638,7 +651,7 @@
         el('dl', { class: 'liste' }, [...liste].reverse().map((e) => zeile(zeit(e.beginn), `Ausfall, ${dauer(e.dauer_s)}`, `${ORT[e.schicht]}${e.aussetzer ? `, ${e.aussetzer} Aussetzer dabei` : ''}`, ERKL[e.schicht]))),
         el('p', { class: 'fuss', text: `Strich = Aussetzer unter 15 Sekunden (${aus.length}), roter Balken = Ausfall. Die Zuordnung ist eine Vermutung aus der Messung.` }));
     }
-    const lade = () => Netz.invoke('ausfaelle').then((r) => { d = r; zeichne(); }, (f) => ort.replaceChildren(meldung(Netz.text(f))));
+    const lade = () => Netz.invoke('ausfaelle').then((r) => { d = r; zeichne(); }, (f) => ort.replaceChildren(fehlerAus(f, lade)));
     lade();
     return {
       lade,
@@ -660,12 +673,14 @@
       try {
         b = await Netz.invoke('bericht', { name: null });
       } catch (e) {
-        const t = Netz.text(e);
         const unbekannt = e?.art === 'nicht_gemerkt';
         wurzel.append(
           el('div', { class: 'kopf' }, el('h2', { text: 'Qualität' }),
-            status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Netz nicht gemerkt, deshalb keine Messung' : 'Messen gerade nicht möglich')),
-          meldung(t, unbekannt ? 'orange' : 'rot'));
+            status(unbekannt ? 'orange' : 'rot', unbekannt ? 'Netz nicht gemerkt' : 'Messen gerade nicht möglich')),
+          unbekannt
+            ? el('div', { class: 'fehler-karte' }, meldung('Merke das Netz unter „Dieses Netz“, dann speichert Netzinfo Messungen dazu.', 'orange'),
+              el('button', { class: 'knopf haupt', type: 'button', text: 'Zu „Dieses Netz“', onclick: () => document.getElementById('tab-dieses-netz')?.click() }))
+            : fehlerAus(e));
         return;
       }
 
