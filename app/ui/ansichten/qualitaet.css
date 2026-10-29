@@ -24,8 +24,8 @@
 [data-ansicht='qualitaet'] .kurve { display: block; width: 100%; height: auto; }
 [data-ansicht='qualitaet'] .kurve .gitter, [data-ansicht='qualitaet'] .wlan-kurve .gitter { stroke: color-mix(in srgb, var(--fg) 12%, transparent); stroke-width: 1; }
 [data-ansicht='qualitaet'] .kurve .gitter.senkrecht, [data-ansicht='qualitaet'] .wlan-kurve .gitter.senkrecht { stroke: color-mix(in srgb, var(--fg) 6%, transparent); }
-[data-ansicht='qualitaet'] .kurve .gitter.basis, [data-ansicht='qualitaet'] .wlan-kurve .gitter.basis { stroke: color-mix(in srgb, var(--fg) 30%, transparent); }
-[data-ansicht='qualitaet'] .kurve .achse, [data-ansicht='qualitaet'] .wlan-kurve .achse { fill: var(--fg2); font-size: 11px; font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .kurve .gitter.basis, [data-ansicht='qualitaet'] .wlan-kurve .gitter.basis { stroke: color-mix(in srgb, var(--fg) 50%, transparent); }
+[data-ansicht='qualitaet'] .kurve .achse, [data-ansicht='qualitaet'] .wlan-kurve .achse { fill: var(--fg2); font-size: 13px; font-variant-numeric: tabular-nums; }
 [data-ansicht='qualitaet'] .wlan-kurve .achse.signal { fill: var(--accent-lesbar); }
 [data-ansicht='qualitaet'] .wlan-kurve .achse.rate { fill: color-mix(in srgb, var(--gruen) 70%, var(--fg)); }
 [data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
@@ -68,7 +68,7 @@
 /* Karte „WLAN-Verlauf“ (#36) */
 [data-ansicht='qualitaet'] .wlan-kurve { display: block; width: 100%; height: auto; }
 [data-ansicht='qualitaet'] .wlan-kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-ansicht='qualitaet'] .wlan-kurve .marke-linie { stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
+[data-ansicht='qualitaet'] .wlan-kurve .marke-linie { stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.85; }
 [data-ansicht='qualitaet'] .wlan-kurve .marke path { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 [data-ansicht='qualitaet'] .wlan-karte .legende { margin: 8px 0 0; }
 [data-ansicht='qualitaet'] .wlan-vergleich { margin: 16px 0 0; font-weight: 600; }
@@ -87,11 +87,12 @@
 [data-ansicht='qualitaet'] .umfeld-hinweis { margin: 0 0 12px; color: var(--fg2); }
 [data-ansicht='qualitaet'] .umfeld-summe { margin: 16px 0 0; font-weight: 600; }
 [data-ansicht='qualitaet'] .umfeld-band h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--fg2); }
-[data-ansicht='qualitaet'] .umfeld-balken { display: flex; align-items: flex-end; gap: 8px; margin: 0; padding: 0 0 4px; list-style: none; border-bottom: 1px solid color-mix(in srgb, var(--fg) 30%, transparent); }
+[data-ansicht='qualitaet'] .umfeld-balken { display: flex; align-items: flex-end; gap: 8px; margin: 0; padding: 0 0 4px; list-style: none; border-bottom: 1px solid color-mix(in srgb, var(--fg) 50%, transparent); }
 [data-ansicht='qualitaet'] .umfeld-balken li { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 28px; font-size: 12px; }
-[data-ansicht='qualitaet'] .umfeld-balken .saeule { display: block; width: 20px; height: var(--h); min-height: 4px; margin: 2px 0; border-radius: 4px 4px 0 0; background: var(--fg2); opacity: 0.55; }
+[data-ansicht='qualitaet'] .umfeld-balken .saeule { display: block; width: 20px; height: var(--h); min-height: 4px; margin: 2px 0; border-radius: 4px 4px 0 0; background: var(--fg2); opacity: 0.8; }
 [data-ansicht='qualitaet'] .umfeld-balken .jetzt .saeule { background: var(--accent); opacity: 1; }
 [data-ansicht='qualitaet'] .umfeld-balken .rat .saeule { background: var(--gruen); opacity: 1; }
+[data-ansicht='qualitaet'] .umfeld-balken .tag { font-size: 11px; font-weight: 600; color: var(--fg2); }
 [data-ansicht='qualitaet'] .umfeld-balken .zahl { color: var(--fg2); font-variant-numeric: tabular-nums; }
 [data-ansicht='qualitaet'] .umfeld-legende { margin: 16px 0 0; font-size: 12px; color: var(--fg2); }
 [data-ansicht='qualitaet'] .umfeld-balken .jetzt .kanal, [data-ansicht='qualitaet'] .umfeld-balken .rat .kanal { font-weight: 600; }
@@ -124,7 +125,7 @@
 [data-ansicht='qualitaet'] .kennzahlen tbody tr:not(.erkl-zeile) > * { border-top: 0.5px solid var(--linie); }
 [data-ansicht='qualitaet'] .kennzahlen td > span { display: block; }
 [data-ansicht='qualitaet'] .kennzahlen .klein { color: var(--fg2); font-size: 12px; }
-[data-ansicht='qualitaet'] .kennzahlen .nur-lesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+[data-ansicht='qualitaet'] .nur-lesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: none; }
 .erklaeren [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: table-row; }
 [data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 8px; text-align: left; }
