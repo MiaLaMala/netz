@@ -27,6 +27,12 @@ struct Eintrag {
     index: u16,
 }
 
+/// Error text for „table empty, not even the router in it“. Checked on macOS 26: without the
+/// Local Network grant the kernel hands `arp`, `netstat` and sysctl an empty IPv4 table while
+/// the router answers pings; a VPN (Tailscale was connected) made no difference. The grant is
+/// kept per program, so a bare command-line tool may never get asked: the app is the safe way.
+pub const LEERE_TABELLE: &str = "Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Meist fehlt die Freigabe „Lokales Netzwerk“: macOS zeigt dem Programm dann keine Geräte im Netz, obwohl der Router antwortet. Öffne die Netzinfo-App, such dort Geräte und erlaube den Dialog (später änderbar unter Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk). Ein VPN allein erklärt es nicht. Auch `arp -an` im selben Programm bleibt dann leer; im Terminal kann es trotzdem Einträge zeigen, weil jedes Programm seine eigene Freigabe braucht.";
+
 const RT_MSGHDR_LEN: usize = 92; // sizeof(struct rt_msghdr) on macOS
 const AF_LINK: u8 = 18;
 const WAIT: Duration = Duration::from_millis(300);
