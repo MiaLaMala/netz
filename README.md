@@ -74,7 +74,7 @@ Unter Linux gibt es die Kommandozeile, nicht die App: `netzinfo-<tag>-x86_64-unk
 
 ## Kommandozeile
 
-`netzinfo --help` zeigt alle Befehle nach Thema, `netzinfo <Befehl> --help` nur die Zeilen eines Befehls, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Exit-Code: 0 = geklappt, 1 = Fehler beim Ausführen, 2 = falscher Aufruf. Befehle, die es nur auf dem Mac gibt, sind in der Hilfe mit „(nur Mac)“ markiert. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
+`netzinfo --help` zeigt alle Befehle nach Thema, `netzinfo <Befehl> --help` nur die Zeilen eines Befehls, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Exit-Code: 0 = geklappt, 1 = Fehler beim Ausführen, 2 = falscher Aufruf. Befehle, die es nur auf dem Mac gibt, sind in der Hilfe mit „(nur Mac)“ markiert. Die Ausgabe ist Text Zeile für Zeile, ohne Rahmen, Farbe oder Symbole, die etwas allein bedeuten, und bricht bei 100 Zeichen um, damit Screenreader und schmale Fenster sie gut lesen. `netzinfo live` zeichnet die Zeilen im Terminal neu und zeigt eine Blockkurve; mit `TERM=dumb` oder bei Umleitung in eine Datei gibt es stattdessen nur die Endzeilen als Text. `NO_COLOR` ist erfüllt, weil Netzinfo nie Farbe ausgibt. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
 
 ```console
 $ netzinfo subnetz 192.0.2.77/26 --erklaer
@@ -86,15 +86,17 @@ Erster Host:   192.0.2.65
 Letzter Host:  192.0.2.126
 Anzahl Hosts:  62
 
-  ↳ Rechenweg wie in der Prüfung:
+  Erklärung: Rechenweg wie in der Prüfung:
   IP      11000000.00000000.00000010.01001101  192.0.2.77
   Maske   11111111.11111111.11111111.11000000  255.255.255.192
   UND     11000000.00000000.00000010.01000000  192.0.2.64
-  ↳ UND-Verknüpfung: Ein Bit bleibt nur 1, wenn es in IP und Maske 1 ist. Das Ergebnis ist die Netzadresse.
+  Erklärung: UND-Verknüpfung: Ein Bit bleibt nur 1, wenn es in IP und Maske 1 ist. Das Ergebnis ist
+             die Netzadresse.
   Host    00000000.00000000.00000000.00001101  0.0.0.13
-  ↳ Hostanteil: die letzten 6 Bit der IP (IP UND invertierte Maske). Es bleibt der Teil, der das Gerät im Netz benennt.
-  ↳ Broadcast: alle 6 Hostbits auf 1 setzen, hier 11000000.00000000.00000010.01111111.
-  ↳ Hosts: 2^6 minus 2 (Netzadresse und Broadcast sind nicht vergebbar) = 62.
+  Erklärung: Hostanteil: die letzten 6 Bit der IP (IP UND invertierte Maske). Es bleibt der Teil,
+             der das Gerät im Netz benennt.
+  Erklärung: Broadcast: alle 6 Hostbits auf 1 setzen, hier 11000000.00000000.00000010.01111111.
+  Erklärung: Hosts: 2^6 minus 2 (Netzadresse und Broadcast sind nicht vergebbar) = 62.
 ```
 
 <details>

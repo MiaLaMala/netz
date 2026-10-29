@@ -283,7 +283,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     if b.keiner() {
         println!("Kein Proxy.");
     } else if b.pac_url.is_some() {
-        println!("Die PAC-Datei lade ich nur mit `netzinfo proxy --ansehen`.");
+        crate::satz("Die PAC-Datei lade ich nur mit `netzinfo proxy --ansehen`.");
     }
     explain(
         explain_on,

@@ -330,7 +330,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         return Ok(());
     }
     let s = &r.seite;
-    println!("Router {}", r.gateway);
+    println!("Router: {}", r.gateway);
     println!("  http  (80):  {}", status_text(&s.http));
     if s.http == Status::Offen {
         println!(

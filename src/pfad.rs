@@ -572,16 +572,16 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     let ziel = ziel.unwrap_or("1.1.1.1");
-    println!(
+    crate::satz(&format!(
         "Messe den Weg zu {ziel}: {runden} Runden, bis zu {max_hops} Hops. Das dauert bis zu {} s.",
         u64::from(runden) * (u64::from(max_hops) / 20 + 2)
-    );
+    ));
     explain(
         explain_on,
         "Ich schicke kleine Ping-Pakete (ICMP Echo, bei IPv6 ICMPv6) mit steigender Lebenszeit, dem TTL (bei IPv6 Hop Limit). Jeder Router zieht 1 davon ab; bei 0 wirft er das Paket weg und meldet sich mit „Time Exceeded“. So melden sich die Geräte auf dem Weg nacheinander. Das braucht kein sudo.",
     );
     let r = pfad_daten(ziel, max_hops, runden, namen)?;
-    println!("Ziel {}\n", r.ziel_ip);
+    println!("Ziel: {}\n", r.ziel_ip);
     let breit = r
         .hops
         .iter()

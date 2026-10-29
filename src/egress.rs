@@ -352,7 +352,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Ich öffne zu jedem Port auf deinem Testserver eine TCP-Verbindung, in zufälliger Reihenfolge, höchstens vier gleichzeitig. Kommt die Verbindung zustande, darf der Port hinaus. Kommt sofort eine Ablehnung, lehnt eine Firewall ausdrücklich ab. Kommt nichts zurück, verwirft sie still.",
     );
     let a = ausfuehren(ziel)?;
-    println!("Ausgehende Ports zu {}", a.ziel);
+    println!("Ausgehende Ports zu {}:", a.ziel);
     for z in &a.ports {
         println!("  {}  ({} ms)", z.satz, z.ms);
     }

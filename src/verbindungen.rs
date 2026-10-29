@@ -460,14 +460,16 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     if r.gruppen.is_empty() {
         match &prog {
-            Some(p) => println!("Kein Programm mit „{p}“ im Namen hat gerade Verbindungen."),
+            Some(p) => crate::satz(&format!(
+                "Kein Programm mit „{p}“ im Namen hat gerade Verbindungen."
+            )),
             None => println!("Keine aktiven Verbindungen von dir gefunden."),
         }
     }
     for g in &r.gruppen {
         let n = g.verbindungen.len();
         println!(
-            "{} ({n} Verbindung{})",
+            "{}: {n} Verbindung{}",
             g.programm,
             if n == 1 { "" } else { "en" }
         );
@@ -519,17 +521,17 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Ein Ziel mit „neu“ hat dein Rechner in diesem Netz noch nie angesprochen. Das ist nicht gefährlich, aber neu. Netzinfo sperrt nichts.",
     );
     match (&r.netz_name, r.erster_lauf, r.gespeichert) {
-        (None, ..) => println!(
-            "Dieses Netz ist nicht gemerkt, deshalb gibt es kein „neu“ und nichts wird gespeichert."
+        (None, ..) => crate::satz(
+            "Dieses Netz ist nicht gemerkt, deshalb gibt es kein „neu“ und nichts wird gespeichert.",
         ),
-        (Some(n), true, g) => println!(
+        (Some(n), true, g) => crate::satz(&format!(
             "Erster Lauf im Netz „{n}“: Das ist der Ausgangsstand, nichts ist „neu“.{}",
             if g {
                 ""
             } else {
                 " Gespeichert wird nichts (`--merken` schaltet das ein)."
             }
-        ),
+        )),
         (Some(n), false, g) => println!(
             "{neu} neu im Netz „{n}“.{}",
             if g {
@@ -539,8 +541,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             }
         ),
     }
-    println!(
-        "Programme anderer Nutzer sind ohne Root nicht sichtbar. Die Namen stammen aus dem DNS (PTR) und sind oft die des Hosters."
+    crate::satz(
+        "Programme anderer Nutzer sind ohne Root nicht sichtbar. Die Namen stammen aus dem DNS (PTR) und sind oft die des Hosters.",
     );
     let mut laender: BTreeMap<&str, usize> = BTreeMap::new();
     for v in r.gruppen.iter().flat_map(|g| &g.verbindungen) {
@@ -555,11 +557,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         println!("Nach Land: {}", teile.join(", "));
     }
     match &r.datenbank_stand {
-        Some(s) => println!(
+        Some(s) => crate::satz(&format!(
             "Land und Anbieter stammen aus der eingebauten Datenbank (Stand {s}, IP Geolocation by DB-IP, https://db-ip.com, und IPtoASN). Sie kann falsch liegen, vor allem bei Anbietern mit weltweiten Adressen."
-        ),
-        None => println!(
-            "Die Datenbank für Land und Anbieter fehlt, deshalb bleiben diese Angaben leer (Ordner mit land.mmdb und asn.mmdb: Umgebungsvariable NETZ_IPDB, Bauen: tools/ipdb-bauen.sh)."
+        )),
+        None => crate::satz(
+            "Die Datenbank für Land und Anbieter fehlt, deshalb bleiben diese Angaben leer (Ordner mit land.mmdb und asn.mmdb: Umgebungsvariable NETZ_IPDB, Bauen: tools/ipdb-bauen.sh).",
         ),
     }
     Ok(())

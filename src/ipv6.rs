@@ -459,14 +459,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         return Ok(());
     }
     let ja = |b| if b { "ja" } else { "nein" };
-    println!(
+    crate::satz(&format!(
         "Hier: globale IPv6-Adresse {}, Standardroute {}, Router-Ankündigung {}",
         ja(e.lokal.globale_adresse),
         ja(e.lokal.standardroute),
         e.lokal.router_ankuendigung.map_or("unbekannt", ja)
-    );
+    ));
     for z in &e.ziele {
-        println!("{}", z.name);
+        println!("{}:", z.name);
         println!("  IPv4: {}", zeile(&z.v4));
         println!("  IPv6: {}", zeile(&z.v6));
         if let Some(r) = &z.rennen {
@@ -474,9 +474,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         }
     }
     println!("Urteil: {}", e.urteil.wort());
-    println!("{}", e.satz);
+    crate::satz(&e.satz);
     if let Some(Err(why)) = gespeichert {
-        println!("Hinweis: {why}");
+        crate::satz(&format!("Hinweis: {why}"));
     }
     Ok(())
 }

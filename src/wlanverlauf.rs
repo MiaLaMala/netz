@@ -405,11 +405,6 @@ fn abschnitt_aus(nv: &NetzVerlauf) -> Option<String> {
     Some(out)
 }
 
-fn balken(rssi: Option<i32>) -> String {
-    let n = rssi.map_or(0, |r| ((r + 90).clamp(0, 60) / 6) as usize);
-    format!("{}{}", "█".repeat(n), "░".repeat(10 - n))
-}
-
 fn art_name(a: Art) -> &'static str {
     match a {
         Art::Roaming => "Zugangspunkt gewechselt (Roaming)",
@@ -447,22 +442,21 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     let ziel = ziel_suchen();
     let gesamt = minuten * 60 / TAKT_S;
-    println!(
+    crate::satz(&format!(
         "Verfolge das WLAN {minuten} min lang, alle {TAKT_S} s. {}",
         if ziel.is_some() {
             "Das Ende speichert den Besuch in diesem gemerkten Netz."
         } else {
             "Dieses Netz ist nicht gemerkt, es wird nichts gespeichert (`netzinfo merken <Name>`)."
         }
-    );
+    ));
     let start = Instant::now();
     let mut v = Verlauf::neu(netze::now());
     for i in 0..=gesamt {
         let p = probe_lesen(netze::now())?;
         let zeile = if p.verbunden {
             format!(
-                "{}  {:>4} dBm  {:>5.0} MBit/s",
-                balken(p.rssi),
+                "{:>4} dBm  {:>5.0} MBit/s",
                 p.rssi.map_or("?".into(), |r| r.to_string()),
                 p.rate.unwrap_or(0.0)
             )
@@ -487,7 +481,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             std::thread::sleep(rest);
         }
     }
-    println!("\nEreignisse");
+    println!("\nEreignisse:");
     if v.ereignisse.is_empty() {
         println!("  keine");
     }
@@ -498,7 +492,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let Some(b) = ablegen(&ziel, &v)? else {
         return Ok(());
     };
-    println!("\nZusammenfassung\n  {}", besuch_zeile(&b));
+    println!("\nZusammenfassung:\n  {}", besuch_zeile(&b));
     if !b.roaming_erkennbar {
         println!(
             "  Roaming ist ohne Standortfreigabe nicht erkennbar (kein Hash der Kennung), Abbrüche schon. Die Netzinfo-App fragt danach."

@@ -441,13 +441,15 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         "Ich frage deinen Router per UPnP, welche Ports er ins Internet geöffnet hat. Dazu ein Rundruf direkt an den Router (Port 1900), dann die Beschreibung und drei Nur-Lesen-Fragen: externe Adresse, Verbindungsstatus, Liste der Freigaben. Ändern kann Netzinfo nichts.",
     );
     let Some((m, befunde)) = jetzt_pruefen(&netze::data_path()?, &key, gw)? else {
-        println!("UPnP ist aus oder nicht erreichbar: Router {gw} antwortet nicht auf die Suche.");
+        crate::satz(&format!(
+            "UPnP ist aus oder nicht erreichbar: Router {gw} antwortet nicht auf die Suche."
+        ));
         e(
             "Viele Router haben UPnP ausgeschaltet. Das ist kein Fehler, eher gut: Dann kann kein Programm selbst Ports öffnen. Von Hand im Router angelegte Freigaben sehe ich so nicht.",
         );
         return Ok(());
     };
-    println!("Router {}", m.gateway);
+    println!("Router: {}", m.gateway);
     println!("  Verbindung:      {}", m.verbindung);
     println!("  Externe Adresse: {} ({})", m.externe_ip, m.klasse);
     if matches!(m.klasse, "privat" | "cgnat") {

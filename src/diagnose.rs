@@ -755,7 +755,8 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             status_wort(z.status)
         );
     }
-    println!("\nUrteil: {}", r.satz);
+    println!();
+    crate::satz(&format!("Urteil: {}", r.satz));
     for b in &r.begruendung {
         println!("  - {b}");
     }
