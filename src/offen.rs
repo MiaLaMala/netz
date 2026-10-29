@@ -104,7 +104,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             Reichweite::Lokal => "lokal",
             Reichweite::Vpn => "VPN  ",
             Reichweite::UdpClient => "Client",
-            Reichweite::Unbekannt => "?    ",
+            Reichweite::Unbekannt => "unklar",
         };
         let mut zusatz = String::new();
         if !l.dienst.is_empty() {
@@ -124,7 +124,10 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let zaehle = |r| liste.iter().filter(|l| l.reichweite == r).count();
     let clients = zaehle(Reichweite::UdpClient);
     let ohne = if clients > 0 {
-        format!(" ({clients} UDP-Clients nicht mitgezählt)")
+        format!(
+            " ({clients} UDP-Client{} nicht mitgezählt)",
+            if clients == 1 { "" } else { "s" }
+        )
     } else {
         String::new()
     };

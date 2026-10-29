@@ -13,7 +13,7 @@
     fremd: 'Programme anderer Nutzer und Systemdienste sind ohne Root nicht sichtbar.',
   };
   const ART = { netz: 'im eigenen Netz', lokal: 'dieser Mac' };
-  const NAME_QUELLE = { PTR: 'Name per PTR', 'Gerät': 'Name aus „Geräte“' };
+  const NAME_QUELLE = { PTR: 'Name aus dem DNS', 'Gerät': 'Name aus „Geräte“' };
 
   const zustand = { nurNeue: false, merken: false };
   let ergebnis = null;
@@ -32,7 +32,7 @@
   // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
     const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
-    const fein = [v.name && adresse, `Port ${v.ziel_port}`, v.dienst, ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
+    const fein = [v.name && adresse, v.dienst ? `Port ${v.ziel_port} (${v.dienst})` : `Port ${v.ziel_port}`, ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
     return el('div', { class: 'netz-zeile' },
       el('div', { class: 'text' },
         el('div', { class: 'netz-name num', text: v.name || adresse }),
@@ -46,19 +46,21 @@
     const zaehler = new Map();
     for (const g of r.gruppen) for (const v of g.verbindungen) if (v.land) zaehler.set(v.land, (zaehler.get(v.land) || 0) + 1);
     if (!zaehler.size) return null;
+    const ohne = r.gruppen.reduce((s, g) => s + g.verbindungen.filter((v) => !v.land).length, 0);
     const sortiert = [...zaehler].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'));
     const n = (x) => `${x} ${x === 1 ? 'Verbindung' : 'Verbindungen'}`;
     const rest = sortiert.slice(6).reduce((s, [, x]) => s + x, 0);
     return gruppe('Nach Land', [
       ...sortiert.slice(0, 6).map(([land, x]) => zeile(land, n(x))),
       rest && zeile(`${sortiert.length - 6} weitere Länder`, n(rest)),
+      ohne ? zeile('Ohne Land', n(ohne), 'Verbindungen im eigenen Netz, zu diesem Mac selbst oder zu Adressen, die nicht in der Datei stehen.') : null,
     ].filter(Boolean));
   }
 
   function herkunftFuss(r) {
     return el('p', { class: 'fuss', text: r.datenbank_stand
       ? `Land und Anbieter aus einer Datei mit Stand ${r.datenbank_stand.slice(5)}/${r.datenbank_stand.slice(0, 4)}, nichts wird nachgefragt. IP Geolocation by DB-IP (db-ip.com), Anbieter von IPtoASN.`
-      : 'Die Datenbank für Land und Anbieter fehlt, deshalb sind diese Angaben leer.' });
+      : 'Land und Anbieter bleiben leer: Die Datei dafür fehlt in dieser Installation.' });
   }
 
   function liste(r) {
@@ -67,16 +69,20 @@
       .filter((g) => g.verbindungen.length);
     const alle = r.gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
     const neu = r.gruppen.reduce((s, g) => s + g.neu, 0);
-    const teile = [`${alle} Verbindungen von ${r.gruppen.length} Programmen`];
+    const teile = [alle ? `${alle} ${alle === 1 ? 'Verbindung' : 'Verbindungen'} von ${r.gruppen.length} ${r.gruppen.length === 1 ? 'Programm' : 'Programmen'}` : 'Keine Verbindungen'];
     if (r.netz_name && !r.erster_lauf) teile.push(`${neu} neu in „${r.netz_name}“`);
     const kopf = status(alle ? '' : 'orange', teile.join(' · '));
     const hinweis = !r.netz_name
       ? 'Dieses Netz ist nicht gemerkt: Es gibt kein „neu“ und nichts wird gespeichert.'
-      : r.erster_lauf ? `Erster Lauf in „${r.netz_name}“: Das ist der Ausgangsstand, nichts ist „neu“.` : null;
+      : r.erster_lauf ? `Erster Lauf in „${r.netz_name}“: Das ist der Ausgangsstand, nichts ist „neu“.${r.gespeichert ? '' : ' Gespeichert wird nichts, schalte „Merken“ ein.'}`
+      : r.gespeichert ? null : 'Gespeichert wird nichts, deshalb bleiben alte Ziele „neu“. Schalte „Merken“ ein.';
     const fuss = hinweis && el('p', { class: 'fuss', text: hinweis });
     if (!gruppen.length) {
       return [kopf, fuss, leerZustand(Netz.icons.verbindungen,
-        zustand.nurNeue && alle ? 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.' : 'Keine aktiven Verbindungen von dir gefunden.')];
+        !alle ? 'Keine aktiven Verbindungen von dir gefunden. Öffne eine Webseite oder ein Programm, dann erscheint es hier.'
+          : !r.netz_name ? 'Ohne gemerktes Netz gibt es kein „neu“. Merke das Netz unter „Gemerkte Netze“.'
+          : r.erster_lauf ? 'Beim ersten Lauf ist nichts „neu“. Schau beim nächsten Mal wieder nach.'
+          : 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.')];
     }
     return [kopf, fuss, ...gruppen.map((g) => {
       const n = g.verbindungen.length;
@@ -116,7 +122,9 @@
       messen.disabled = true;
       messen.textContent = 'Messe …';
       try {
-        ort.replaceChildren(...trafficBalken(await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN })));
+        const balken = trafficBalken(await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN }));
+        const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        ort.replaceChildren(...balken, el('p', { class: 'fuss', text: `Gemessen um ${uhr} Uhr, ${TRAFFIC_SEKUNDEN} Sekunden lang.` }));
       } catch (f) {
         ort.replaceChildren(meldung(Netz.text(f), 'rot'));
         wiederholen = false;
@@ -154,8 +162,9 @@
     titel: 'Verbindungen',
     icon: Netz.icons.verbindungen,
     async render(wurzel) {
-      const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' });
+      const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' }, el('p', { class: 'fuss', text: 'Wird gelesen …' }));
       const zeichne = () => ort.replaceChildren(...liste(ergebnis).filter(Boolean));
+      let loeschenAus = () => {};
       const merkenGruppe = () => {
         const fehler = el('div', { 'aria-live': 'polite' });
         const loeschen = el('button', { class: 'knopf gefahr', type: 'button', text: 'Löschen …', 'aria-label': 'Gemerkte Daten dieses Netzes löschen' });
@@ -173,6 +182,11 @@
           }));
         });
         const zeileLoeschen0 = [...zeileLoeschen.childNodes];
+        // Ohne gemerktes Netz gibt es nichts zu löschen.
+        loeschenAus = () => {
+          loeschen.disabled = true;
+          zeileLoeschen.querySelector('.fein').textContent = 'Dieses Netz ist nicht gemerkt, es gibt nichts zu löschen.';
+        };
         return el('section', { class: 'gruppe', 'aria-labelledby': 'g-merken' },
           el('h3', { id: 'g-merken', text: 'Gemerkte Daten' }),
           el('div', { class: 'liste' },
@@ -200,6 +214,7 @@
       try {
         ergebnis = await Netz.invoke('verbindungen_zeigen', { speichern: zustand.merken });
         zeichne();
+        if (!ergebnis.netz_name) loeschenAus();
       } catch (f) {
         ort.replaceChildren(meldung(Netz.text(f), 'rot'));
       }

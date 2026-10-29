@@ -14,7 +14,7 @@
     aussen: '„Von außen prüfen“ verbindet sich zu den TCP-Ports der Netz-Zeilen an der Netzadresse dieses Macs, wie der Portscan. Das geht nur in einem „meins“-Netz.',
     fremd: 'Programme anderer Nutzer und Systemdienste sind ohne Root nicht sichtbar.',
   };
-  const ART = { Netz: 'Netz', Lokal: 'Lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: '?' };
+  const ART = { Netz: 'Netz', Lokal: 'Lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: 'Unklar' };
 
   const zustand = { nurNetz: false, aussen: false };
   let liste = null;
@@ -40,7 +40,7 @@
     ].filter(Boolean);
     return el('tr', {},
       el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] })),
-      el('td', {}, el('div', { text: l.programm || `PID ${l.pid}` }),
+      el('td', {}, el('div', { text: l.programm || `Unbekanntes Programm (PID ${l.pid})` }),
         hinweise.length ? el('div', { class: 'fein warn', text: hinweise.join(' · ') }) : null,
         Netz.woher(l.pid, l.programm)),
       el('td', { class: 'num' }, el('div', { text: `${l.protokoll} ${l.port}` }),
@@ -64,14 +64,18 @@
     const auffaellig = netz.filter((l) => l.apple_signiert === false || l.von_aussen).length;
     titel.textContent = kopfSatz(alle);
     unter.replaceChildren(...(alle.length
-      ? status(auffaellig ? 'orange' : 'gruen', auffaellig ? `${auffaellig} mit Hinweis` : 'Ohne Hinweis').children
+      ? status(auffaellig ? 'orange' : 'gruen', auffaellig ? `${auffaellig} mit Hinweis` : 'Keine Hinweise').children
       : []));
     if (!gezeigt.length) {
       ort.replaceChildren(leerZustand(Netz.icons.offen,
-        zustand.nurNetz ? 'Kein Programm lauscht im Netz. Alles, was offen ist, erreicht nur dieser Mac.' : 'Keine lauschenden Programme von dir gefunden.'));
+        !alle.length ? 'Keine lauschenden Programme von dir gefunden. Programme anderer Nutzer sind ohne Root nicht sichtbar.'
+          : 'Kein Programm lauscht im Netz. Der Rest erreicht nur dieser Mac oder das VPN.'));
       return;
     }
-    ort.replaceChildren(el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
+    // Ohne Rückmeldung wüsste man nach „Von außen prüfen“ nicht, ob die Prüfung lief.
+    const tcp = netz.filter((l) => l.protokoll === 'TCP');
+    const geprueft = zustand.aussen && tcp.length ? el('p', { class: 'fuss', text: `Von außen geprüft: ${tcp.filter((l) => l.von_aussen).length} von ${tcp.length} TCP-Ports im Netz sind auch von außen offen.` }) : null;
+    ort.replaceChildren(geprueft, el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle' },
       el('thead', {}, el('tr', {}, ['Reichweite', 'Programm', 'Port', 'Adresse'].map((t) => el('th', { scope: 'col', text: t })))),
       el('tbody', {}, gezeigt.map(zelle)))));
   }
@@ -112,9 +116,20 @@
         liste = await Netz.invoke('offen_zeigen', { aussen: zustand.aussen });
         zeichne(ort, titel, unter);
       } catch (f) {
+        // Scheitert nur die Prüfung von außen, bleibt die Liste sichtbar.
+        const aussenFehler = zustand.aussen;
         zustand.aussen = false; // sonst scheitert jedes Neuladen am selben Grund
-        titel.textContent = 'Offen';
-        ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+        try {
+          if (!aussenFehler) throw f;
+          liste = await Netz.invoke('offen_zeigen', { aussen: false });
+          zeichne(ort, titel, unter);
+          ort.prepend(meldung(`Die Prüfung von außen ging nicht: ${Netz.text(f)}`, 'orange'));
+          pruefen.disabled = false;
+          pruefen.textContent = 'Von außen prüfen';
+        } catch {
+          titel.textContent = 'Offen';
+          ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+        }
       }
     },
   });
