@@ -123,6 +123,8 @@
   async function autostart() {
     const an = await Netz.invoke('autostart_lesen').catch(() => null);
     if (an === null) return null;
+    // Dev build: the login item would point into target/, the core says so (#142).
+    const hinweis = await Netz.invoke('autostart_hinweis').catch(() => null);
     const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': an, 'aria-describedby': 'autostart-hilfe' },
       el('span', { class: 'spur' }), el('span', { text: 'Mit der Anmeldung starten' }));
     const fehler = el('div', { 'aria-live': 'polite' });
@@ -137,7 +139,8 @@
       s.disabled = false;
     });
     return el('section', { class: 'gruppe autostart' }, s,
-      el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }), fehler);
+      el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }),
+      hinweis && el('p', { class: 'fein', text: hinweis }), fehler);
   }
 
   Netz.registriere({

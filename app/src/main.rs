@@ -296,8 +296,15 @@ fn autostart_setzen(an: bool) -> Result<bool, Fehler> {
     wache::autostart_setzen(an).map_err(Into::into)
 }
 
+/// Hint for the login switch when the app runs from a dev build, `None` otherwise, see issue #142.
+#[tauri::command]
+fn autostart_hinweis() -> Option<String> {
+    wache::autostart_hinweis()
+}
+
 fn main() {
     let r = tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| Ok(wache::starten(app)?))
         // Closing the window hides it; the guard keeps running in the menu bar.
         .on_window_event(|w, ev| {
@@ -352,8 +359,18 @@ fn main() {
             autostart_lesen,
             autostart_setzen,
             portfreigaben,
+            autostart_hinweis,
         ])
-        .run(tauri::generate_context!());
+        .build(tauri::generate_context!())
+        .map(|app| {
+            app.run(|app, ev| {
+                // Click on the Dock icon with the window closed: bring it back.
+                #[cfg(target_os = "macos")]
+                if let tauri::RunEvent::Reopen { .. } = ev {
+                    wache::fenster_oeffnen(app);
+                }
+            });
+        });
     if let Err(e) = r {
         eprintln!("Die App ließ sich nicht starten: {e}");
         std::process::exit(1);

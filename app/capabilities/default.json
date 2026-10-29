@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenster ziehen über die Titelleiste, sonst nur die eigenen Befehle.",
+  "description": "Fenster ziehen über die Titelleiste, Mitteilungen der Wache, sonst nur die eigenen Befehle.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-start-dragging"]
+  "permissions": ["core:default", "core:window:allow-start-dragging", "notification:default"]
 }
