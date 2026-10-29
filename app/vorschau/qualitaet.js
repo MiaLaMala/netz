@@ -53,7 +53,7 @@
   // ,umfeld (Router auf Kanal 6, Rat: Kanal 11) ,umfeld-leer ,umfeld-fehler: klickt „Umgebung ansehen“.
   // Erfundene Netze; Auslastung rechnet wie src/kanal.rs (2,4 GHz: Kanäle bis 3 daneben stören, 5 und 6 GHz nur derselbe Kanal).
   VORSCHAU.wlan_umfeld = async () => {
-    if (marken.includes('umfeld-fehler')) throw 'Der WLAN-Scan ging schief (Operation not permitted). Prüfe, ob das WLAN eingeschaltet ist, und versuche es noch mal.';
+    if (marken.includes('umfeld-fehler')) throw 'Der WLAN-Scan ging schief (keine Berechtigung). Prüfe, ob das WLAN eingeschaltet ist, und versuche es noch mal.';
     if (marken.includes('umfeld-leer')) return { beobachtungen: [], aktuell: null, land: 'DE', belegung: [], empfehlung: { text: '', ziel: null } };
     const o = (band, kanal, rssi) => ({ band, kanal, breite_mhz: 20, rssi });
     const beob = [
