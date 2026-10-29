@@ -1,19 +1,20 @@
 /* Styles for the view „qualitaet“ only. */
 [data-ansicht='qualitaet'] .werkzeuge { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
 [data-ansicht='qualitaet'] .werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
-[data-ansicht='qualitaet'] .werkzeuge select { height: 24px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); }
-[data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 40px 0; }
+[data-ansicht='qualitaet'] .werkzeuge select { height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
+[data-ansicht='qualitaet'] .karte .leer-zustand { min-height: 0; padding: 20px 0; }
 [data-ansicht='qualitaet'] .kurve { display: block; width: 100%; height: auto; }
 [data-ansicht='qualitaet'] .kurve .gitter { stroke: var(--linie); stroke-width: 1; }
 [data-ansicht='qualitaet'] .kurve .achse { fill: var(--fg2); font-size: 11px; }
 [data-ansicht='qualitaet'] .kurve .linie { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 [data-ansicht='qualitaet'] .kurve .verlust { stroke-width: 2; stroke-linecap: round; }
-[data-ansicht='qualitaet'] .legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .legende { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px 18px; margin: 10px 0 4px 4px; padding: 0; list-style: none; color: var(--fg2); font-size: 12px; }
 [data-ansicht='qualitaet'] .legende li { display: flex; align-items: center; gap: 6px; }
 [data-ansicht='qualitaet'] .legende .muster { width: 28px; height: 8px; }
 
 /* „Wo hakt es?“ */
-[data-ansicht='qualitaet'] .diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
+[data-ansicht='qualitaet'] .diagnose { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; margin-top: 6px; }
+[data-ansicht='qualitaet'] .diagnose > .fuss { margin: 0; }
 [data-ansicht='qualitaet'] .diagnose > div { width: 100%; }
 [data-ansicht='qualitaet'] .diagnose-ziele, [data-ansicht='qualitaet'] .diagnose-gruende { margin: 10px 0 0; padding: 0; list-style: none; }
 [data-ansicht='qualitaet'] .diagnose-ziele li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
@@ -26,7 +27,8 @@
 /* Karte „Weg zum Ziel“ */
 [data-ansicht='qualitaet'] .weg-karte .karte { margin-top: 6px; }
 [data-ansicht='qualitaet'] .weg .werkzeuge { margin-top: 0; }
-[data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); font: inherit; }
+[data-ansicht='qualitaet'] .ziel-feld { flex: 1; min-width: 0; height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--linie); background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); font: inherit; }
+[data-ansicht='qualitaet'] .ziel-feld:disabled { opacity: 0.5; }
 [data-ansicht='qualitaet'] .weg .fortschritt progress { vertical-align: middle; width: 80px; }
 [data-ansicht='qualitaet'] .hops { margin: 10px 0 0; padding: 0; list-style: none; }
 [data-ansicht='qualitaet'] .hop { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 70px 100px; align-items: center; gap: 8px; padding: 5px 0; border-top: 0.5px solid var(--linie); font-size: 13px; }
@@ -94,3 +96,16 @@
 [data-ansicht='qualitaet'] .last-karte .karte { margin-top: 6px; padding: 12px; }
 [data-ansicht='qualitaet'] .last-hinweis { margin: 0 0 10px; color: var(--fg2); }
 [data-ansicht='qualitaet'] .last-verlauf { margin: 4px 0 0; padding-left: 18px; color: var(--fg2); }
+
+/* Kennzahlen: eine Tabelle, eine Spalte je Ziel */
+[data-ansicht='qualitaet'] .kennzahlen { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .kennzahlen th, [data-ansicht='qualitaet'] .kennzahlen td { padding: 7px 8px 7px 0; text-align: left; vertical-align: top; }
+[data-ansicht='qualitaet'] .kennzahlen thead th { padding-top: 2px; font-weight: 600; }
+[data-ansicht='qualitaet'] .kennzahlen tbody th { color: var(--fg2); font-weight: 500; white-space: nowrap; }
+[data-ansicht='qualitaet'] .kennzahlen tbody tr:not(.erkl-zeile) > * { border-top: 0.5px solid var(--linie); }
+[data-ansicht='qualitaet'] .kennzahlen td > span { display: block; }
+[data-ansicht='qualitaet'] .kennzahlen .klein { color: var(--fg2); font-size: 12px; }
+[data-ansicht='qualitaet'] .kennzahlen .nur-lesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+[data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: none; }
+.erklaeren [data-ansicht='qualitaet'] .kennzahlen .erkl-zeile { display: table-row; }
+[data-ansicht='qualitaet'] .kennzahlen td.erklaerung { display: table-cell; padding: 0 0 6px; }

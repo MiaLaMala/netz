@@ -31,7 +31,7 @@
     if (text != null) e.textContent = text;
     return e;
   };
-  const stunde = (w) => (w ? `${zeit(w.stunde)}, Verlust ${fmt(w.verlust_prozent)} %, Ø ${ms(w.durchschnitt_ms)}` : null);
+  const stunde = (w) => (w ? `${zeit(w.stunde)}, Verlust ${fmt(w.verlust_prozent)} %, Ø ${ms(w.durchschnitt_ms)}` : null); // for the Markdown report
 
   // Same text as `netzinfo bericht --markdown`, times in local time.
   function markdown(b) {
@@ -43,7 +43,7 @@
 
   // Chart of the last `std` hours. Lines break at losses and pauses; losses sit on a strip below.
   function kurve(reihen, std, jetzt) {
-    const B = 600, H = 230, L = 56, R = 10, T = 10, Y1 = 150, STREIFEN = 14;
+    const B = 600, H = 250, L = 56, R = 10, T = 18, Y1 = 150, STREIFEN = 14;
     const von = jetzt - std * 3600;
     const sichtbar = reihen.map((r) => r.punkte.filter((p) => p.zeit >= von));
     const hoechst = Math.max(0, ...sichtbar.flat().map((p) => p.ms ?? 0));
@@ -66,7 +66,9 @@
       const t = von + ((jetzt - von) * i) / 4;
       g.append(sv('text', { x: x(t), y: H - 6, class: 'achse', 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle' }, uhr(t)));
     }
-    reihen.forEach((r, k) => {
+    // last series first, so the solid blue line lies on top of the dashed ones
+    for (let k = reihen.length - 1; k >= 0; k--) {
+      const r = reihen[k];
       let d = '', zuletzt = null;
       for (const p of sichtbar[k]) {
         if (p.ms == null) { zuletzt = null; continue; }
@@ -74,12 +76,12 @@
         zuletzt = p.zeit;
       }
       if (d) g.append(sv('path', { d, class: 'linie', stroke: STIL[k].farbe, 'stroke-dasharray': STIL[k].dash }));
-      const yv = Y1 + 16 + k * STREIFEN;
+      const yv = Y1 + 30 + k * STREIFEN;
       for (const p of sichtbar[k]) {
         if (p.verlust) g.append(sv('line', { x1: x(p.zeit), x2: x(p.zeit), y1: yv - 5, y2: yv + 5, class: 'verlust', stroke: STIL[k].farbe }));
       }
-    });
-    g.append(sv('text', { x: L - 6, y: Y1 + 20, class: 'achse', 'text-anchor': 'end' }, 'Verluste'));
+    }
+    g.append(sv('text', { x: L - 6, y: Y1 + 34, class: 'achse', 'text-anchor': 'end' }, 'Verluste'));
     return g;
   }
 
@@ -91,15 +93,27 @@
     }));
   }
 
-  // the chart shows the chosen range, these numbers cover every stored probe
-  const kennzahlen = (b) => b.ziele.map((z) => gruppe(`${z.ziel}, alle Messungen`, [
-    zeile('Median', ms(z.median_ms), E.median),
-    zeile('95. Perzentil', ms(z.p95_ms), E.p95),
-    zeile('Maximum', ms(z.max_ms), E.max),
-    zeile('Verlust', `${fmt(z.verlust_prozent)} % (${z.verloren} von ${z.messungen})`, E.verlust),
-    zeile('Längster Aussetzer', dauer(z.laengster_aussetzer_s), E.aussetzer),
-    zeile('Schlechteste Stunde', stunde(z.schlechteste_stunde), E.stunde),
-  ]));
+  // One table, one column per target. The chart shows the chosen range, these numbers cover every stored probe.
+  function kennzahlen(b) {
+    const zeilen = [
+      ['Median', E.median, (z) => ms(z.median_ms)],
+      ['95. Perzentil', E.p95, (z) => ms(z.p95_ms)],
+      ['Maximum', E.max, (z) => ms(z.max_ms)],
+      ['Verlust', E.verlust, (z) => [el('span', { text: `${fmt(z.verlust_prozent)} %` }), el('span', { class: 'klein', text: `${z.verloren} von ${z.messungen}` })]],
+      ['Längster Aussetzer', E.aussetzer, (z) => dauer(z.laengster_aussetzer_s)],
+      ['Schlechteste Stunde', E.stunde, (z) => (z.schlechteste_stunde
+        ? [el('span', { text: zeit(z.schlechteste_stunde.stunde) }), el('span', { class: 'klein', text: `Verlust ${fmt(z.schlechteste_stunde.verlust_prozent)} %` }), el('span', { class: 'klein', text: `Ø ${ms(z.schlechteste_stunde.durchschnitt_ms)}` })]
+        : '-')],
+    ];
+    return el('section', { class: 'gruppe', 'aria-labelledby': 'g-kennzahlen' }, el('h3', { id: 'g-kennzahlen', text: 'Kennzahlen aller gespeicherten Messungen' }),
+      el('div', { class: 'karte' }, el('table', { class: 'kennzahlen' },
+        el('thead', {}, el('tr', {}, el('th', { scope: 'col', class: 'leer' }, el('span', { class: 'nur-lesen', text: 'Kennzahl' })), b.ziele.map((z) => el('th', { scope: 'col', text: z.ziel })))),
+        el('tbody', {}, zeilen.map(([name, erkl, wert]) => [
+          el('tr', {}, el('th', { scope: 'row', text: name }), b.ziele.map((z) => el('td', {}, wert(z)))),
+          el('tr', { class: 'erkl-zeile' }, el('td', { colspan: b.ziele.length + 1, class: 'erklaerung', text: erkl })),
+        ]).flat()))),
+      el('p', { class: 'fuss', text: `Gespeichert von ${zeit(b.von)} bis ${zeit(b.bis)}. Die Kurve oben zeigt nur den gewählten Zeitraum.` }));
+  }
 
   // „Wo hakt es?“ (issue #31): own block, `netzinfo diagnose` in the app.
   const AMPEL = { ok: 'gruen', schlecht: 'orange', stumm: 'rot', fehlt: 'grau' };
@@ -116,7 +130,7 @@
   }
   function diagnoseKarte() {
     const ort = el('div', { 'aria-live': 'polite' });
-    const knopf = el('button', { class: 'knopf', type: 'button', text: 'Wo hakt es?' });
+    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Jetzt prüfen' });
     knopf.addEventListener('click', async () => {
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an vier Stellen'));
@@ -137,7 +151,8 @@
       }
       knopf.disabled = false;
     });
-    return el('section', { class: 'karte diagnose', 'aria-label': 'Wo hakt es?' }, knopf, ort);
+    return el('section', { class: 'gruppe', 'aria-labelledby': 'g-hakt' }, el('h3', { id: 'g-hakt', text: 'Wo hakt es?' }),
+      el('div', { class: 'karte diagnose' }, el('p', { class: 'fuss', text: 'Misst etwa 5 Sekunden Router, Anbieter und Internet und prüft das WLAN-Signal. Das Ergebnis sagt, wo es wahrscheinlich hakt.' }), knopf, ort));
   }
 
   // ---- Karte „Weg zum Ziel“ (`netzinfo pfad`, src/pfad.rs) ----
@@ -165,7 +180,7 @@
 
   function wegKarte() {
     const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: wegLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
-    const router = el('button', { class: 'knopf', type: 'button', text: 'Router', onclick: async () => {
+    const router = el('button', { class: 'knopf', type: 'button', text: 'Router eintragen', title: 'Trägt den Router dieses Netzes als Ziel ein', onclick: async () => {
       try { const r = (await Netz.invoke('dieses_netz')).info.router; if (r) eingabe.value = r; } catch { /* the field keeps its value */ }
     } });
     const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Pfad messen', onclick: messe });
@@ -183,7 +198,7 @@
       eingabe.disabled = router.disabled = laeuft;
       lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe den Weg zu ${wegLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
       if (laeuft) return ort.replaceChildren();
-      if (!wegLetzt) return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch nicht gemessen. „Pfad messen“ zeigt jede Station zwischen dir und dem Ziel.'));
+      if (!wegLetzt) return ort.replaceChildren(); // the explanation below already says what the button does
       if (wegLetzt.fehler) return ort.replaceChildren(meldung(wegLetzt.fehler));
       const e = wegLetzt.erg;
       const max = Math.max(0, ...e.hops.map((h) => h.median_ms ?? 0));
@@ -347,7 +362,7 @@
       knopf.disabled = eingabe.disabled = laeuft;
       lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe die Paketgröße zu ${mtuLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
       if (laeuft) return ort.replaceChildren();
-      if (!mtuLetzt) return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch nicht gemessen. „Paketgröße messen“ zeigt, wie große Pakete bis zum Ziel unzerlegt ankommen.'));
+      if (!mtuLetzt) return ort.replaceChildren();
       if (mtuLetzt.fehler) return ort.replaceChildren(meldung(mtuLetzt.fehler));
       const e = mtuLetzt.erg;
       ort.replaceChildren(...[
@@ -397,7 +412,7 @@
             el('span', { class: 'werte' }, balken(z.bekannt_median), el('span', { class: 'zahl', text: `bekannt ${ms(z.bekannt_median)}` })),
             el('span', { class: 'werte' }, balken(z.unbekannt_median), el('span', { class: 'zahl', text: `neu ${ms(z.unbekannt_median)}` })),
             el('span', { class: 'zahl', text: `${Math.round(z.fehlerrate * 100)} % Fehler` })))),
-          status(r.empfehlung == null ? 'gruen' : 'orange', r.satz),
+          status('gruen', r.satz),
           el('p', { class: 'fuss', text: r.datenschutz }),
           el('p', { class: 'erklaerung', text: r.erklaerung }));
       } catch (e) {
@@ -604,8 +619,8 @@
       const zahlen = el('div');
       const fehler = el('div', { 'aria-live': 'polite' });
       const schalter = el('button', { class: 'erklaeren-schalter', role: 'switch', 'aria-checked': 'false', type: 'button' }, el('span', { class: 'spur' }), el('span', { text: 'Messen' }));
-      const zeitraum = el('select', { 'aria-label': 'Zeitraum', onchange: () => { std = Number(zeitraum.value); zeichne(); } },
-        el('option', { value: '1', text: '1 Stunde' }), el('option', { value: '6', text: '6 Stunden' }));
+      const zeitraum = el('select', { 'aria-label': 'Zeitraum der Kurve', onchange: () => { std = Number(zeitraum.value); zeichne(); } },
+        el('option', { value: '1', text: 'Kurve: 1 Stunde' }), el('option', { value: '6', text: 'Kurve: 6 Stunden' }));
       const kopieren = el('button', { class: 'knopf', type: 'button', text: 'Bericht kopieren', onclick: async () => {
         try {
           await navigator.clipboard.writeText(markdown(b));
@@ -620,7 +635,7 @@
         const leer = b.ziele.length === 0;
         stat.replaceChildren(leer
           ? status('grau', 'Noch keine Messungen')
-          : status(zustand.an ? 'gruen' : 'grau', `${zustand.an ? 'Misst alle 5 s' : 'Misst nicht'} · Messungen von ${zeit(b.von)} bis ${zeit(b.bis)}`));
+          : status(zustand.an ? 'gruen' : 'grau', zustand.an ? 'Misst alle 5 s' : 'Misst gerade nicht, Schalter „Messen“ einschalten'));
         kopieren.disabled = leer;
         if (leer && !b.reihen.some((r) => r.punkte.length)) {
           kurvenOrt.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch keine Messungen für dieses Netz. Schalte „Messen“ ein, dann entsteht die Kurve.'));
@@ -628,7 +643,7 @@
           return;
         }
         kurvenOrt.replaceChildren(kurve(b.reihen, std, Math.floor(Date.now() / 1000)), legende(['Router (DNS)', '1.1.1.1 (DNS)', '1.1.1.1 (TCP 443)']));
-        zahlen.replaceChildren(...kennzahlen(b));
+        zahlen.replaceChildren(kennzahlen(b));
       }
 
       async function tick() {
