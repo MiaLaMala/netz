@@ -7,3 +7,6 @@
 [data-ansicht='verbindungen'] .ergebnis { margin-top: 8px; }
 /* Empty list: the delete button sits centred under the centred empty state. */
 [data-ansicht='verbindungen'] .ergebnis:has(.leer-zustand) + .aktion { text-align: center; }
+[data-ansicht='verbindungen'] .woher { margin: 0 0 8px; font-size: 13px; }
+[data-ansicht='verbindungen'] .woher summary { cursor: pointer; opacity: 0.8; }
+[data-ansicht='verbindungen'] .woher-kette { list-style: none; margin: 6px 0; padding: 0; }
