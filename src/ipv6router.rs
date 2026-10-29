@@ -90,21 +90,61 @@ fn parse_nachbarn(out: &str) -> Vec<(Ipv6Addr, [u8; 6])> {
         .collect()
 }
 
-#[cfg(target_os = "macos")]
-fn ndp(arg: &str) -> Result<String, String> {
-    let out = std::process::Command::new("/usr/sbin/ndp")
-        .arg(arg)
+/// Linux `ip -6 route show default`: `default via <addr> dev eth0 proto ra metric 1024 expires 1798sec`.
+/// No `expires` means a static route and counts as never expiring.
+fn parse_router_linux(out: &str) -> Vec<Router> {
+    out.lines()
+        .filter_map(|l| {
+            let t: Vec<_> = l.split_whitespace().collect();
+            let nach = |k: &str| t.iter().position(|x| *x == k).and_then(|i| t.get(i + 1));
+            Some(Router {
+                adresse: nach("via")?.parse().ok()?,
+                schnittstelle: nach("dev")?.to_string(),
+                lebensdauer: nach("expires").map_or(UNBEGRENZT, |e| {
+                    e.trim_end_matches("sec").parse().unwrap_or(0)
+                }),
+                mac: None,
+            })
+        })
+        .collect()
+}
+
+/// Linux `ip -6 neigh`: `<addr> dev eth0 lladdr <mac> router REACHABLE`; rows without `lladdr` are skipped.
+fn parse_nachbarn_linux(out: &str) -> Vec<(Ipv6Addr, [u8; 6])> {
+    out.lines()
+        .filter_map(|l| {
+            let t: Vec<_> = l.split_whitespace().collect();
+            let i = t.iter().position(|x| *x == "lladdr")?;
+            Some((adresse(t.first()?)?, ort::bssid_bytes(t.get(i + 1)?)?))
+        })
+        .collect()
+}
+
+fn aufruf(programm: &str, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new(programm)
+        .args(args)
         .output()
-        .map_err(|e| format!("`ndp` ließ sich nicht starten ({e}). Läuft das auf einem Mac?"))?;
+        .map_err(|e| format!("`{programm}` ließ sich nicht starten ({e}). Ist es installiert?"))?;
     if !out.status.success() {
-        return Err("`ndp` meldete einen Fehler.".into());
+        return Err(format!("`{programm}` meldete einen Fehler."));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-#[cfg(not(target_os = "macos"))]
-fn ndp(_arg: &str) -> Result<String, String> {
-    Err("Die IPv6-Router lese ich bisher nur auf dem Mac.".into())
+fn router_lesen() -> Result<Vec<Router>, String> {
+    Ok(if cfg!(target_os = "macos") {
+        parse_router(&aufruf("/usr/sbin/ndp", &["-rn"])?)
+    } else {
+        parse_router_linux(&aufruf("ip", &["-6", "route", "show", "default"])?)
+    })
+}
+
+fn nachbarn_lesen() -> Result<Vec<(Ipv6Addr, [u8; 6])>, String> {
+    Ok(if cfg!(target_os = "macos") {
+        parse_nachbarn(&aufruf("/usr/sbin/ndp", &["-an"])?)
+    } else {
+        parse_nachbarn_linux(&aufruf("ip", &["-6", "neigh"])?)
+    })
 }
 
 /// MAC of the IPv4 gateway from the neighbour table (empty without the local-network grant).
@@ -136,11 +176,11 @@ fn abgleichen(
 }
 
 pub fn befund(info: &NetInfo) -> Result<Befund, String> {
-    let router = parse_router(&ndp("-rn")?);
+    let router = router_lesen()?;
     let nachbarn = if router.is_empty() {
         Vec::new()
     } else {
-        parse_nachbarn(&ndp("-an")?)
+        nachbarn_lesen()?
     };
     Ok(abgleichen(
         router,
@@ -324,6 +364,19 @@ mod tests {
 
     fn lauf(router: &str, gw: Option<[u8; 6]>) -> Befund {
         abgleichen(parse_router(router), &parse_nachbarn(NACHBARN), "en0", gw)
+    }
+
+    #[test]
+    fn linux_ausgabe_gleicher_befund() {
+        let router = "default via fe80::5eff:fe00:5301 dev en0 proto ra metric 1024 expires 1798sec hoplimit 64 pref medium\ndefault via fe80::5eff:fe00:5302 dev en0 metric 1024 pref medium\n";
+        let nachbarn = "fe80::5eff:fe00:5301 dev en0 lladdr 00:00:5e:00:53:01 router REACHABLE\nfe80::5eff:fe00:5303 dev en0  FAILED\n";
+        let r = parse_router_linux(router);
+        assert_eq!((r[0].lebensdauer, r[1].lebensdauer), (1798, UNBEGRENZT));
+        let n = parse_nachbarn_linux(nachbarn);
+        assert_eq!(n.len(), 1);
+        let b = abgleichen(r[..1].to_vec(), &n, "en0", Some(GW));
+        assert_eq!(b.passt_zu_gateway, Some(true));
+        assert!(parse_router_linux("").is_empty());
     }
 
     #[test]
