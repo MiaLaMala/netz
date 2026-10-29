@@ -104,3 +104,35 @@
     }
   });
 })();
+
+// Karte „WLAN-Verlauf“ (#36). Marks: ,qualitaet (default: Verlauf mit Roaming-Marke und Abbruch), ,wlan-kabel (kein WLAN),
+// ,wlan-ohne-hash (Roaming nicht erkennbar), ,wlan-vergleich (zusätzlich Besuchsvergleich ist immer dabei). Alle Zahlen erfunden.
+(() => {
+  const jetzt = () => Math.floor(Date.now() / 1000);
+  VORSCHAU.wlan_verlauf_abtasten = async () => {
+    if (marken.includes('wlan-kabel')) return { verbunden: false, proben: [{ zeit: jetzt(), verbunden: false }], ereignisse: [], besuch: null, vergleich: null, gemerkt: true, roaming_erkennbar: false, hinweis: null };
+    const ohne = marken.includes('wlan-ohne-hash');
+    const ende = jetzt();
+    const proben = [];
+    for (let i = 0; i < 120; i++) {
+      const zeit = ende - (119 - i) * 5;
+      const weg = i >= 88 && i < 91;
+      const nach = i >= 70;
+      const rssi = Math.round((nach ? -48 : -63) - (i > 40 && i < 55 ? 8 : 0) + Math.sin(i / 3) * 3);
+      proben.push(weg ? { zeit, verbunden: false } : { zeit, verbunden: true, rssi, rauschen: -92, rate: Math.round((nach ? 780 : 420) + Math.sin(i) * 40), band: '5 GHz', bssid_hash: ohne ? null : (nach ? 'b' : 'a') });
+    }
+    const ereignisse = [{ zeit: proben[70].zeit, art: 'Roaming' }, { zeit: proben[88].zeit, art: 'Getrennt' }, { zeit: proben[91].zeit, art: 'Verbunden' }];
+    return {
+      verbunden: true, proben, gemerkt: true, roaming_erkennbar: !ohne, hinweis: null,
+      ereignisse: ohne ? ereignisse.slice(1) : ereignisse,
+      besuch: { von: proben[0].zeit, dauer_s: 595, signal: { min: -71, median: -55, max: -45 }, rate: { min: 380, median: 600, max: 820 }, wechsel: ohne ? 0 : 1, abbrueche: 1, roaming_erkennbar: !ohne },
+      vergleich: 'Dieses Mal im Median 6 dB schwächer als sonst hier (4 frühere Besuche).',
+    };
+  };
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('wlan-'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => document.querySelector('.wlan-karte')?.scrollIntoView(), 900);
+    }
+  });
+})();

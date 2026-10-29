@@ -212,6 +212,118 @@
     return k;
   }
 
+  // ---- Karte „WLAN-Verlauf“ (`netzinfo wlan --verlauf`, src/wlanverlauf.rs, issue #36) ----
+  const EV = {
+    marken: 'Roaming heißt: Der Mac hat den Zugangspunkt gewechselt, ohne dass die Verbindung abriss. Das ist normal, wenn man sich bewegt, und ein Problem, wenn man am Schreibtisch sitzt.',
+    vergleich: 'Verglichen wird der Median dieses Besuchs mit dem Median der Mediane früherer Besuche in diesem Netz.',
+    ohne_hash: 'Ohne Standortfreigabe kennt Netzinfo die Kennung des Zugangspunkts nicht und sieht keinen Wechsel. Abbrüche sieht es trotzdem. Die Freigabe gibst du im Bereich „Dieses Netz“.',
+  };
+  const ARTEN = { Roaming: ['Zugangspunkt gewechselt', 'var(--accent)', 'M0 -6V6'], Getrennt: ['Verbindung weg', 'var(--rot)', 'M-4 -4L4 4M4 -4L-4 4'], Verbunden: ['wieder verbunden', 'var(--gruen)', 'M-4 0L-1 4L5 -4'], Bandwechsel: ['Band gewechselt', 'var(--orange)', 'M-4 4L0 -5L4 4Z'] };
+
+  // Signal (solid) and rate (dashed) of the ring buffer; events as marks on a strip below.
+  function wlanKurve(a) {
+    const B = 600, H = 200, L = 70, R = 46, T = 22, Y1 = 130;
+    const p = a.proben;
+    const von = p[0].zeit, bis = Math.max(p[p.length - 1].zeit, von + 60);
+    const x = (t) => L + ((t - von) / (bis - von)) * (B - L - R);
+    const ySig = (v) => Y1 - ((Math.min(-30, Math.max(-90, v)) + 90) / 60) * (Y1 - T);
+    const rmax = Math.max(100, ...p.map((q) => q.rate ?? 0));
+    const yRate = (v) => Y1 - (v / rmax) * (Y1 - T);
+    const g = sv('svg', { viewBox: `0 0 ${B} ${H}`, class: 'wlan-kurve', role: 'img' });
+    const sig = p.filter((q) => q.rssi != null).map((q) => q.rssi).sort((m, n) => m - n);
+    g.setAttribute('aria-label', `Signal und Senderate der letzten ${Math.max(1, Math.round((bis - von) / 60))} Minuten. `
+      + (sig.length ? `Signal im Median ${sig[Math.floor(sig.length / 2)]} dBm. ` : '')
+      + `${a.ereignisse.length} Ereignisse.`);
+    for (const f of [0, 0.5, 1]) {
+      const yy = Y1 - f * (Y1 - T);
+      g.append(sv('line', { x1: L, x2: B - R, y1: yy, y2: yy, class: 'gitter' }),
+        sv('text', { x: L - 6, y: yy + 4, class: 'achse', 'text-anchor': 'end' }, `${-90 + f * 60} dBm`),
+        sv('text', { x: B - R + 6, y: yy + 4, class: 'achse' }, `${fmt(rmax * f, 0)}`));
+    }
+    g.append(sv('text', { x: B - R + 6, y: T - 12, class: 'achse' }, 'MBit/s'));
+    for (let i = 0; i <= 4; i++) {
+      const t = von + ((bis - von) * i) / 4;
+      g.append(sv('text', { x: x(t), y: H - 6, class: 'achse', 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle' }, uhr(t)));
+    }
+    const linie = (wert, y, attr) => {
+      let d = '', vor = null;
+      for (const q of p) {
+        const w = q.verbunden ? wert(q) : null;
+        if (w == null) { vor = null; continue; }
+        d += `${vor != null && q.zeit - vor <= 30 ? 'L' : 'M'}${x(q.zeit).toFixed(1)} ${y(w).toFixed(1)}`;
+        vor = q.zeit;
+      }
+      if (d) g.append(sv('path', { d, class: 'linie', ...attr }));
+    };
+    linie((q) => q.rate, yRate, { stroke: 'var(--gruen)', 'stroke-dasharray': '6 3' });
+    linie((q) => q.rssi, ySig, { stroke: 'var(--accent)' });
+    g.append(sv('text', { x: L - 6, y: Y1 + 28, class: 'achse', 'text-anchor': 'end' }, 'Ereignisse'));
+    for (const e of a.ereignisse.filter((q) => q.zeit >= von)) {
+      const [name, farbe, form] = ARTEN[e.art];
+      const m = sv('g', { transform: `translate(${x(e.zeit).toFixed(1)} ${Y1 + 24})`, class: 'marke' });
+      m.append(sv('title', {}, `${uhr(e.zeit)}: ${name}`), sv('path', { d: form, stroke: farbe, fill: e.art === 'Bandwechsel' ? farbe : 'none' }));
+      g.append(sv('line', { x1: x(e.zeit), x2: x(e.zeit), y1: T, y2: Y1 + 14, class: 'marke-linie', stroke: farbe }), m);
+    }
+    return g;
+  }
+
+  function wlanKarte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const k = el('section', { class: 'gruppe wlan-karte', 'aria-labelledby': 'g-wlan' }, el('h3', { id: 'g-wlan', text: 'WLAN-Verlauf' }), el('div', { class: 'karte' }, ort));
+    let timer = null;
+
+    function zeichne(a) {
+      if (!a.verbunden && a.proben.every((q) => !q.verbunden)) {
+        return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Kein WLAN. Am Kabel oder bei ausgeschaltetem WLAN gibt es keinen Funkverlauf zu zeigen.'));
+      }
+      const b = a.besuch;
+      const arten = [...new Set(a.ereignisse.map((e) => e.art))];
+      ort.replaceChildren(...[
+        status(a.verbunden ? 'gruen' : 'orange', a.verbunden ? `Verbunden · tastet alle 5 s ab${a.gemerkt ? ' · Besuch wird gespeichert' : ' · Netz nicht gemerkt, nichts wird gespeichert'}` : 'Gerade keine Funkverbindung'),
+        wlanKurve(a),
+        el('ul', { class: 'legende' },
+          ...['Signal', 'Senderate'].map((n, i) => {
+            const l = sv('svg', { viewBox: '0 0 28 8', class: 'muster', 'aria-hidden': 'true' });
+            l.append(sv('line', { x1: 1, x2: 27, y1: 4, y2: 4, stroke: STIL[i].farbe, 'stroke-dasharray': STIL[i].dash, 'stroke-width': 2 }));
+            return el('li', {}, l, el('span', { text: n }));
+          }),
+          ...arten.map((n) => {
+            const l = sv('svg', { viewBox: '-7 -7 14 14', class: 'zeichen', 'aria-hidden': 'true' });
+            l.append(sv('path', { d: ARTEN[n][2], stroke: ARTEN[n][1], fill: n === 'Bandwechsel' ? ARTEN[n][1] : 'none', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+            return el('li', {}, l, el('span', { text: ARTEN[n][0] }));
+          })),
+        b && gruppe('Dieser Besuch', [
+          zeile('Signal', b.signal ? `Median ${b.signal.median} dBm (${b.signal.min} bis ${b.signal.max})` : '-'),
+          zeile('Senderate', b.rate ? `Median ${fmt(b.rate.median, 0)} MBit/s (${fmt(b.rate.min, 0)} bis ${fmt(b.rate.max, 0)})` : '-'),
+          zeile('Wechsel des Zugangspunkts', a.roaming_erkennbar ? String(b.wechsel) : 'nicht erkennbar', EV.marken),
+          zeile('Abbrüche', String(b.abbrueche)),
+        ]),
+        a.vergleich && el('p', { class: 'wlan-vergleich', text: a.vergleich, title: EV.vergleich }),
+        !a.roaming_erkennbar && meldung(`Ohne Standortfreigabe ist Roaming nicht erkennbar, Abbrüche schon. ${EV.ohne_hash}`, 'orange'),
+        a.hinweis && meldung(a.hinweis),
+      ].filter(Boolean));
+    }
+
+    async function tick() {
+      if (!k.isConnected) return; // view was left: the loop ends, nothing else to clean up
+      if (document.hidden) return; // resumed by `sicht`
+      try {
+        zeichne(await Netz.invoke('wlan_verlauf_abtasten'));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      if (k.isConnected) timer = setTimeout(tick, TAKT);
+    }
+    const sicht = () => {
+      if (!k.isConnected) return document.removeEventListener('visibilitychange', sicht);
+      clearTimeout(timer);
+      if (!document.hidden) tick();
+    };
+    document.addEventListener('visibilitychange', sicht);
+    setTimeout(tick, 100); // the caller attaches the view only after render() returned
+    return k;
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -308,6 +420,7 @@
       wurzel.append(diagnoseKarte());
       zeichne();
       wurzel.append(wegKarte());
+      wurzel.append(wlanKarte());
       if (weiter) schalte(true);
     },
   });

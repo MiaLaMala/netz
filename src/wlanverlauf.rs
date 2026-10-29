@@ -464,7 +464,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let ziel = ziel_suchen();
     let gesamt = minuten * 60 / TAKT_S;
     println!(
-        "Verfolge das WLAN {minuten} Minuten lang, alle {TAKT_S} s. {}",
+        "Verfolge das WLAN {minuten} min lang, alle {TAKT_S} s. {}",
         if ziel.is_some() {
             "Das Ende speichert den Besuch in diesem gemerkten Netz."
         } else {
@@ -531,13 +531,15 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             );
         }
     }
-    explain(
-        explain_on,
-        &format!(
-            "Der Rechner hat in {minuten} Minuten {} Mal den Zugangspunkt gewechselt. Das ist normal, wenn man sich bewegt, und ein Problem, wenn man am Schreibtisch sitzt.",
-            b.wechsel
-        ),
-    );
+    if b.roaming_erkennbar {
+        explain(
+            explain_on,
+            &format!(
+                "Der Rechner hat in {minuten} min {} Mal den Zugangspunkt gewechselt. Das ist normal, wenn man sich bewegt, und ein Problem, wenn man am Schreibtisch sitzt.",
+                b.wechsel
+            ),
+        );
+    }
     Ok(())
 }
 
