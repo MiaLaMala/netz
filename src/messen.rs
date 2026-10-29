@@ -659,6 +659,7 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
     }
     let r = bericht_daten(name)?;
     let wlan = crate::wlanverlauf::abschnitt(&r.netz);
+    let last = crate::last::abschnitt(&r.netz);
     if r.ziele.is_empty() {
         println!(
             "Für „{}“ gibt es noch keine Messungen. Starte `netzinfo messen`, am besten für mehrere Stunden mit `--minuten 240`.",
@@ -667,14 +668,21 @@ pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
         if let Some(w) = &wlan {
             println!("\nWLAN\n{w}");
         }
+        if let Some(l) = &last {
+            println!("\nUnter Last\n{l}");
+        }
         return Ok(());
     }
     print!("{}", report_text(&r));
     if let Some(w) = &wlan {
         println!("\nWLAN\n{w}");
     }
+    if let Some(l) = &last {
+        println!("\nUnter Last\n{l}");
+    }
     if let Some(file) = md {
-        let w = wlan.map_or(String::new(), |w| format!("\n## WLAN\n\n{w}"));
+        let w = wlan.map_or(String::new(), |w| format!("\n## WLAN\n\n{w}"))
+            + &last.map_or(String::new(), |l| format!("\n## Unter Last\n\n{l}"));
         std::fs::write(file, report_markdown(&r) + &w).map_err(|e| {
             format!(
                 "Die Datei {file} ließ sich nicht schreiben ({e}). Prüfe den Pfad und versuche es noch mal."

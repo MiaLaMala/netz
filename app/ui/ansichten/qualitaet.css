@@ -90,3 +90,7 @@
 [data-ansicht='qualitaet'] .dns-tempo li.rat .name { font-weight: 600; }
 [data-ansicht='qualitaet'] .egress-karte .karte { padding: 12px; }
 [data-ansicht='qualitaet'] .egress-werkzeuge { display: flex; gap: 8px; margin-bottom: 8px; }
+/* Karte „Unter Last“ (#49) */
+[data-ansicht='qualitaet'] .last-karte .karte { margin-top: 6px; padding: 12px; }
+[data-ansicht='qualitaet'] .last-hinweis { margin: 0 0 10px; color: var(--fg2); }
+[data-ansicht='qualitaet'] .last-verlauf { margin: 4px 0 0; padding-left: 18px; color: var(--fg2); }

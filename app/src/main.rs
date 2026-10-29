@@ -264,6 +264,18 @@ fn router_seite() -> Result<netzinfo::router::Ergebnis, Fehler> {
     netzinfo::router::router_jetzt().map_err(Into::into)
 }
 
+/// Hinweis, Hotspot-Verdacht und Verlauf für die Karte „Unter Last“, siehe Issue #49. Misst nichts.
+#[tauri::command(async)]
+fn last_vorab() -> netzinfo::last::Vorab {
+    netzinfo::last::vorab()
+}
+
+/// Startet den Test unter Last, nur nach Klick, siehe Issue #49. Belastet die Leitung etwa 30 s.
+#[tauri::command(async)]
+fn last_messen(trotz_hotspot: bool) -> Result<netzinfo::last::Lauf, Fehler> {
+    netzinfo::last::messen_und_speichern(trotz_hotspot).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -307,6 +319,8 @@ fn main() {
             proxy_pac_ansehen,
             ipv6_router,
             router_seite,
+            last_vorab,
+            last_messen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
