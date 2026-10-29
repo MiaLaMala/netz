@@ -1,8 +1,30 @@
 /* Styles for the view „geraete“ only. */
 /* The shared empty state is tall for whole views; here it sits below the button. */
-.ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
-.geraet-status { margin: 0; }
-.fortschritt:not(:empty) { margin: 10px 0 0; }
+[data-ansicht='geraete'] .leer-zustand { min-height: 0; padding-top: 48px; }
+[data-ansicht='geraete'] .geraet-status { margin: 0; }
+[data-ansicht='geraete'] .fortschritt:not(:empty) { margin: 10px 0 0; }
 /* The how-it-works rows only make sense in explain mode. */
-.erklaer-gruppe { display: none; }
-.erklaeren .erklaer-gruppe { display: block; }
+[data-ansicht='geraete'] .erklaer-gruppe { display: none; }
+.erklaeren [data-ansicht='geraete'] .erklaer-gruppe { display: block; }
+
+[data-ansicht='geraete'] .filter { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+[data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; }
+[data-ansicht='geraete'] .chip[aria-pressed="true"] { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
+[data-ansicht='geraete'] .karten { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+[data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+[data-ansicht='geraete'] .karte-kopf { display: flex; align-items: center; gap: 10px; }
+[data-ansicht='geraete'] .karte-kopf .text { flex: 1; min-width: 0; }
+[data-ansicht='geraete'] .karte-symbol { font-size: 22px; line-height: 1; }
+[data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); border: 0.5px solid var(--linie); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+[data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; }
+[data-ansicht='geraete'] .zufall { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+[data-ansicht='geraete'] .zufall svg { width: 12px; height: 12px; }
+[data-ansicht='geraete'] ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+[data-ansicht='geraete'] .karte-dienste li, [data-ansicht='geraete'] .karte-hinweise li { padding: 1px 0; }
+[data-ansicht='geraete'] .karte-hinweise li::before { content: "· "; color: var(--fg2); }
+[data-ansicht='geraete'] .karte .erklaerung { margin: 4px 0 0; }
+[data-ansicht='geraete'] .karte-aktion { margin-top: 6px; }
+[data-ansicht='geraete'] .karte-formular { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+[data-ansicht='geraete'] .karte-formular input[type="text"] { flex: 1; min-width: 160px; }
+[data-ansicht='geraete'] .karte-formular > div:empty { display: none; }
+[data-ansicht='geraete'] .filter + .fuss { margin-left: 0; }

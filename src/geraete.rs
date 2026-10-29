@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-const PORTS: &[u16] = &[22, 53, 80, 443, 445, 548, 631, 7000, 8009, 9100, 62078];
+const PORTS: &[u16] = &[22, 23, 53, 80, 443, 445, 548, 631, 7000, 8009, 9100, 62078];
 const TIMEOUT: Duration = Duration::from_millis(300);
 /// Prefixes shorter than this (more than 1022 hosts) need `--gross`.
 const MAX_PLAIN_HOSTS_PREFIX: u8 = 22;
@@ -48,6 +48,34 @@ pub struct Device {
     /// Host name the device announces via mDNS, without `.local`.
     #[serde(default)]
     pub mdns_name: Option<String>,
+    /// Correction by the user (issue #29). No scan overwrites it.
+    #[serde(default)]
+    pub von_mia: Option<crate::geraetekarte::VonMia>,
+    /// Number of scans that found this device. 0 in files from before issue #29.
+    #[serde(default)]
+    pub besuche: u32,
+}
+
+impl Default for Device {
+    /// Only for struct literals with `..Default::default()`: the IP is 0.0.0.0, set it.
+    fn default() -> Self {
+        Device {
+            ip: Ipv4Addr::UNSPECIFIED,
+            name: None,
+            ports: vec![],
+            first_seen: 0,
+            last_seen: 0,
+            mac: None,
+            ip_verlauf: vec![],
+            ipv6: vec![],
+            hersteller: None,
+            mac_zufaellig: false,
+            dienste: vec![],
+            mdns_name: None,
+            von_mia: None,
+            besuche: 0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -173,7 +201,7 @@ fn reverse_name(resolver: IpAddr, ip: Ipv4Addr) -> Option<String> {
 
 /// Updates `known` with what was `found`. Returns (new, vanished); vanished are known devices
 /// inside `lo..=hi` (the scanned range) that were not found. They stay in the list.
-fn merge(
+pub(crate) fn merge(
     known: &mut Vec<Device>,
     found: Vec<Device>,
     lo: Ipv4Addr,
@@ -206,8 +234,10 @@ fn merge(
                 k.name = d.name.or(k.name.take());
                 k.ports = d.ports;
                 k.last_seen = d.last_seen;
+                k.besuche = k.besuche.max(1) + 1;
             }
             None => {
+                let d = Device { besuche: 1, ..d };
                 new.push(d.clone());
                 known.push(d);
             }
@@ -227,7 +257,7 @@ fn merge(
 fn check_permission(table: &[Nachbar], router: Ipv4Addr, target: &Subnet) -> Result<(), String> {
     let in_range = (target.first..=target.last).contains(&router);
     if in_range && !table.iter().any(|n| n.ipv4.contains(&router)) {
-        return Err("Die Nachbartabelle ist leer, nicht einmal der Router steht darin. Mögliche Ursachen: Die Freigabe „Lokales Netzwerk“ fehlt (Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk, dort Terminal oder die App erlauben), oder dein Mac ist über einen VPN- oder Netzwerkfilter angebunden, der die Pakete ohne ARP weitergibt. Zur Kontrolle: Zeigt `arp -an` im Terminal Einträge, liegt es an der Freigabe der App oder des Programms, das Netzinfo startet.".into());
+        return Err(nachbarn::LEERE_TABELLE.into());
     }
     Ok(())
 }
@@ -246,17 +276,9 @@ fn add_neighbours(found: &mut Vec<Device>, table: &[Nachbar], target: &Subnet, t
                 None => {
                     found.push(Device {
                         ip: *ip,
-                        name: None,
-                        ports: vec![],
                         first_seen: t,
                         last_seen: t,
-                        mac: None,
-                        ip_verlauf: vec![],
-                        ipv6: vec![],
-                        hersteller: None,
-                        mac_zufaellig: false,
-                        dienste: vec![],
-                        mdns_name: None,
+                        ..Default::default()
                     });
                     found.len() - 1
                 }
@@ -368,17 +390,10 @@ fn suchen_in(
         .into_iter()
         .map(|(ip, ports)| Device {
             ip,
-            name: None,
             ports,
             first_seen: t,
             last_seen: t,
-            mac: None,
-            ip_verlauf: vec![],
-            ipv6: vec![],
-            hersteller: None,
-            mac_zufaellig: false,
-            dienste: vec![],
-            mdns_name: None,
+            ..Default::default()
         })
         .collect();
     if let Some(table) = &table {
@@ -419,13 +434,19 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let mut cidr = None;
     let mut gross = false;
     let mut nachbarn = false;
+    if args.iter().any(|a| a == "--karten") {
+        if args.len() > 1 {
+            return Err("`--karten` liest nur den Speicher und braucht keine weitere Option. Zum Suchen lass `--karten` weg.".into());
+        }
+        return crate::geraetekarte::zeigen(explain_on);
+    }
     for a in args {
         match a.as_str() {
             "--gross" => gross = true,
             "--nachbarn" => nachbarn = true,
             s if s.starts_with("--") => {
                 return Err(format!(
-                    "Unbekannte Option „{s}“. Es gibt nur `--gross`, `--nachbarn` und `--erklaer`."
+                    "Unbekannte Option „{s}“. Es gibt nur `--gross`, `--nachbarn`, `--karten` und `--erklaer`."
                 ));
             }
             _ if cidr.is_none() => cidr = Some(a.as_str()),
@@ -526,17 +547,9 @@ mod tests {
     fn dev(a: &str, seen: u64) -> Device {
         Device {
             ip: ip(a),
-            name: None,
-            ports: vec![],
             first_seen: seen,
             last_seen: seen,
-            mac: None,
-            ip_verlauf: vec![],
-            ipv6: vec![],
-            hersteller: None,
-            mac_zufaellig: false,
-            dienste: vec![],
-            mdns_name: None,
+            ..Default::default()
         }
     }
 

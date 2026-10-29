@@ -28,6 +28,7 @@ Befehle:
   netzinfo bericht [Netz]    Qualität eines Netzes über die Zeit
   netzinfo geraete [--nachbarn]
                              Geräte im eigenen Netz, neu und verschwunden, mit MAC
+  netzinfo geraete --karten  Gerätekarten mit Typ und Hinweisen aus dem Gemerkten
   netzinfo pfad [Ziel]       Weg ins Internet Hop für Hop
   netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
   netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
