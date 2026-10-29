@@ -380,6 +380,38 @@
     return k;
   }
 
+  // ---- Karte „IPv6“ (`netzinfo ipv6`, src/ipv6.rs) ----
+  const V6 = {
+    kein_ipv6: ['grau', 'kein IPv6'], gleich: ['gruen', 'IPv6 nutzbar und gleich schnell'], langsamer: ['orange', 'IPv6 nutzbar, aber langsamer'],
+    kaputt: ['rot', 'IPv6 kaputt'], unsicher: ['grau', 'unsicher'],
+  };
+  function ipv6Spalte(p) {
+    if (!p.aufgeloest) return 'keine Adresse';
+    return p.median_ms == null ? `scheitert (${p.fehler} von ${p.versuche})` : `${ms(p.median_ms)}${p.fehler ? `, ${p.fehler} von ${p.versuche} gescheitert` : ''}`;
+  }
+  function ipv6Karte() {
+    const ort = el('div', { 'aria-live': 'polite' });
+    const knopf = el('button', { class: 'knopf', type: 'button', text: 'IPv6 messen' });
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true;
+      ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an fünf Diensten'));
+      try {
+        const r = await Netz.invoke('ipv6_messen');
+        const [ampel, wort] = V6[r.urteil];
+        ort.replaceChildren(
+          r.ziele.length ? el('table', { class: 'ipv6-tabelle' },
+            el('thead', {}, el('tr', {}, el('th', { text: 'Dienst' }), el('th', { text: 'IPv4' }), el('th', { text: 'IPv6' }))),
+            el('tbody', {}, r.ziele.map((z) => el('tr', {}, el('td', { text: z.name }), el('td', { text: ipv6Spalte(z.v4) }), el('td', { text: ipv6Spalte(z.v6) }))))) : '',
+          el('p', { class: 'diagnose-urteil' }, el('span', { class: `punkt ${ampel}` }), el('strong', { text: wort })),
+          el('p', { class: 'ipv6-satz', text: r.satz }));
+      } catch (e) {
+        ort.replaceChildren(meldung(Netz.text(e)));
+      }
+      knopf.disabled = false;
+    });
+    return el('section', { class: 'gruppe', 'aria-labelledby': 'g-ipv6' }, el('h3', { id: 'g-ipv6', text: 'IPv6' }), el('div', { class: 'karte ipv6-karte' }, knopf, ort));
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -478,6 +510,7 @@
       wurzel.append(wegKarte());
       wurzel.append(wlanKarte());
       wurzel.append(mtuKarte());
+      wurzel.append(ipv6Karte());
       if (weiter) schalte(true);
     },
   });

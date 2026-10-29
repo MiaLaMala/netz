@@ -339,6 +339,7 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
         &fp.key(),
         known[i].meins,
     ));
+    weitere.extend(crate::ipv6::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::zeit::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::offen::fuer_pruefen(&path, &fp.key(), known[i].meins));
     erg.unterschiede.extend(

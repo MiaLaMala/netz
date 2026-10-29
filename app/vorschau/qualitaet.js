@@ -167,3 +167,25 @@
     }
   });
 })();
+
+// Karte „IPv6“ (#48). Marks: ,ipv6-ok (default, IPv6 4 ms schneller), ,ipv6-langsamer, ,ipv6-kaputt, ,ipv6-kein; the button is clicked for you.
+// Services are real public names, all numbers are made up.
+(() => {
+  const proto = (median, fehler = 0) => ({ aufgeloest: true, dns_ms: 9, median_ms: median, versuche: 5, fehler });
+  const ziele = (v4, v6) => ['cloudflare.com', 'google.com', 'wikipedia.org', 'dns.quad9.net', 'www.apple.com'].map((name) => ({ name, v4: proto(v4), v6: v6 == null ? proto(null, 5) : proto(v6), rennen: null }));
+  const lokal = (global) => ({ globale_adresse: global, standardroute: global, router_ankuendigung: global });
+  const antwort = () => {
+    if (marken.includes('ipv6-kein')) return { urteil: 'kein_ipv6', satz: 'Dieses Netz gibt dir kein IPv6, alles läuft über IPv4. Das ist heute noch weit verbreitet und kein Fehler.', lokal: lokal(false), ziele: [], median_v4_ms: null, median_v6_ms: null };
+    if (marken.includes('ipv6-kaputt')) return { urteil: 'kaputt', satz: 'Dein Netz hat eine IPv6-Adresse, aber Verbindungen darüber scheitern. Programme warten dann erst und weichen dann auf IPv4 aus. Das macht Seiten spürbar langsamer.', lokal: lokal(true), ziele: ziele(20, null), median_v4_ms: null, median_v6_ms: null };
+    if (marken.includes('ipv6-langsamer')) return { urteil: 'langsamer', satz: 'IPv6 funktioniert, ist hier aber 40 ms langsamer als IPv4. Dein Rechner startet IPv6 zuerst und nimmt nach 250 ms zusätzlich IPv4, es gewinnt die Verbindung, die zuerst steht.', lokal: lokal(true), ziele: ziele(20, 60), median_v4_ms: 20, median_v6_ms: 60 };
+    return { urteil: 'gleich', satz: 'IPv6 ist hier 4 ms schneller als IPv4. Dein Rechner nimmt es automatisch.', lokal: lokal(true), ziele: ziele(20, 16), median_v4_ms: 20, median_v6_ms: 16 };
+  };
+  VORSCHAU.ipv6_messen = () => new Promise((ok) => setTimeout(() => ok(antwort()), 300));
+  addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('ipv6-'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => document.querySelector('.ipv6-karte button')?.click(), 500);
+      setTimeout(() => document.querySelector('.ipv6-karte')?.scrollIntoView(), 1200);
+    }
+  });
+})();

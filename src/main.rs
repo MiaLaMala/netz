@@ -1,7 +1,7 @@
 //! Command line front end of Netzinfo. The logic lives in the library (src/lib.rs).
 
 use netzinfo::{
-    bonjour, diagnose, dns, geraete, hier, live, messen, netze, offen, pfad, portal, ports,
+    bonjour, diagnose, dns, geraete, hier, ipv6, live, messen, netze, offen, pfad, portal, ports,
     pruefen, sni, tls, verbindungen, wlan, woher,
 };
 
@@ -45,6 +45,7 @@ Befehle:
                              Wer hat dieses Programm gestartet? Kette bis launchd
   netzinfo woher --pid <PID> Dasselbe für ein Programm ohne offenen Port
   netzinfo live <Ziel>...    Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele
+  netzinfo ipv6 [Dienst]     IPv4 und IPv6 im Vergleich, mit Happy Eyeballs
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -81,6 +82,7 @@ fn main() -> ExitCode {
         "verbindungen" => verbindungen::run(rest, explain_on),
         "woher" => woher::run(rest, explain_on),
         "live" => live::run(rest, explain_on),
+        "ipv6" => ipv6::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

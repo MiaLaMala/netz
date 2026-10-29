@@ -58,3 +58,10 @@
 [data-ansicht='qualitaet'] .mtu-karte .karte { margin-top: 6px; }
 [data-ansicht='qualitaet'] .mtu .erklaerung { margin: 8px 0 0; }
 [data-ansicht='qualitaet'] .mtu-satz { margin: 8px 0 0; font-weight: 600; }
+/* Karte „IPv6“ */
+[data-ansicht='qualitaet'] .ipv6-karte { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
+[data-ansicht='qualitaet'] .ipv6-karte > div { width: 100%; }
+[data-ansicht='qualitaet'] .ipv6-tabelle { width: 100%; border-collapse: collapse; font-size: 13px; }
+[data-ansicht='qualitaet'] .ipv6-tabelle th { text-align: left; color: var(--fg2); font-weight: 500; }
+[data-ansicht='qualitaet'] .ipv6-tabelle th, [data-ansicht='qualitaet'] .ipv6-tabelle td { padding: 4px 8px 4px 0; border-top: 0.5px solid var(--linie); font-variant-numeric: tabular-nums; }
+[data-ansicht='qualitaet'] .ipv6-satz { margin: 4px 0 0; color: var(--fg2); }
