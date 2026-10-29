@@ -2,7 +2,7 @@
 
 use netzinfo::{
     bonjour, diagnose, dns, geraete, hier, messen, netze, offen, pfad, portal, ports, pruefen, tls,
-    verbindungen, wlan,
+    verbindungen, wlan, woher,
 };
 
 use std::process::ExitCode;
@@ -39,6 +39,9 @@ Befehle:
   netzinfo wlan --verlauf [--minuten N]
                              Signal, Roaming und Abbrüche über Minuten verfolgen
   netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
+  netzinfo woher <Port|Programm> [--json]
+                             Wer hat dieses Programm gestartet? Kette bis launchd
+  netzinfo woher --pid <PID> Dasselbe für ein Programm ohne offenen Port
 
 Optionen:
   --erklaer                  Erklärt bei jedem Schritt, was im Netz passiert
@@ -71,6 +74,7 @@ fn main() -> ExitCode {
         "diagnose" => diagnose::run(rest, explain_on),
         "wlan" => wlan::run(rest, explain_on),
         "verbindungen" => verbindungen::run(rest, explain_on),
+        "woher" => woher::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!("{HELP}");
             Ok(())

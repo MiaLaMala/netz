@@ -121,6 +121,12 @@ fn verbindungen_zeigen(speichern: bool) -> Result<netzinfo::verbindungen::Ergebn
     netzinfo::verbindungen::sammeln(speichern).map_err(Into::into)
 }
 
+/// Chain from a program up to launchd, see issue #56.
+#[tauri::command(async)]
+fn woher_zeigen(pid: u32) -> Result<netzinfo::woher::Herkunft, Fehler> {
+    netzinfo::woher::herkunft(pid).map_err(Into::into)
+}
+
 #[tauri::command(async)]
 fn verbindungen_loeschen() -> Result<bool, Fehler> {
     netzinfo::verbindungen::loeschen().map_err(Into::into)
@@ -209,6 +215,7 @@ fn main() {
             ort_einstellungen_oeffnen,
             dns_gespeichert,
             wlan_verlauf_abtasten,
+            woher_zeigen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

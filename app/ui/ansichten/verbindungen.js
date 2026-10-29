@@ -27,14 +27,37 @@
     return s;
   };
 
+  // „Woher?“: lädt die Startkette erst beim Aufklappen (Issue #56).
+  const QUELLE = { Terminal: 'Terminal', Systemdienst: 'Systemdienst', Anmeldeobjekt: 'Anmeldeobjekt', Unbekannt: 'unbekannt' };
+  function woher(pid) {
+    const inhalt = el('div', { class: 'woher-inhalt' });
+    const d = el('details', { class: 'woher' }, el('summary', { text: 'Woher?' }), inhalt);
+    d.addEventListener('toggle', async () => {
+      if (!d.open || inhalt.childElementCount) return;
+      try {
+        const h = await Netz.invoke('woher_zeigen', { pid });
+        inhalt.append(
+          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
+          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
+            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
+          el('p', { class: 'fein', text: h.satz }));
+      } catch (f) {
+        inhalt.append(meldung(Netz.text(f), 'rot'));
+      }
+    });
+    return d;
+  }
+
   function verbindung(v) {
     const ziel = v.name || v.ziel;
     const fein = [`${v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel}:${v.ziel_port}`, v.dienst, ART[v.art], v.name_quelle && `Name laut ${v.name_quelle}`].filter(Boolean);
-    return el('div', { class: 'netz-zeile' },
-      el('div', { class: 'text' },
-        el('div', { class: 'netz-name num', text: ziel }),
-        el('div', { class: 'fein', text: fein.join(' · ') })),
-      v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })));
+    return el('div', { class: 'verbindung-eintrag' },
+      el('div', { class: 'netz-zeile' },
+        el('div', { class: 'text' },
+          el('div', { class: 'netz-name num', text: ziel }),
+          el('div', { class: 'fein', text: fein.join(' · ') })),
+        v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' }))),
+      woher(v.pid));
   }
 
   function liste(r) {

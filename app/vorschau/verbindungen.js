@@ -32,3 +32,13 @@
     }, 150));
   }
 })();
+
+// „Woher?“ (Issue #56): same Safari (PID 4242) as in the list above.
+VORSCHAU.woher_zeigen = async () => ({
+  kette: [
+    { pid: 4242, ppid: 4100, name: 'Safari', pfad: '/Applications/Safari.app/Contents/MacOS/Safari', start: 1000, nutzer: 'mia' },
+    { pid: 1, ppid: 0, name: 'launchd', pfad: '/sbin/launchd', start: 1, nutzer: 'root' },
+  ],
+  quelle: 'Unbekannt', eintrag: null, abgeschnitten: false,
+  satz: 'launchd hat das Programm gestartet, vor 3 Stunden, aber ich finde keinen Eintrag dafür. Wahrscheinlich ein App-Start per Doppelklick, oder der ursprüngliche Elternprozess ist beendet und launchd hat übernommen.',
+});
