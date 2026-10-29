@@ -66,7 +66,7 @@
         el('span', { class: 'karte-symbol', text: k.symbol, 'aria-hidden': 'true' }),
         el('div', { class: 'text' },
           el('div', {}, el('span', { class: 'netz-name', text: k.anzeigename }),
-            k.von_mia && el('span', { class: 'marke', text: ' · von dir' })),
+            k.namequelle && el('span', { class: 'marke', text: ` · ${k.namequelle}` })),
           el('div', { class: 'fein' },
             el('span', { text: k.hersteller || (k.mac_zufaellig ? 'Hersteller nicht erkennbar' : 'Hersteller unbekannt') }),
             k.mac_zufaellig && el('span', { class: 'zufall', title: 'Zufällige Adresse', html: `${ZUFALL}<span>Zufällige Adresse</span>` }))),

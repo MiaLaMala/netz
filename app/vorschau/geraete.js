@@ -28,7 +28,8 @@
 
   // Cards come from the stored file, not from the search.
   const dienst = (typ, instanz, port) => ({ typ, instanz, host: '', port, ipv4: [], ipv6: [], txt: {} });
-  const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, besuche: 5, typ, symbol, anzeigename, erklaerung, hinweise, ...extra });
+  const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, namen: [], besuche: 5, typ, symbol, anzeigename, namequelle: QUELLEN[anzeigename] || (/^\d/.test(anzeigename) ? '' : 'DNS (PTR)'), erklaerung, hinweise, ...extra });
+  const QUELLEN = { 'Wohnzimmer-TV': 'Bonjour', 'Alter Laptop': 'von dir', 'MIAS-PC': 'NetBIOS' };
   const KARTEN = [
     k(router, 'Router', '🌐', 'fritz.box', 'Netzinfo hält dieses Gerät für einen Router, weil es das Standardgateway deines Netzes ist.', [], { hersteller: 'Beispiel Netzwerktechnik GmbH', besuche: 40 }),
     k(neu, 'Medien', '📺', 'wohnzimmer-tv.fritz.box', 'Netzinfo hält dieses Gerät für ein Medien-Gerät (Fernseher oder Lautsprecher), weil es den Bonjour-Dienst AirPlay (_airplay._tcp) anbietet.', ['wurde erst einmal gesehen'], { hersteller: 'Beispiel Elektronik Co.', besuche: 1, dienste: [dienst('_airplay._tcp', 'Wohnzimmer', 7000), dienst('_googlecast._tcp', 'Wohnzimmer-TV', 8009)] }),
