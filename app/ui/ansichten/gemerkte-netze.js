@@ -90,30 +90,25 @@
         fehler);
     };
     knopf.addEventListener('click', () => {
-      const ja = el('button', { class: 'knopf gefahr', type: 'button', text: 'Vergessen', 'aria-label': `${n.name} endgültig vergessen` });
-      const nein = el('button', { class: 'knopf', type: 'button', text: 'Abbrechen' });
-      nein.addEventListener('click', () => { normal(); knopf.focus(); });
-      ja.addEventListener('click', async () => {
-        ja.disabled = true;
-        try {
-          await Netz.invoke('netz_vergessen', { name: n.name });
-          await Netz.neuLaden();
-          // The row is gone: focus the one that moved up, not the page.
-          const rest = document.querySelectorAll('[data-ansicht="gemerkte-netze"] .umbenennen-knopf');
-          rest[Math.min(nr, rest.length - 1)]?.focus();
-        } catch (e) {
-          fehler.replaceChildren(meldung(Netz.text(e)));
-          ja.disabled = false;
-        }
-      });
       fehler.replaceChildren();
       ort.replaceChildren(
         el('div', { class: 'kopf-zeile' }, el('div', { class: 'name-ort' }, el('span', { class: 'netz-name', text: n.name }))),
-        el('div', { class: 'bestaetigung', role: 'group', 'aria-label': `${n.name} vergessen?` },
-          el('p', { text: `„${n.name}“ vergessen? Beim nächsten Besuch gilt das Netz wieder als neu, und die Markierung „meins“ ist weg.` }),
-          nein, ja),
+        Netz.bestaetigung({
+          frage: `„${n.name}“ vergessen? Beim nächsten Besuch gilt das Netz wieder als neu, und die Markierung „meins“ ist weg.`,
+          label: `${n.name} vergessen?`,
+          aria: `${n.name} endgültig vergessen`,
+          knopf: 'Vergessen',
+          abbrechen: () => { normal(); knopf.focus(); },
+          aktion: async () => {
+            await Netz.invoke('netz_vergessen', { name: n.name });
+            await Netz.neuLaden();
+            // The row is gone: focus the one that moved up, not the page.
+            const rest = document.querySelectorAll('[data-ansicht="gemerkte-netze"] .umbenennen-knopf');
+            rest[Math.min(nr, rest.length - 1)]?.focus();
+          },
+          fehler: zeigeFehler,
+        }),
         fehler);
-      nein.focus();
     });
     normal();
     return ort;

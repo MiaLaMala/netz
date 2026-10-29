@@ -235,6 +235,7 @@
     id: 'geraete',
     titel: 'Geräte',
     icon: Netz.icons.geraete,
+    aktualisieren: false, // „Netz absuchen“ lädt die Karten ebenfalls neu
     async render(wurzel) {
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: letztes ? 'Netz noch mal absuchen' : 'Netz absuchen' });
       const fortschritt = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
@@ -272,7 +273,7 @@
         el('div', { class: 'kopf' }, el('h2', { text: 'Geräte im Netz' }),
           el('p', { class: 'status' }, el('span', { text: 'Nur in Netzen, die du als „meins“ markiert hast.' }))),
         el('div', { class: 'aktion' }, knopf),
-        el('p', { class: 'fuss aktion-hinweis', text: '„Netz absuchen“ tastet das Netz ab und legt neue Karten an. „Aktualisieren“ (⌘R) lädt nur die schon gemerkten Karten neu.' }),
+        el('p', { class: 'fuss aktion-hinweis', text: '„Netz absuchen“ tastet das Netz ab und legt neue Karten an.' }),
         fortschritt, ort, kartenOrt,
         Object.assign(gruppe('So funktioniert die Suche', [
           zeile('Abgelehnter Port', 'zeigt ein Gerät', E.abgelehnt),

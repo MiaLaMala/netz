@@ -53,7 +53,7 @@ body {
 }
 dd, .meldung, .wert { -webkit-user-select: text; user-select: text; }
 h1, h2, p, dl, dd, ul { margin: 0; }
-button, input { font: inherit; color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 :focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
   outline-offset: 1px;
@@ -159,6 +159,15 @@ button, input { font: inherit; color: inherit; }
 .erklaeren .erklaerung { display: block; }
 .fuss { margin: 6px 14px 0; font-size: 12px; color: var(--fg2); }
 
+/* Auswahl- und Textfelder sehen aus wie ein .knopf; Formulare in Listen überschreiben das unten. */
+select, input[type="text"] {
+  height: 24px; padding: 0 8px; border-radius: 6px;
+  border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg);
+}
+input[type="text"] { -webkit-user-select: text; user-select: text; }
+input[type="text"]::placeholder { color: var(--fg2); }
+select:disabled, input[type="text"]:disabled { opacity: 0.5; }
+
 /* Formular */
 .formular input[type="text"] {
   flex: 1; height: 24px; padding: 0 8px; margin: 0; text-align: left;
@@ -178,8 +187,16 @@ button, input { font: inherit; color: inherit; }
 .netz-zeile .text { flex: 1; min-width: 0; }
 .netz-zeile .fein { color: var(--fg2); font-size: 12px; }
 .bestaetigung { flex-basis: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bestaetigung { padding: 2px 0; }
 .bestaetigung p { flex: 1; min-width: 200px; font-size: 12px; color: var(--fg2); }
 .knopf.gefahr { color: var(--rot); }
+
+/* „Woher?“ (Netz.woher): Aktion der Zeile, das Feld öffnet sich darunter. Die Textfarbe hält 4,5:1 auch im dunklen Modus. */
+.woher-knopf { border: 0; background: none; color: color-mix(in srgb, var(--accent) 65%, var(--fg)); font-size: 12px; padding: 3px 6px; margin: 0 -6px 0 0; border-radius: 5px; }
+.woher-knopf:hover { background: var(--knopf-aktiv); }
+.woher-inhalt { flex-basis: 100%; }
+.woher-inhalt .fein, .woher-inhalt p { margin: 0; color: var(--fg2); font-size: 12px; }
+.woher-kette { list-style: none; margin: 6px 0; padding: 0; font-size: 12px; }
 
 /* Meldung und leerer Zustand */
 .meldung { display: flex; gap: 8px; align-items: baseline; margin-top: 16px; font-size: 14px; line-height: 1.45; color: var(--fg); }
