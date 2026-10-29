@@ -5,7 +5,7 @@
   <title>Netzinfo Vorschau</title>
   <!-- Nur zum Entwickeln, die App lädt diese Datei nicht. Ersetzt Tauri durch erfundene Daten und lädt dann
        die echte Oberfläche aus ui/. Aufruf: vorschau.html#bekannt  oder  #unbekannt,formular  oder
-       #netze  #pruefung  #vpn  #fehler, dazu optional ,erklaeren  und  ,vergessen. -->
+       #netze  #pruefung  #vpn  #fehler, dazu optional ,erklaeren  und  ,netze-vergessen. -->
   <link rel="stylesheet" href="ui/style.css">
   <link rel="stylesheet" href="ui/ansichten/dieses-netz.css">
   <link rel="stylesheet" href="ui/ansichten/gemerkte-netze.css">
@@ -67,7 +67,6 @@
         if (marken.includes('erklaeren')) klick('#erklaeren');
         if (marken.includes('formular')) klick('.aktion button');
         if (marken.includes('formular-fehler')) { klick('.aktion button'); document.querySelector('.formular').requestSubmit(); }
-        if (marken.includes('vergessen')) klick('.netz-zeile:nth-child(2) button');
       }, 150);
     }, 100));
   </script>

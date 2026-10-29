@@ -18,7 +18,9 @@
   // Kleiner Elementbauer. `html` nur für die festen Icons unten, nie für Daten.
   function el(tag, props = {}, ...kinder) {
     const e = document.createElement(tag);
-    for (const [k, v] of Object.entries(props)) {
+    for (let [k, v] of Object.entries(props)) {
+      // ARIA wants the words true and false, not a present or missing attribute.
+      if (k.startsWith('aria-') && typeof v === 'boolean') v = String(v);
       if (v == null || v === false) continue;
       if (k === 'class') e.className = v;
       else if (k === 'text') e.textContent = v;
