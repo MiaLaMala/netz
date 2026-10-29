@@ -57,15 +57,36 @@ fn zustand(u: &[Unterschied]) -> Zustand {
     }
 }
 
+fn z_klasse(z: Zustand) -> Klasse {
+    if z == Zustand::Alarm {
+        Klasse::Alarm
+    } else {
+        Klasse::Auffaellig
+    }
+}
+
 /// Title and text of the notification, `None` when nothing is off. Plain text only: the text
 /// comes from the network and goes to `osascript` as an argument, never into script code.
 fn mitteilung(netz: &str, u: &[Unterschied]) -> Option<(String, String)> {
     let z = zustand(u);
-    let erster = u.iter().find(|u| u.klasse >= Klasse::Auffaellig)?;
-    Some((
-        format!("Netzinfo: {netz} ist {}", z.text()),
-        erster.text.clone(),
-    ))
+    let schlimm = u.iter().filter(|u| u.klasse >= Klasse::Auffaellig);
+    let anzahl = schlimm.clone().count();
+    // Der schwerste Fund zuerst, nicht der erste in der Liste.
+    let erster = schlimm.clone().find(|u| u.klasse == z_klasse(z))?;
+    let titel = if z == Zustand::Alarm {
+        format!("Netzinfo: Alarm im Netz {netz}")
+    } else {
+        format!("Netzinfo: {netz} ist {}", z.text())
+    };
+    let text = match anzahl {
+        1 => erster.text.clone(),
+        n => format!(
+            "{} (und {} weitere in der App unter Prüfung)",
+            erster.text,
+            n - 1
+        ),
+    };
+    Some((titel, text))
 }
 
 /// Shown by the notification plugin, so macOS lists it as Netzinfo, not as Script Editor.
@@ -135,12 +156,17 @@ fn pruefe(app: &AppHandle) {
                 app,
                 Zustand::Unbekannt,
                 "Neues Netz",
-                "Nicht gemerkt, nicht geprüft",
+                "Nicht gemerkt, daher nicht geprüft",
             );
         }
         Err(f) => {
             eprintln!("{f}");
-            anzeigen(app, Zustand::Unbekannt, "Netz", "Prüfung fehlgeschlagen");
+            anzeigen(
+                app,
+                Zustand::Unbekannt,
+                "Netz",
+                "Prüfung fehlgeschlagen, Grund unter Prüfung in der App",
+            );
         }
     }
 }
@@ -155,7 +181,7 @@ pub fn fenster_oeffnen(app: &AppHandle) {
 
 /// Builds the tray icon and starts the guard thread. Called once from `setup`.
 pub fn starten(app: &mut App) -> tauri::Result<()> {
-    let netz = MenuItem::with_id(app, "netz", "Kein Netz", false, None::<&str>)?;
+    let netz = MenuItem::with_id(app, "netz", "Netz wird geprüft", false, None::<&str>)?;
     let zuletzt = MenuItem::with_id(app, "zuletzt", "Noch nicht geprüft", false, None::<&str>)?;
     let jetzt = MenuItem::with_id(app, "jetzt", "Jetzt prüfen", true, None::<&str>)?;
     let fenster = MenuItem::with_id(app, "fenster", "Netzinfo öffnen", true, None::<&str>)?;
@@ -308,6 +334,17 @@ mod tests {
             (t.as_str(), b.as_str()),
             ("Netzinfo: WG ist auffällig", "DNS neu")
         );
+        let (t, b) = mitteilung(
+            "WG",
+            &[
+                u(Klasse::Auffaellig, "DNS neu"),
+                u(Klasse::Alarm, "Router neu"),
+                u(Klasse::Alarm, "MAC neu"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(t, "Netzinfo: Alarm im Netz WG");
+        assert!(b.starts_with("Router neu (und 2 weitere"), "{b}");
     }
 
     #[test]
