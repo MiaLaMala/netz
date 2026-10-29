@@ -50,7 +50,36 @@
     werte: NAMEN.map((ziel, k) => ({ ziel, ms: [3, 14, 18][k] + Math.random() * 6, verlust: false })),
   });
 
+  // ,umfeld (Router auf Kanal 6, Rat: Kanal 11) ,umfeld-leer ,umfeld-fehler: klickt „Umgebung ansehen“.
+  // Erfundene Netze; Auslastung rechnet wie src/kanal.rs (2,4 GHz: Kanäle bis 3 daneben stören, 5 und 6 GHz nur derselbe Kanal).
+  VORSCHAU.wlan_umfeld = async () => {
+    if (marken.includes('umfeld-fehler')) throw 'Der WLAN-Scan ging schief (Operation not permitted). Prüfe, ob das WLAN eingeschaltet ist, und versuche es noch mal.';
+    if (marken.includes('umfeld-leer')) return { beobachtungen: [], aktuell: null, land: 'DE', belegung: [], empfehlung: { text: '', ziel: null } };
+    const o = (band, kanal, rssi) => ({ band, kanal, breite_mhz: 20, rssi });
+    const beob = [
+      ...[-52, -58, -61, -64, -67, -70, -73, -77, -81].map((r) => o('2,4 GHz', 6, r)),
+      o('2,4 GHz', 1, -66), o('2,4 GHz', 3, -74), o('2,4 GHz', 4, -79), o('2,4 GHz', 9, -83),
+      o('5 GHz', 36, -58), o('5 GHz', 36, -72), o('5 GHz', 44, -76), o('5 GHz', 100, -80), o('5 GHz', 149, -69),
+      o('6 GHz', 37, -84),
+    ];
+    const last = (band, kanal) => {
+      const t = beob.filter((b) => b.band === band && (b.kanal === kanal || (band === '2,4 GHz' && Math.abs(b.kanal - kanal) < 4)));
+      return { band, kanal, netze: t.length, dbm: 10 * Math.log10(t.reduce((s, b) => s + 10 ** (b.rssi / 10), 0)) };
+    };
+    const belegung = [...new Set(beob.map((b) => `${b.band}|${b.kanal}`))].map((k) => k.split('|')).sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]).map(([b, k]) => last(b, Number(k)));
+    const jetzt = last('2,4 GHz', 6);
+    const ziel = last('2,4 GHz', 11); // 1, 6 und 11 sind die Kandidaten; 11 ist am leersten
+    return {
+      beobachtungen: beob, aktuell: { band: '2,4 GHz', kanal: 6 }, land: 'DE', belegung,
+      empfehlung: { text: `Auf Kanal 6 (2,4 GHz) senden ${jetzt.netze} Netze. Kanal 11 ist leerer (${ziel.netze} Netz dort). Den Kanal stellst du in den WLAN-Einstellungen deines Routers ein.`, ziel: { band: '2,4 GHz', kanal: 11 } },
+    };
+  };
   addEventListener('DOMContentLoaded', () => {
+    if (marken.some((m) => m.startsWith('umfeld'))) {
+      setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
+      setTimeout(() => document.querySelector('.umfeld-karte .knopf')?.click(), 900);
+      setTimeout(() => document.querySelector('.umfeld-karte')?.scrollIntoView(), 1200);
+    }
     if (marken.some((m) => m.startsWith('qualitaet') || m.startsWith('pfad-'))) setTimeout(() => document.querySelector('#tab-qualitaet')?.click(), 150);
     if (marken.includes('qualitaet-6h')) setTimeout(() => { const s = document.querySelector('.werkzeuge select'); if (s) { s.value = '6'; s.dispatchEvent(new Event('change')); } }, 400);
   });

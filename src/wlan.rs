@@ -466,6 +466,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     {
         return crate::wlanverlauf::run(rest, explain_on);
     }
+    if let Some((a, rest)) = args.split_first()
+        && a == "--umfeld"
+    {
+        return crate::kanal::run(rest, explain_on);
+    }
     let json = args == ["--json"];
     if !json && let Some(a) = args.first() {
         return Err(format!(
