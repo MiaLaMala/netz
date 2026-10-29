@@ -57,6 +57,10 @@ pub struct Device {
     /// What the device says via UPnP/SSDP (issue #42). Scans keep it, `netzinfo upnp` sets it.
     #[serde(default)]
     pub upnp: Option<crate::upnp::Upnp>,
+    /// Names from further sources (issue #43: NetBIOS, later UPnP), one per source. The names
+    /// in `von_mia`, `mdns_name` and `name` are not copied here; `namen::kandidaten` joins all.
+    #[serde(default)]
+    pub namen: Vec<crate::namen::Name>,
 }
 
 impl Default for Device {
@@ -78,6 +82,7 @@ impl Default for Device {
             von_mia: None,
             besuche: 0,
             upnp: None,
+            namen: vec![],
         }
     }
 }
@@ -137,7 +142,7 @@ fn gate(
 }
 
 /// Runs `f(0..n)` on up to 64 threads; results in index order.
-fn par<R: Send>(n: usize, f: impl Fn(usize) -> R + Sync) -> Vec<R> {
+pub(crate) fn par<R: Send>(n: usize, f: impl Fn(usize) -> R + Sync) -> Vec<R> {
     let next = AtomicUsize::new(0);
     let out = Mutex::new(Vec::with_capacity(n));
     std::thread::scope(|s| {
@@ -236,6 +241,9 @@ pub(crate) fn merge(
                     k.ipv6 = d.ipv6;
                 }
                 k.name = d.name.or(k.name.take());
+                for n in d.namen {
+                    crate::namen::eintragen(&mut k.namen, n);
+                }
                 k.ports = d.ports;
                 k.last_seen = d.last_seen;
                 k.besuche = k.besuche.max(1) + 1;
@@ -317,7 +325,9 @@ fn show(d: &Device, tag: &str) {
         tag,
         d.mac.as_deref().unwrap_or("-"),
         crate::hersteller::anzeige(d.mac.as_deref()),
-        d.name.as_deref().unwrap_or("-"),
+        crate::namen::bester(d)
+            .map(|n| format!("{} ({})", n.name, n.quelle.bezeichnung()))
+            .unwrap_or_else(|| "-".into()),
         ports
     );
 }
@@ -413,6 +423,23 @@ fn suchen_in(
     for (d, name) in found.iter_mut().zip(names) {
         d.name = name;
     }
+    // NetBIOS only for addresses from the neighbour table (`table` exists only after the gate)
+    if let Some(table) = &table {
+        let ips: Vec<Ipv4Addr> = found
+            .iter()
+            .map(|d| d.ip)
+            .filter(|ip| table.iter().any(|n| n.ipv4.contains(ip)))
+            .collect();
+        for (ip, name) in ips.iter().zip(crate::namen::netbios_fragen(meins, &ips)) {
+            if let (Some(name), Some(d)) = (name, found.iter_mut().find(|d| d.ip == *ip)) {
+                d.namen.push(crate::namen::Name {
+                    quelle: crate::namen::Quelle::NetBios,
+                    name,
+                    zuletzt: t,
+                });
+            }
+        }
+    }
 
     let mut store: Store = netze::load_json(path)?;
     let list = store.entry(fp.key()).or_default();
@@ -495,6 +522,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         );
         e(
             "Dieses Gerät benutzt eine zufällige Adresse, damit man es nicht über Netze hinweg verfolgen kann. Den Hersteller kann man deshalb nicht erkennen. Pro Netz bleibt die zufällige Adresse gleich, darum gilt sie beim nächsten Besuch als bekannt.",
+        );
+    }
+    e(
+        "Jedes Gerät zeigt den besten Namen mit seiner Quelle. Die Reihenfolge ist fest: dein eigener Name, der Bonjour-Name des Geräts, der UPnP-Name, der NetBIOS-Name, der Name aus dem Router (PTR), zuletzt Hersteller und Ende der MAC-Adresse. Dieser Name kommt vom Gerät selbst (Bonjour). Der Name aus dem Router kann abweichen. Namen sind selbst gewählt und nicht geprüft: Ein Gerät kann sich „Router“ nennen.",
+    );
+    if nachbarn {
+        e(
+            "NetBIOS: Ich frage jede Adresse aus der Nachbartabelle per UDP auf Port 137 „Wie heißt du?“ (Knotenstatus). Nur Windows- und Samba-Geräte antworten, wer schweigt, hat keinen NetBIOS-Namen. Das geschieht nur in „meins“-Netzen, mit einer Sekunde Wartezeit.",
         );
     }
     e(

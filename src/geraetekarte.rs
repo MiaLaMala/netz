@@ -224,8 +224,10 @@ const GATEWAY: u8 = 5;
 pub struct Karte {
     #[serde(flatten)]
     pub geraet: Device,
-    /// Name of the user, else DNS name, else mDNS name, else IP.
+    /// Best name by the order in `namen` (user, mDNS, UPnP, NetBIOS, PTR, maker), else IP.
     pub anzeigename: String,
+    /// Where `anzeigename` comes from, e.g. „Bonjour“; empty if it is the IP.
+    pub namequelle: String,
     pub typ: String,
     pub symbol: String,
     /// One German sentence: why this type (or why none).
@@ -337,13 +339,10 @@ pub fn hinweise(d: &Device, jetzt: u64) -> Vec<String> {
 
 pub fn karte(d: &Device, router: Option<Ipv4Addr>, jetzt: u64) -> Karte {
     let (typ, symbol, erklaerung) = typ_bestimmen(d, router);
-    let anzeigename = d
-        .von_mia
-        .as_ref()
-        .and_then(|m| m.name.clone())
-        .or_else(|| d.name.clone())
-        .or_else(|| d.mdns_name.clone())
-        .unwrap_or_else(|| d.ip.to_string());
+    let (anzeigename, namequelle) = match crate::namen::bester(d) {
+        Some(n) => (n.name, n.quelle.bezeichnung().to_string()),
+        None => (d.ip.to_string(), String::new()),
+    };
     let mut geraet = d.clone();
     for s in &mut geraet.dienste {
         s.txt.clear(); // serial numbers and names stay in the file, not in the view
@@ -353,6 +352,7 @@ pub fn karte(d: &Device, router: Option<Ipv4Addr>, jetzt: u64) -> Karte {
         hinweise: hinweise(&geraet, jetzt),
         geraet,
         anzeigename,
+        namequelle,
         typ,
         symbol,
         erklaerung,
