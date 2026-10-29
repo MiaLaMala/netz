@@ -23,6 +23,7 @@ pub mod subnetz;
 pub mod tls;
 pub mod verbindungen;
 pub mod wlan;
+pub mod wlanverlauf;
 
 /// Prints a German explanation line when `--erklaer` is on.
 pub fn explain(on: bool, text: &str) {
