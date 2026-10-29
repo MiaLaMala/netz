@@ -222,6 +222,18 @@ fn wlan_umfeld() -> Result<netzinfo::kanal::Ansicht, Fehler> {
     netzinfo::kanal::umfeld().map_err(Into::into)
 }
 
+/// Proxy, PAC and WPAD of the current network, see issue #53.
+#[tauri::command(async)]
+fn proxy_lesen() -> Result<netzinfo::proxy::ProxyBefund, Fehler> {
+    netzinfo::proxy::messen().map_err(Into::into)
+}
+
+/// Fetches the PAC file only when the user clicks, returns host names only, see issue #53.
+#[tauri::command(async)]
+fn proxy_pac_ansehen() -> Result<Vec<String>, Fehler> {
+    netzinfo::proxy::pac_ansehen().map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -258,6 +270,8 @@ fn main() {
             ipv6_messen,
             zeit_pruefen,
             wlan_umfeld,
+            proxy_lesen,
+            proxy_pac_ansehen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
