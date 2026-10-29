@@ -28,7 +28,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/dieses-netz-dunkel.png">
-    <img src="docs/bilder/dieses-netz-hell.png" width="820" alt="Netzinfo-Fenster mit der Ansicht „Dieses Netz“: Netzname, Adresse, Router, DNS und WLAN">
+    <img src="docs/bilder/dieses-netz-hell.png" width="820" alt="Netzinfo-Fenster mit der Ansicht „Dieses Netz“: Das Netz „WG“ ist wiedererkannt, darunter Adresse, Router, DHCP, DNS und Proxy">
   </picture>
 </p>
 
@@ -40,12 +40,12 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 
 <table>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit zwei Alarmen: Der DHCP-Server ist nicht mehr der Router, und das Zertifikat von github.com stammt von einer unbekannten Stelle"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit Alarm: Seit dem letzten Besuch haben sich der Weg ins Internet, die DNS-Antworten, der DHCP-Server und das Zertifikat von github.com geändert"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
     <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Qualität“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Statistik"></picture><br><sub>Qualität: Wie gut ist die Leitung über den Tag?</sub></td>
   </tr>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router und Fernseher mit offenen Ports und Diensten, Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Ansicht „Live“: Ping-Kurve zu 1.1.1.1 mit Median, Jitter, Verlust und Bewertung für Videoanruf, Spiele und Streaming"></picture><br><sub>Live: Reicht die Leitung gerade für einen Anruf?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router, Fernseher, Mac und Drucker mit Hersteller, Ports und Diensten, darüber Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Ansicht „Live“: Antwortzeit, Jitter und Verlust zu 1.1.1.1 als Kacheln und Kurve, dazu die Eignung für Videoanrufe, Spiele und Streaming"></picture><br><sub>Live: Reicht die Leitung gerade für einen Anruf?</sub></td>
   </tr>
 </table>
 
@@ -53,11 +53,11 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 - **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
 - **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
 - **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
-- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden.
+- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat.
 - **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
 - **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
 - **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
-- **In der Menüleiste** wacht Netzinfo weiter, wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und meldet sich, wenn etwas auffällt.
+- **In der Menüleiste** wacht Netzinfo weiter, wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt. Auf Wunsch startet es mit der Anmeldung.
 
 ## Installieren
 
@@ -72,7 +72,7 @@ Im Terminal gehen Schritt 2 und 3 auch so: `xattr -dr com.apple.quarantine /Appl
 
 ## Kommandozeile
 
-Alle Befehle verstehen `--erklaer`. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
+`netzinfo --help` zeigt alle Befehle nach Thema, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
 
 ```console
 $ netzinfo subnetz 192.0.2.77/26 --erklaer
