@@ -1,57 +1,64 @@
-/* Styles for the view „geraete“ only. */
+/* Styles for the view „geraete“ only. Rhythm: 8 px steps, 16 px inside a card, two text sizes (13 and 12). */
 /* The shared empty state is tall for whole views; here it sits below the button. */
 [data-ansicht='geraete'] .leer-zustand { min-height: 0; padding-top: 48px; }
-[data-ansicht='geraete'] .geraet-status { margin: 0; }
-[data-ansicht='geraete'] .fortschritt:not(:empty) { margin: 10px 0 0; }
+[data-ansicht='geraete'] .geraet-status { margin: 0; font-size: 12px; font-weight: 400; color: var(--fg2); }
+[data-ansicht='geraete'] .aktion-hinweis { margin: 8px 0 0; }
+[data-ansicht='geraete'] .fortschritt:not(:empty) { margin: 8px 0 0; }
 
-[data-ansicht='geraete'] .filter { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
-[data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 6px; padding: 3px 10px; font: inherit; font-size: 12px; }
+[data-ansicht='geraete'] .filter { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+[data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 6px; padding: 4px 12px; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; transition: background-color 0.15s; }
 [data-ansicht='geraete'] .chip[aria-pressed="true"] { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
+[data-ansicht='geraete'] .filter + .fuss { margin: 8px 0 0; }
 /* Wide enough for two cards side by side (the view may grow to 880 px). */
 [data-ansicht='geraete'].ansicht { max-width: 880px; }
-[data-ansicht='geraete'] .karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; align-items: start; margin-top: 10px; }
-[data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 12px 14px; margin: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 4px; }
+[data-ansicht='geraete'] .karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+[data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 16px; margin: 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; row-gap: 4px; }
+/* The router has the most to say: it takes the full row, so no gap opens next to it. */
+[data-ansicht='geraete'] .karte-breit { grid-column: 1 / -1; }
 /* One grid per card: the symbol has its own column, everything else shares the left edge of the second. */
 [data-ansicht='geraete'] .karte > * { grid-column: 2; min-width: 0; }
 [data-ansicht='geraete'] .karte > .karte-symbol { grid-column: 1; grid-row: 1; }
-[data-ansicht='geraete'] .karte-kopf { display: flex; align-items: center; gap: 10px; }
+[data-ansicht='geraete'] .karte-kopf { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
 [data-ansicht='geraete'] .karte-kopf .text { flex: 1; min-width: 0; }
+[data-ansicht='geraete'] .karte-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; text-align: right; }
 [data-ansicht='geraete'] .karte-symbol { color: var(--fg2); }
-[data-ansicht='geraete'] .karte-symbol svg { width: 22px; height: 22px; display: block; margin: 1px auto 0; }
-[data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); white-space: nowrap; }
-[data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; }
+[data-ansicht='geraete'] .karte-symbol svg { width: 24px; height: 24px; display: block; margin: 0 auto; }
+[data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); white-space: nowrap; line-height: 20px; }
+[data-ansicht='geraete'] .netz-name { font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+[data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+[data-ansicht='geraete'] .karte-kopf .fein { display: flex; flex-wrap: wrap; column-gap: 12px; }
 [data-ansicht='geraete'] .zufall { display: flex; align-items: center; gap: 4px; }
-[data-ansicht='geraete'] .netz-name { overflow-wrap: anywhere; }
-[data-ansicht='geraete'] .netz-name + .marke { white-space: nowrap; }
 [data-ansicht='geraete'] .zufall svg { width: 12px; height: 12px; }
-[data-ansicht='geraete'] ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
-[data-ansicht='geraete'] .karte-ports li { display: grid; grid-template-columns: 3.4em 1fr; padding: 1px 0; }
-[data-ansicht='geraete'] .karte-ports .num { color: var(--fg2); }
-[data-ansicht='geraete'] .karte-hinweise li { display: flex; gap: 6px; padding: 1px 0; }
-[data-ansicht='geraete'] .karte-hinweise li::before { content: "·"; color: var(--fg2); flex: none; }
+[data-ansicht='geraete'] ul { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.4; }
+[data-ansicht='geraete'] .karte-ports { margin-top: 4px; }
+[data-ansicht='geraete'] .karte-ports li { display: grid; grid-template-columns: 4ch minmax(0, 1fr); column-gap: 12px; padding: 2px 0; }
+[data-ansicht='geraete'] .karte-ports .num { color: var(--fg2); text-align: right; }
 [data-ansicht='geraete'] .karte-hinweise { margin-top: 4px; }
-[data-ansicht='geraete'] .router-titel { margin: 8px 0 2px; font-size: 12px; font-weight: 600; color: var(--fg2); }
-[data-ansicht='geraete'] .router-knoepfe, [data-ansicht='geraete'] .karte-aktionen { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
-[data-ansicht='geraete'] .karte-aktionen { margin-top: 6px; }
-/* „Name und Typ ändern“ is on every card: quiet text, no button frame. */
-[data-ansicht='geraete'] .knopf.leise { border-color: transparent; background: none; color: var(--fg2); text-decoration: underline; text-underline-offset: 2px; padding: 0 6px; margin-left: -6px; font-size: 12px; }
-[data-ansicht='geraete'] .knopf.leise:active { background: var(--knopf-aktiv); }
-[data-ansicht='geraete'] .aktion-hinweis { margin: 6px 0 0; }
-[data-ansicht='geraete'] .karte .erklaerung { margin: 4px 0 0; }
-[data-ansicht='geraete'] .karte-formular { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
-[data-ansicht='geraete'] .karte-formular input[type="text"] { flex: 1; min-width: 160px; }
-[data-ansicht='geraete'] .karte-formular > div:empty { display: none; }
-[data-ansicht='geraete'] .filter + .fuss { margin-left: 0; }
-
-/* Router-Seite (#67) */
-[data-ansicht='geraete'] .karte-router { display: flex; flex-direction: column; gap: 4px; }
+[data-ansicht='geraete'] .karte-hinweise li { display: flex; gap: 8px; padding: 2px 0; }
+[data-ansicht='geraete'] .karte-hinweise li::before { content: "·"; color: var(--fg2); flex: none; }
+/* Side by side where the card is wide, stacked on a narrow window. */
+[data-ansicht='geraete'] .karte-router { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); column-gap: 24px; }
 [data-ansicht='geraete'] .karte-router > div:empty { display: none; }
-[data-ansicht='geraete'] .router-seite:empty { display: none; }
-[data-ansicht='geraete'] .karte .meldung { margin-top: 4px; }
+[data-ansicht='geraete'] .router-knoepfe, [data-ansicht='geraete'] .karte-aktionen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+[data-ansicht='geraete'] .karte-aktionen { margin-top: 8px; }
+/* „Name und Typ ändern“ is on every card: quiet text, no button frame, same left edge as the text above. */
+[data-ansicht='geraete'] .knopf.leise { border-color: transparent; background: none; color: var(--fg2); text-decoration: underline; text-underline-offset: 2px; padding: 0 8px; margin-left: -8px; font-size: 12px; }
+[data-ansicht='geraete'] .knopf.leise.gefahr { color: var(--rot); margin-left: 0; }
+[data-ansicht='geraete'] .knopf.leise:hover { color: var(--fg); }
+[data-ansicht='geraete'] .knopf.leise:active { background: var(--knopf-aktiv); }
+[data-ansicht='geraete'] .karte .erklaerung { margin: 4px 0 0; }
+[data-ansicht='geraete'] .karte-formular { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; animation: geraete-rein 0.18s ease-out; }
+[data-ansicht='geraete'] .karte-formular input[type="text"], [data-ansicht='geraete'] .karte-formular input[type="password"] { flex: 1; min-width: 160px; }
+[data-ansicht='geraete'] .karte-formular > div:empty { display: none; }
+@keyframes geraete-rein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
-/* Fritz!Box-Geräteliste (#65) */
-[data-ansicht='geraete'] .karte-formular input[type="password"] { flex: 1; min-width: 160px; }
+/* Router-Seite (#67), Portfreigaben, Fritz!Box-Geräteliste (#65): each block is one labelled section below a hairline. */
+[data-ansicht='geraete'] .router-seite:empty { display: none; }
+[data-ansicht='geraete'] .router-seite { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; padding-top: 16px; border-top: 0.5px solid var(--linie); }
+[data-ansicht='geraete'] .router-titel { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--fg); }
+[data-ansicht='geraete'] .router-seite .status, [data-ansicht='geraete'] .karte .meldung { margin: 0; font-size: 13px; font-weight: 400; }
+[data-ansicht='geraete'] .router-seite .karte-aktionen { margin-top: 4px; }
+[data-ansicht='geraete'] .router-seite .erklaerung { margin: 4px 0 0; }
 [data-ansicht='geraete'] .fritz-formular input[type="text"], [data-ansicht='geraete'] .fritz-formular input[type="password"] { flex: 1 1 100%; }
 [data-ansicht='geraete'] .fritz-formular .hinweis { flex-basis: 100%; margin: 0; }
-[data-ansicht='geraete'] .fritz-formular .knoepfe { flex-basis: 100%; margin: 0; }
-[data-ansicht='geraete'] .fritz .status { margin-top: 4px; font-size: 13px; }
+[data-ansicht='geraete'] .fritz-formular .knoepfe { flex-basis: 100%; display: flex; gap: 8px; justify-content: flex-end; margin: 0; }
