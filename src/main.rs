@@ -24,7 +24,7 @@ Befehle:
                              Aktuelles Netz merken, optional als „meins“ markieren
   netzinfo netze             Gemerkte Netze auflisten
   netzinfo vergessen <Name>  Ein gemerktes Netz löschen
-  netzinfo pruefen           Was ist anders als beim letzten Besuch?
+  netzinfo pruefen [--pfad]  Was ist anders als beim letzten Besuch?
   netzinfo messen [--minuten N]
                              Antwortzeiten und Aussetzer messen
   netzinfo bericht [Netz]    Qualität eines Netzes über die Zeit

@@ -413,11 +413,18 @@ fn auswerten(store: &mut Store, key: String, new: Messung, portal: bool) -> Prue
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
-    if let Some(a) = args.first() {
+    if let Some(a) = args.iter().find(|a| *a != "--pfad") {
         return Err(format!(
-            "`netzinfo pruefen` kennt „{a}“ nicht. Es braucht keine Angaben, `--erklaer` erklärt die Schritte."
+            "`netzinfo pruefen` kennt „{a}“ nicht. Es kennt nur `--pfad`, `--erklaer` erklärt die Schritte."
         ));
     }
+    if !args.is_empty() {
+        crate::pfadspur::erzwingen();
+    }
+    explain(
+        explain_on,
+        "In einem Netz, das als „meins“ gilt, oder mit `--pfad` messe ich zusätzlich den Weg zu 1.1.1.1 und 9.9.9.9 (3 Runden, bis 12 Stationen) und merke mir nur einen Fingerabdruck der Stationen, keine Adressen. Führt der Weg später über andere Stationen, sage ich es. Steht ein zusätzliches Gerät zwischen Router und Anbieter, kann das ein Tunnel sein, oder jemand leitet deinen Verkehr um.",
+    );
     let r = pruefen()?;
     println!("Netz „{}“", r.netz);
     explain(
