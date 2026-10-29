@@ -12,7 +12,7 @@ jobs:
   mac:
     runs-on: macos-latest # Apple Silicon (arm64)
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Version in tauri.conf.json und beiden Cargo.toml muss zusammenpassen, bei Tag-Lauf auch zum Tag.
       - name: Version prüfen
@@ -48,8 +48,18 @@ jobs:
           tar czf "out/netzinfo-$TAG-aarch64-apple-darwin.tar.gz" -C target/aarch64-apple-darwin/release netzinfo
           cd out && shasum -a 256 -- * > SHA256SUMS && cat SHA256SUMS
 
-      # Entwurf: Mia prüft und veröffentlicht von Hand. Bei workflow_dispatch entsteht der Tag erst beim Veröffentlichen.
+      # Entwurf nur bei einem gepushten Tag. Einen neuen Tag darf GITHUB_TOKEN nicht anlegen: GitHub wertet
+      # das als neue Workflow-Dateien und antwortet mit 403. Mia prüft den Entwurf und veröffentlicht von Hand.
       - name: Entwurf-Release anlegen
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" out/* --draft --title "Netzinfo $TAG" --generate-notes --target "$GITHUB_SHA"
+        run: gh release create "$TAG" out/* --draft --title "Netzinfo $TAG" --generate-notes --verify-tag
+
+      # Probelauf per workflow_dispatch: dieselben Dateien als Artefakt am Lauf, kein Release.
+      - name: Artefakt hochladen (Probelauf)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: netzinfo-${{ env.TAG }}-probelauf
+          path: out/
