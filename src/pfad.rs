@@ -1,15 +1,15 @@
 //! `netzinfo pfad`: hop by hop path to a target, without root, see issue #30.
 //! One ICMP datagram socket (no root on macOS) sends echo requests with rising TTL; routers
 //! answer „Time Exceeded“. Received packets are untrusted: every read is bounds-checked.
-//! IPv4 only. ponytail: IPv6 (ICMPv6 socket, IPV6_UNICAST_HOPS) and Linux/Windows are not built.
+//! IPv4 (ICMP) and IPv6 (ICMPv6, IPV6_UNICAST_HOPS, issue #75). ponytail: Linux/Windows are not built.
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::{dns, explain, netze};
+use crate::{dns, explain, netze, statistik};
 
 const WAIT: Duration = Duration::from_secs(1);
 const GAP: Duration = Duration::from_millis(50);
@@ -117,14 +117,53 @@ fn parse_reply(buf: &[u8]) -> Option<Reply> {
     }
 }
 
+/// ICMPv6 echo request (type 128) with 16 payload bytes. The kernel fills in the checksum.
+fn echo_request6(id: u16, seq: u16) -> Vec<u8> {
+    let mut p = vec![128, 0, 0, 0];
+    p.extend_from_slice(&id.to_be_bytes());
+    p.extend_from_slice(&seq.to_be_bytes());
+    p.extend_from_slice(b"netzinfo-pfad\0\0\0");
+    p
+}
+
+/// Parses ICMPv6 type 129 (echo reply) and type 3 code 0 (time exceeded, quoting our request).
+/// IPv6 sockets deliver no IP header. Everything else (neighbor and router messages arrive on
+/// this socket too), truncated or garbage gives `None`; the caller filters by sequence number.
+fn parse_reply6(buf: &[u8]) -> Option<Reply> {
+    match (*buf.first()?, *buf.get(1)?) {
+        (129, 0) => Some(Reply {
+            seq: be16(buf, 6)?,
+            echo: true,
+        }),
+        (3, 0) => {
+            // 8 bytes ICMPv6 header, then the quoted 40 byte IPv6 header (next header 58 = ICMPv6)
+            let quoted = buf.get(8..)?;
+            if quoted.first()? >> 4 != 6 || *quoted.get(6)? != 58 {
+                return None;
+            }
+            let inner = quoted.get(40..)?;
+            (*inner.first()? == 128).then_some(Reply {
+                seq: be16(inner, 6)?,
+                echo: false,
+            })
+        }
+        _ => None,
+    }
+}
+
 // ---- measuring -----------------------------------------------------------------------------
 
 /// Two methods so tests can fake the network.
-pub(crate) trait Prober {
+/// `A` is the address family (IPv4 by default, so `dyn Prober` stays the IPv4 prober).
+pub(crate) trait Prober<A = Ipv4Addr> {
     fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String>;
     /// Blocks up to `wait`; `None` = nothing useful arrived in that time.
-    fn recv(&mut self, wait: Duration) -> Option<(Ipv4Addr, Reply)>;
+    fn recv(&mut self, wait: Duration) -> Option<(A, Reply)>;
 }
+
+/// Address types `measure` works with: `Ipv4Addr` and `Ipv6Addr`.
+pub(crate) trait Addr: Copy + PartialEq + Into<IpAddr> {}
+impl<T: Copy + PartialEq + Into<IpAddr>> Addr for T {}
 
 pub(crate) struct Icmp {
     sock: UdpSocket,
@@ -172,25 +211,91 @@ impl Prober for Icmp {
     }
 }
 
+/// ICMPv6 twin of `Icmp`: same datagram socket idea, hop limit instead of TTL.
+pub(crate) struct Icmp6 {
+    sock: Socket,
+    io: UdpSocket,
+    to: SocketAddr,
+    id: u16,
+}
+
+impl Icmp6 {
+    pub(crate) fn open(target: Ipv6Addr) -> Result<Self, String> {
+        let fail = |e: std::io::Error| {
+            format!(
+                "Kann keinen ICMPv6-Socket öffnen ({e}). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt."
+            )
+        };
+        let sock = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::ICMPV6)).map_err(fail)?;
+        // a clone shares the fd and its options; the std type gives a safe receive buffer
+        let io = UdpSocket::from(sock.try_clone().map_err(fail)?);
+        Ok(Icmp6 {
+            sock,
+            io,
+            to: SocketAddr::new(target.into(), 0),
+            id: std::process::id() as u16,
+        })
+    }
+}
+
+impl Prober<Ipv6Addr> for Icmp6 {
+    fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String> {
+        let fail = |e: std::io::Error| format!("Senden schlug fehl ({e}).");
+        self.sock
+            .set_unicast_hops_v6(u32::from(ttl))
+            .map_err(fail)?;
+        self.io
+            .send_to(&echo_request6(self.id, seq), self.to)
+            .map(|_| ())
+            .map_err(fail)
+    }
+
+    fn recv(&mut self, wait: Duration) -> Option<(Ipv6Addr, Reply)> {
+        let deadline = Instant::now() + wait;
+        let mut buf = [0u8; 1500];
+        loop {
+            let left = deadline.checked_duration_since(Instant::now())?;
+            self.io
+                .set_read_timeout(Some(left.max(Duration::from_millis(1))))
+                .ok()?;
+            let (n, from) = self.io.recv_from(&mut buf).ok()?;
+            if let (IpAddr::V6(ip), Some(r)) = (from.ip(), parse_reply6(&buf[..n])) {
+                return Some((ip, r));
+            }
+        }
+    }
+}
+
 /// Per TTL: who answered, round trip times in order of arrival, probes sent.
-#[derive(Default, Debug)]
-struct Raw {
-    addrs: Vec<Ipv4Addr>,
+#[derive(Debug)]
+struct Raw<A = Ipv4Addr> {
+    addrs: Vec<A>,
     rtts: Vec<f64>,
     sent: u32,
 }
 
+// not derived: a derive would demand `A: Default`, which addresses do not have
+impl<A> Default for Raw<A> {
+    fn default() -> Self {
+        Raw {
+            addrs: Vec::new(),
+            rtts: Vec::new(),
+            sent: 0,
+        }
+    }
+}
+
 /// Probes still waiting for an answer, plus what has been learned so far.
-struct State {
-    raw: Vec<Raw>,
+struct State<A> {
+    raw: Vec<Raw<A>>,
     open: Vec<(u16, Instant)>,
     reached: Option<u8>,
     got_any: bool,
 }
 
-impl State {
+impl<A: Addr> State<A> {
     /// Waits up to `wait` for one reply and books it. False = nothing arrived.
-    fn take(&mut self, p: &mut dyn Prober, target: Ipv4Addr, wait: Duration) -> bool {
+    fn take(&mut self, p: &mut dyn Prober<A>, target: A, wait: Duration) -> bool {
         let Some((from, r)) = p.recv(wait) else {
             return false;
         };
@@ -218,12 +323,12 @@ impl State {
 /// Runs `rounds` rounds. Round n sends TTL 1..=max; the sequence number is `n << 8 | ttl`.
 /// Stops sending beyond the first TTL whose echo reply came from `target`.
 /// Returns the raw hops up to that TTL and whether the target answered.
-fn measure(
-    p: &mut dyn Prober,
-    target: Ipv4Addr,
+fn measure<A: Addr>(
+    p: &mut dyn Prober<A>,
+    target: A,
     max_hops: u8,
     rounds: u8,
-) -> Result<(Vec<Raw>, bool), String> {
+) -> Result<(Vec<Raw<A>>, bool), String> {
     let mut st = State {
         raw: (0..max_hops).map(|_| Raw::default()).collect(),
         open: Vec::new(),
@@ -277,22 +382,27 @@ fn is_private(ip: Ipv4Addr) -> bool {
     ip.is_private() || (o[0] == 100 && (o[1] & 0xc0) == 0x40)
 }
 
-/// Median of sorted, non-empty values.
-pub(crate) fn median(v: &[f64]) -> f64 {
-    let n = v.len();
-    if n % 2 == 1 {
-        v[n / 2]
-    } else {
-        (v[n / 2 - 1] + v[n / 2]) / 2.0
+/// Own network or provider: private IPv4 (see `is_private`), IPv6 unique local fc00::/7 or
+/// link-local fe80::/10.
+fn is_lokal(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(a) => is_private(a),
+        IpAddr::V6(a) => {
+            (a.segments()[0] & 0xfe00) == 0xfc00 || (a.segments()[0] & 0xffc0) == 0xfe80
+        }
     }
 }
 
-/// Nearest-rank 95th percentile of sorted, non-empty values.
-pub(crate) fn p95(v: &[f64]) -> f64 {
-    v[(v.len() * 95).div_ceil(100).max(1) - 1]
+/// Kept for callers outside this file; the numbers come from `statistik`. Non-empty input.
+pub(crate) fn median(v: &[f64]) -> f64 {
+    statistik::median(v).unwrap_or(0.0)
 }
 
-fn build_hops(raw: Vec<Raw>, target: Ipv4Addr) -> Vec<Hop> {
+pub(crate) fn p95(v: &[f64]) -> f64 {
+    statistik::perzentil(v, 95).unwrap_or(0.0)
+}
+
+fn build_hops<A: Addr>(raw: Vec<Raw<A>>, target: A) -> Vec<Hop> {
     let mut seen_public = false;
     raw.into_iter()
         .enumerate()
@@ -300,13 +410,13 @@ fn build_hops(raw: Vec<Raw>, target: Ipv4Addr) -> Vec<Hop> {
             let mut s = r.rtts.clone();
             s.sort_by(f64::total_cmp);
             let has = !s.is_empty();
-            let lokal = r.addrs.first().is_some_and(|a| is_private(*a));
+            let lokal = r.addrs.first().is_some_and(|a| is_lokal((*a).into()));
             let first_public = !seen_public && !r.addrs.is_empty() && !lokal;
             seen_public |= first_public;
             Hop {
                 ttl: (i + 1) as u8,
                 ziel: has && r.addrs.contains(&target),
-                adressen: r.addrs.iter().map(|a| IpAddr::V4(*a)).collect(),
+                adressen: r.addrs.iter().map(|a| (*a).into()).collect(),
                 name: None,
                 gesendet: r.sent,
                 beantwortet: r.rtts.len() as u32,
@@ -331,32 +441,53 @@ fn build_hops(raw: Vec<Raw>, target: Ipv4Addr) -> Vec<Hop> {
 
 // ---- names and target ----------------------------------------------------------------------
 
-fn reverse_name(resolver: IpAddr, ip: Ipv4Addr) -> Option<String> {
-    let o = ip.octets();
-    let q = format!("{}.{}.{}.{}.in-addr.arpa", o[3], o[2], o[1], o[0]);
+fn arpa(ip: IpAddr) -> String {
+    match ip {
+        IpAddr::V4(ip) => {
+            let o = ip.octets();
+            format!("{}.{}.{}.{}.in-addr.arpa", o[3], o[2], o[1], o[0])
+        }
+        IpAddr::V6(ip) => {
+            let nibbles: Vec<String> = ip
+                .octets()
+                .iter()
+                .rev()
+                .flat_map(|b| [b & 0xf, b >> 4])
+                .map(|n| format!("{n:x}"))
+                .collect();
+            format!("{}.ip6.arpa", nibbles.join("."))
+        }
+    }
+}
+
+fn reverse_name(resolver: IpAddr, ip: IpAddr) -> Option<String> {
+    let q = arpa(ip);
     let a = dns::query(resolver, &q, dns::PTR, dns::IN).ok()?;
     let r = a.records.iter().find(|r| r.rtype == dns::PTR)?;
     Some(r.data.trim_end_matches('.').to_string()).filter(|n| !n.is_empty())
 }
 
-fn resolve(ziel: &str) -> Result<Ipv4Addr, String> {
-    if let Ok(ip) = ziel.parse::<Ipv4Addr>() {
+/// An address as typed, else the name's A record, else its AAAA record.
+fn resolve(ziel: &str) -> Result<IpAddr, String> {
+    if let Ok(ip) = ziel.parse::<IpAddr>() {
         return Ok(ip);
     }
-    if ziel.parse::<IpAddr>().is_ok() {
-        return Err("IPv6 kann `netzinfo pfad` noch nicht. Gib ein IPv4-Ziel an.".into());
-    }
-    let a = dns::query(dns::system_resolver()?, ziel, dns::A, dns::IN)?;
-    a.records
-        .iter()
-        .filter(|r| r.rtype == dns::A)
-        .find_map(|r| r.data.parse().ok())
-        .ok_or_else(|| format!("Für „{ziel}“ gibt es keine IPv4-Adresse. Prüfe den Namen."))
+    let resolver = dns::system_resolver()?;
+    [dns::A, dns::AAAA]
+        .into_iter()
+        .find_map(|t| {
+            let a = dns::query(resolver, ziel, t, dns::IN).ok()?;
+            a.records
+                .iter()
+                .filter(|r| r.rtype == t)
+                .find_map(|r| r.data.parse().ok())
+        })
+        .ok_or_else(|| format!("Für „{ziel}“ gibt es keine IP-Adresse. Prüfe den Namen."))
 }
 
 // ---- public API ----------------------------------------------------------------------------
 
-/// Measures the path to `ziel` (IPv4 address or name): `max_hops` 1..=30, `runden` 1..=100.
+/// Measures the path to `ziel` (IPv4 or IPv6 address, or a name): `max_hops` 1..=30, `runden` 1..=100.
 /// With `mit_namen` each hop's first address gets a reverse lookup at the system resolver.
 pub fn pfad_daten(
     ziel: &str,
@@ -368,18 +499,23 @@ pub fn pfad_daten(
         return Err("`max_hops` muss von 1 bis 30 gehen, `runden` von 1 bis 100.".into());
     }
     let target = resolve(ziel)?;
-    let (raw, erreicht) = measure(&mut Icmp::open(target)?, target, max_hops, runden)?;
-    let mut hops = build_hops(raw, target);
+    let (mut hops, erreicht) = match target {
+        IpAddr::V4(t) => {
+            let (raw, ok) = measure(&mut Icmp::open(t)?, t, max_hops, runden)?;
+            (build_hops(raw, t), ok)
+        }
+        IpAddr::V6(t) => {
+            let (raw, ok) = measure(&mut Icmp6::open(t)?, t, max_hops, runden)?;
+            (build_hops(raw, t), ok)
+        }
+    };
     if mit_namen && let Ok(resolver) = dns::system_resolver() {
         // lookups in parallel: the DNS client waits up to 2 s per try
         std::thread::scope(|s| {
             let firsts: Vec<_> = hops.iter().map(|h| h.adressen.first().copied()).collect();
             let jobs: Vec<_> = firsts
                 .into_iter()
-                .map(|a| match a {
-                    Some(IpAddr::V4(ip)) => Some(s.spawn(move || reverse_name(resolver, ip))),
-                    _ => None,
-                })
+                .map(|a| a.map(|ip| s.spawn(move || reverse_name(resolver, ip))))
                 .collect();
             for (h, j) in hops.iter_mut().zip(jobs) {
                 h.name = j.and_then(|j| j.join().ok().flatten());
@@ -388,7 +524,7 @@ pub fn pfad_daten(
     }
     Ok(PfadErgebnis {
         ziel: ziel.to_string(),
-        ziel_ip: IpAddr::V4(target),
+        ziel_ip: target,
         hops,
         erreicht,
         zeitpunkt: netze::now(),
@@ -428,12 +564,18 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     explain(
         explain_on,
-        "Ich schicke kleine Ping-Pakete (ICMP Echo) mit steigender Lebenszeit, dem TTL. Jeder Router zieht 1 vom TTL ab; bei 0 wirft er das Paket weg und meldet sich mit „Time Exceeded“. So melden sich die Geräte auf dem Weg nacheinander. Das braucht kein sudo.",
+        "Ich schicke kleine Ping-Pakete (ICMP Echo, bei IPv6 ICMPv6) mit steigender Lebenszeit, dem TTL (bei IPv6 Hop Limit). Jeder Router zieht 1 davon ab; bei 0 wirft er das Paket weg und meldet sich mit „Time Exceeded“. So melden sich die Geräte auf dem Weg nacheinander. Das braucht kein sudo.",
     );
     let r = pfad_daten(ziel, max_hops, runden, namen)?;
     println!("Ziel {}\n", r.ziel_ip);
+    let breit = r
+        .hops
+        .iter()
+        .flat_map(|h| &h.adressen)
+        .map(|a| a.to_string().len())
+        .fold(16, usize::max);
     println!(
-        "{:>3}  {:<16} {:>8} {:>7} {:>7} {:>7} {:>7}  Art",
+        "{:>3}  {:<breit$} {:>8} {:>7} {:>7} {:>7} {:>7}  Art",
         "Nr", "Adresse", "Verlust", "Min", "Median", "P95", "Jitter"
     );
     for h in &r.hops {
@@ -445,7 +587,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             _ => "öffentlich",
         };
         println!(
-            "{:>3}  {:<16} {:>6.0} % {:>7} {:>7} {:>7} {:>7}  {art}{}{}",
+            "{:>3}  {:<breit$} {:>6.0} % {:>7} {:>7} {:>7} {:>7}  {art}{}{}",
             h.ttl,
             a,
             h.verlust_prozent,
@@ -572,6 +714,93 @@ mod tests {
         let mut big = time_exceeded(5);
         big[8] = 0x4f;
         assert_eq!(parse_reply(&big), None);
+    }
+
+    /// 40 byte IPv6 header (next header 58) from 2001:db8::1 to 2001:db8::2, then `rest`.
+    fn with_ip6(rest: &[u8]) -> Vec<u8> {
+        let mut v = vec![0x60, 0, 0, 0, 0, 16, 58, 64];
+        v.extend_from_slice(&[0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+        v.extend_from_slice(&[0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]);
+        v.extend_from_slice(rest);
+        v
+    }
+
+    fn time_exceeded6(seq: u16) -> Vec<u8> {
+        let mut icmp = vec![3, 0, 0, 0, 0, 0, 0, 0];
+        icmp.extend_from_slice(&with_ip6(&echo_request6(1, seq)));
+        icmp
+    }
+
+    #[test]
+    fn parses_icmpv6_echo_reply_type_129() {
+        let reply = [129, 0, 0xab, 0xcd, 0x12, 0x34, 0x00, 0x07, 1, 2, 3];
+        assert_eq!(parse_reply6(&reply), Some(Reply { seq: 7, echo: true }));
+        assert_eq!(
+            &echo_request6(0x1234, 9)[..8],
+            &[128, 0, 0, 0, 0x12, 0x34, 0, 9]
+        );
+    }
+
+    #[test]
+    fn parses_icmpv6_time_exceeded_type_3() {
+        let want = Some(Reply {
+            seq: 0x0203,
+            echo: false,
+        });
+        assert_eq!(parse_reply6(&time_exceeded6(0x0203)), want);
+    }
+
+    #[test]
+    fn rejects_foreign_truncated_and_garbage_icmpv6() {
+        let full = time_exceeded6(5);
+        // 8 + 40 + 8 bytes are enough (the sequence number is the last read)
+        for n in 0..56 {
+            assert_eq!(parse_reply6(&full[..n]), None, "len {n}");
+        }
+        // neighbor advertisement (135), router advertisement (134), echo request (128)
+        for t in [135, 134, 128] {
+            assert_eq!(parse_reply6(&[t, 0, 0, 0, 0, 0, 0, 1, 2, 3]), None);
+        }
+        assert_eq!(parse_reply6(&[129, 1, 0, 0, 0, 0, 0, 7]), None); // wrong code
+        let mut other = full.clone();
+        other[8 + 40] = 129; // quoted packet is not our echo request
+        assert_eq!(parse_reply6(&other), None);
+        let mut v4 = full.clone();
+        v4[8] = 0x45; // quoted header is not IPv6
+        assert_eq!(parse_reply6(&v4), None);
+        let mut udp = full;
+        udp[8 + 6] = 17; // quoted next header is not ICMPv6
+        assert_eq!(parse_reply6(&udp), None);
+    }
+
+    #[test]
+    fn ipv6_path_through_the_same_measure() {
+        struct Fake6(Vec<(Ipv6Addr, Reply)>);
+        impl Prober<Ipv6Addr> for Fake6 {
+            fn send(&mut self, ttl: u8, seq: u16) -> Result<(), String> {
+                let (a, echo) = match ttl {
+                    1 => ("fe80::1", false),
+                    _ => ("2001:db8::9", true),
+                };
+                self.0.push((a.parse().unwrap(), Reply { seq, echo }));
+                Ok(())
+            }
+            fn recv(&mut self, _: Duration) -> Option<(Ipv6Addr, Reply)> {
+                (!self.0.is_empty()).then(|| self.0.remove(0))
+            }
+        }
+        let t: Ipv6Addr = "2001:db8::9".parse().unwrap();
+        let (raw, reached) = measure(&mut Fake6(vec![]), t, 5, 1).unwrap();
+        assert!(reached);
+        let hops = build_hops(raw, t);
+        assert_eq!(hops.len(), 2);
+        assert!(hops[0].lokal && !hops[0].erster_oeffentlicher);
+        assert!(hops[1].ziel && hops[1].erster_oeffentlicher);
+        let ip: IpAddr = "2001:db8::1".parse().unwrap();
+        assert_eq!(
+            arpa(ip),
+            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa"
+        );
     }
 
     #[test]

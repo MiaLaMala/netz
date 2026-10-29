@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::pfad::{self, Icmp, Prober};
-use crate::{explain, hier, netze, wlan};
+use crate::{explain, hier, netze, statistik, wlan};
 
 const EINS: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
 const NEUN: Ipv4Addr = Ipv4Addr::new(9, 9, 9, 9);
@@ -265,9 +265,7 @@ struct Basis {
 }
 
 fn mitte(v: impl Iterator<Item = f64>) -> Option<f64> {
-    let mut v: Vec<f64> = v.collect();
-    v.sort_by(f64::total_cmp);
-    (!v.is_empty()).then(|| pfad::median(&v))
+    statistik::median(&v.collect::<Vec<_>>())
 }
 
 fn basis_aus(laeufe: &[Lauf]) -> Basis {
@@ -414,8 +412,8 @@ fn bewerte(i: usize, m: &Messung, basis: &Basis) -> Ziel {
     } else {
         100.0 * f64::from(m.gesendet - beantwortet) / f64::from(m.gesendet)
     };
-    let median = has.then(|| pfad::median(&s));
-    let p95 = has.then(|| pfad::p95(&s));
+    let median = statistik::median(&s);
+    let p95 = statistik::perzentil(&s, 95);
     let mut gruende = Vec::new();
     let status = if m.gesendet == 0 {
         Status::Fehlt
