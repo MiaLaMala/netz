@@ -53,7 +53,7 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 - **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
 - **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
 - **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Ein Ausfallprotokoll hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
-- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat.
+- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat. Bei einer Fritz!Box liest es mit einem eigenen Zugang auch deren Geräteliste, die auch Geräte kennt, die auf keinen Scan antworten.
 - **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
 - **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
 - **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
@@ -155,6 +155,7 @@ Anzahl Hosts:  62
 |---|---|
 | `netzinfo geraete [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit MAC und Hersteller |
 | `netzinfo geraete --karten` | Gerätekarten mit Typ und Hinweisen |
+| `netzinfo fritzbox` | Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund |
 | `netzinfo ports <Host>` | Offene Ports eines eigenen Geräts |
 | `netzinfo bonjour` | Dienste, die sich per Bonjour melden |
 | `netzinfo upnp` | Geräte, die sich per UPnP vorstellen, mit Modell |
@@ -179,6 +180,7 @@ Ausführlicher zu einzelnen Befehlen (Erkennung eines Netzes, Einstufung in `pru
 ## Datenschutz
 
 - Netzinfo hat keinen eigenen Server, kein Konto und keine Telemetrie. Was es sich merkt (Merkmale jedes Netzes, Messwerte, Gerätelisten), liegt nur auf deinem Mac in `~/Library/Application Support/netzinfo/` (anderer Ort: Umgebungsvariable `NETZ_DATEN`).
+- Der Zugang zur Fritz!Box (Benutzer und Passwort) liegt nur im macOS-Schlüsselbund, nie in einer Datei und nie als Argument eines anderen Programms. Netzinfo liest damit nur die Geräteliste und ändert nichts.
 - Gescannt wird nur, was dir gehört: `ports`, `geraete` und `portfreigaben` laufen nur gegen private Adressen und nur in Netzen, die du als „meins“ markiert hast. Auf dem eigenen Rechner geht es immer. In fremden Netzen macht Netzinfo nur, was jeder Laptop beim Verbinden ohnehin tut.
 - Ins Internet gehen nur Prüfanfragen, keine Daten von dir: DNS-Fragen an öffentliche Resolver (1.1.1.1, 8.8.8.8, 9.9.9.9) zum Vergleich und für die eigene öffentliche IP, TLS-Verbindungsaufbau mit bekannten Seiten (github.com, apple.com, cloudflare.com, für den SNI-Test auch youtube.com, bbc.com und telegram.org), die Portal-Prüfadressen von Apple, Google und Firefox, die Uhrzeit von time.apple.com und pool.ntp.org, Pings und der Weg zu 1.1.1.1 und 9.9.9.9. Mit `--erklaer` sagt jeder Befehl, was er wohin schickt.
 - Der Lasttest (`last`, lädt mehrere hundert Megabyte) und der Test ausgehender Ports (`ports --raus`, nur gegen deinen eigenen Server) laufen nur auf ausdrücklichen Start.

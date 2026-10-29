@@ -19,6 +19,8 @@ pub enum Quelle {
     Mdns,
     /// Noch ohne Erzeuger: #42 liefert den `friendlyName`, Jana verbindet beides.
     Upnp,
+    /// Name aus der Geräteliste der Fritz!Box (#65).
+    Router,
     NetBios,
     Ptr,
     Hersteller,
@@ -30,6 +32,7 @@ impl Quelle {
             Quelle::Mia => "von dir",
             Quelle::Mdns => "Bonjour",
             Quelle::Upnp => "UPnP",
+            Quelle::Router => "Router",
             Quelle::NetBios => "NetBIOS",
             Quelle::Ptr => "DNS (PTR)",
             Quelle::Hersteller => "Hersteller",

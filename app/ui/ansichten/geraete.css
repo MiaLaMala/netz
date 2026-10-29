@@ -48,3 +48,12 @@
 [data-ansicht='geraete'] .karte-router > div:empty { display: none; }
 [data-ansicht='geraete'] .router-seite:empty { display: none; }
 [data-ansicht='geraete'] .karte .meldung { margin-top: 4px; }
+
+/* Fritz!Box-Geräteliste (#65) */
+[data-ansicht='geraete'] input[type="password"] { height: 24px; padding: 0 8px; border-radius: 6px; border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); }
+[data-ansicht='geraete'] input[type="password"]::placeholder { color: var(--fg2); }
+[data-ansicht='geraete'] .karte-formular input[type="password"] { flex: 1; min-width: 160px; }
+[data-ansicht='geraete'] .fritz-formular input[type="text"], [data-ansicht='geraete'] .fritz-formular input[type="password"] { flex: 1 1 100%; }
+[data-ansicht='geraete'] .fritz-formular .hinweis { flex-basis: 100%; margin: 0; }
+[data-ansicht='geraete'] .fritz-formular .knoepfe { flex-basis: 100%; margin: 0; }
+[data-ansicht='geraete'] .fritz .status { margin-top: 4px; font-size: 13px; }

@@ -35,3 +35,7 @@ done
 ```
 
 Port 22 braucht dort einen anderen SSH-Port oder den echten `sshd`; Ports unter 1024 brauchen Root oder `setcap`. Einmal eintragen: `netzinfo ports --raus --ziel <Server>`. Danach vergleicht `netzinfo pruefen` in gemerkten Netzen mit der letzten Messung und meldet nur neu gesperrte Ports, nie als Alarm. Ohne Ziel sendet Netzinfo nichts.
+
+## Fritz!Box-Geräteliste
+
+`netzinfo fritzbox` liest die Geräteliste einer Fritz!Box über TR-064, ihren Fernzugriff im Heimnetz, und mischt sie über die MAC-Adresse in die eigene Liste (Quelle „Router“, dazu Verbindung LAN oder WLAN und aktiv). Der Router kennt auch Geräte, die auf keinen Scan antworten; ein Gerät, das nur er kennt, heißt in der App „vom Router“. Es läuft nur im Netz, das als „meins“ markiert ist, nur gegen das Gateway und nur lesend: `Hosts:1` mit `GetHostNumberOfEntries` und `GetGenericHostEntry`, eine feste Erlaubnisliste im Code. TR-064 muss in der Fritz!Box eingeschaltet sein (Heimnetz, Netzwerk, Netzwerkeinstellungen, Heimnetzfreigaben: „Zugriff für Anwendungen zulassen“), und es braucht einen eigenen Benutzer mit dem Recht „FRITZ!Box Einstellungen“. `netzinfo fritzbox --zugang <Benutzer>` fragt das Passwort im Terminal ab und legt beides im macOS-Schlüsselbund ab, `--entfernen` löscht den Eintrag. In der App geht das über die Router-Karte in der Ansicht „Geräte“. Die Anmeldung ist HTTP Digest (MD5, nach AVMs „TR-064 - First Steps“); das Passwort geht nicht im Klartext über das Netz und steht in keiner Datei. Unter Linux und Windows gibt es das noch nicht (kein Klartext-Ersatz).

@@ -9,6 +9,7 @@ pub mod dns;
 pub mod dnstempo;
 pub mod dnsverschl;
 pub mod egress;
+pub mod fritzbox;
 pub mod gatewaywache;
 pub mod geraete;
 pub mod geraetekarte;

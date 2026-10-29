@@ -307,6 +307,33 @@ fn ausfaelle() -> Result<netzinfo::messen::Ausfaelle, Fehler> {
     netzinfo::messen::ausfall_daten(None).map_err(Into::into)
 }
 
+/// Fritz!Box-Zugang aus dem Schlüsselbund: nur der Benutzername, nie das Passwort, see issue #65.
+#[tauri::command(async)]
+fn fritzbox_zugang() -> Result<Option<String>, Fehler> {
+    netzinfo::fritzbox::zugang_lesen()
+        .map(|z| z.map(|z| z.benutzer))
+        .map_err(Into::into)
+}
+
+/// Legt Benutzer und Passwort im Schlüsselbund ab, see issue #65.
+#[tauri::command(async)]
+fn fritzbox_speichern(benutzer: String, passwort: String) -> Result<(), Fehler> {
+    netzinfo::fritzbox::zugang_speichern(&benutzer, &passwort).map_err(Into::into)
+}
+
+/// Löscht den Zugang aus dem Schlüsselbund, see issue #65.
+#[tauri::command(async)]
+fn fritzbox_entfernen() -> Result<(), Fehler> {
+    netzinfo::fritzbox::zugang_entfernen().map_err(Into::into)
+}
+
+/// Liest die Geräteliste der Fritz!Box (nur lesen, nur in „meins“-Netzen) und mischt sie in die
+/// eigene Liste, see issue #65.
+#[tauri::command(async)]
+fn fritzbox_lesen() -> Result<netzinfo::fritzbox::Abruf, Fehler> {
+    netzinfo::fritzbox::abrufen(netzinfo::fritzbox::zugang_lesen).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -366,6 +393,10 @@ fn main() {
             portfreigaben,
             autostart_hinweis,
             ausfaelle,
+            fritzbox_zugang,
+            fritzbox_speichern,
+            fritzbox_entfernen,
+            fritzbox_lesen,
         ])
         .build(tauri::generate_context!())
         .map(|app| {

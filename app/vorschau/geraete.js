@@ -3,6 +3,10 @@
 // geraete-leer, geraete-nichtmeins, geraete-fehler, geraete-suche (stays in progress); add ,erklaeren.
 // Port mappings (#45, in the router card): geraete-freigaben (list), geraete-freigaben-aus (UPnP off),
 // geraete-freigaben-login (list only after login), geraete-freigaben-nichtmeins.
+// Fritz!Box-Geräteliste (#65, in der Router-Karte): ohne Marke „Zugang nötig“ (Zeile mit Knopf),
+// geraete-fritz-formular (Formular offen), geraete-fritz (Zugang da, noch nicht gelesen),
+// geraete-fritz-liste (gelesen, Karten mit „vom Router“), geraete-fritz-falsch (401), geraete-fritz-aus (TR-064 aus),
+// geraete-fritz-weg (nicht erreichbar).
 // Cards (issue #29): geraete (cards), geraete-gefiltert (filter „Drucker“), geraete-keine (no cards).
 (() => {
   const m = (s) => marken.includes(s);
@@ -30,7 +34,7 @@
 
   // Cards come from the stored file, not from the search.
   const dienst = (typ, instanz, port) => ({ typ, instanz, host: '', port, ipv4: [], ipv6: [], txt: {} });
-  const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, namen: [], besuche: 5, typ, symbol, anzeigename, namequelle: QUELLEN[anzeigename] || (/^\d/.test(anzeigename) ? '' : 'DNS (PTR)'), erklaerung, hinweise, ...extra });
+  const k = (g, typ, symbol, anzeigename, erklaerung, hinweise, extra = {}) => ({ ...g, ipv6: [], ip_verlauf: g.ip_verlauf || [], hersteller: null, mac_zufaellig: false, dienste: [], mdns_name: null, von_mia: null, namen: [], router: null, besuche: 5, typ, symbol, anzeigename, namequelle: QUELLEN[anzeigename] || (/^\d/.test(anzeigename) ? '' : 'DNS (PTR)'), erklaerung, hinweise, ...extra });
   const QUELLEN = { 'Wohnzimmer-TV': 'Bonjour', 'Alter Laptop': 'von dir', 'MIAS-PC': 'NetBIOS' };
   const KARTEN = [
     k(router, 'Router', '🌐', 'fritz.box', 'Netzinfo hält dieses Gerät für einen Router, weil es das Standardgateway deines Netzes ist.', [], { hersteller: 'Beispiel Netzwerktechnik GmbH', besuche: 40, gateway: true }),
@@ -40,7 +44,31 @@
     k(handy, 'Unbekannt', '❔', '192.0.2.10', 'Dieses Gerät kennt Netzinfo noch nicht. Du kannst ihm einen Namen geben.', ['nutzt eine zufällige MAC-Adresse', 'hatte früher 1 andere IP-Adresse(n)'], { mac_zufaellig: true, besuche: 3 }),
     k(weg, 'Computer', '💻', 'Alter Laptop', 'Du hast festgelegt, dass dies ein Gerät vom Typ „Computer“ ist. Neue Läufe ändern das nicht.', ['zuletzt vor 5 Tagen gesehen'], { von_mia: { name: 'Alter Laptop', typ: 'Computer' }, besuche: 12 }),
   ].sort((a, b) => b.last_seen - a.last_seen);
-  VORSCHAU.geraete_karten = async () => (m('geraete-keine') ? [] : KARTEN);
+  // Router-Liste (#65): drei Geräte kennt nur die Fritz!Box.
+  QUELLEN['nas-keller'] = QUELLEN['steckdose-flur'] = QUELLEN['thermostat-bad'] = 'Router';
+  const router_ = (verbindung, nur_router = false, aktiv = true) => ({ verbindung, aktiv, zuletzt: T, nur_router });
+  const nurRouter = (ip, mac, name, verbindung) => k(d(ip, null, [], 0, 0, mac), 'Unbekannt', '❔', name, 'Dieses Gerät kennt Netzinfo noch nicht. Du kannst ihm einen Namen geben.', [], { besuche: 1, namen: [{ quelle: 'router', name, zuletzt: T }], router: router_(verbindung, true) });
+  const MIT_ROUTER = [
+    ...KARTEN.map((x) => ({ ...x, router: { 'macbook.fritz.box': router_('WLAN'), 'drucker.fritz.box': router_('LAN'), 'wohnzimmer-tv.fritz.box': router_('WLAN') }[x.anzeigename] ?? null })),
+    nurRouter('192.0.2.40', '00:00:5e:00:53:40', 'nas-keller', 'LAN'),
+    nurRouter('192.0.2.50', '00:00:5e:00:53:50', 'steckdose-flur', 'WLAN'),
+    nurRouter('192.0.2.52', '00:00:5e:00:53:52', 'thermostat-bad', 'WLAN'),
+  ].sort((a, b) => b.last_seen - a.last_seen);
+  let zugang = m('geraete-fritz') || m('geraete-fritz-liste') || m('geraete-fritz-falsch') || m('geraete-fritz-aus') || m('geraete-fritz-weg') ? 'netzinfo' : null;
+  let gelesen = false;
+  VORSCHAU.fritzbox_zugang = async () => zugang;
+  VORSCHAU.fritzbox_speichern = async () => { zugang = 'netzinfo'; };
+  VORSCHAU.fritzbox_entfernen = async () => { zugang = null; gelesen = false; };
+  VORSCHAU.fritzbox_lesen = async () => {
+    await warte(600);
+    const aus = (zustand, satz) => ({ zustand, satz, gefunden: 0, neu: 0 });
+    if (m('geraete-fritz-falsch')) return aus('zugang_falsch', 'Die Fritz!Box lehnt Benutzer oder Passwort ab. Prüfe sie unter System, Fritz!Box-Benutzer, oder richte den Zugang neu ein.');
+    if (m('geraete-fritz-aus')) return aus('tr064_aus', 'TR-064 ist in der Fritz!Box aus. Schalte es ein unter Heimnetz, Netzwerk, Netzwerkeinstellungen, Heimnetzfreigaben: „Zugriff für Anwendungen zulassen“.');
+    if (m('geraete-fritz-weg')) return aus('nicht_erreichbar', 'Die Fritz!Box 192.0.2.1 antwortet nicht innerhalb von 3 s. Prüfe die Verbindung und die Rechte für das lokale Netzwerk.');
+    gelesen = true;
+    return { zustand: 'ok', satz: '', gefunden: 6, neu: 3 };
+  };
+  VORSCHAU.geraete_karten = async () => (m('geraete-keine') ? [] : m('geraete-fritz-liste') || gelesen ? MIT_ROUTER : KARTEN);
   VORSCHAU.geraet_setzen = async () => {};
   // UPnP (issue #42): model and type of the TV, as `netzinfo upnp` stores them.
   KARTEN.find((x) => x.ip === neu.ip).upnp = { udn: 'uuid:0000-example', server: null, geraetetyp: 'urn:schemas-upnp-org:device:MediaRenderer:1', hersteller: 'Beispiel Elektronik Co.', modell: 'Bildschirm 55', name: 'Wohnzimmer-TV', location_pfad: '/desc.xml' };
@@ -73,6 +101,7 @@
   // vorschau.html only knows the mark „geraete“; the other marks open the tab here. Search marks press „Suchen“.
   const routermarken = ['router', 'router-umleitung', 'router-nichtmeins'].map((x) => `geraete-${x}`);
   const freimarken = ['freigaben', 'freigaben-aus', 'freigaben-login', 'freigaben-nichtmeins'].map((x) => `geraete-${x}`);
+  const fritzmarken = ['liste', 'falsch', 'aus', 'weg'].map((x) => `geraete-fritz-${x}`);
   const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche'].map((x) => `geraete-${x}`);
   if (marken.some((s) => s.startsWith('geraete'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
@@ -80,6 +109,8 @@
       if (marken.some((s) => suchmarken.includes(s))) setTimeout(() => document.querySelector('.aktion button')?.click(), 250);
       if (marken.some((s) => routermarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.router-knoepfe button')][0]?.click(), 400);
       if (marken.some((s) => freimarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.router-knoepfe button')][1]?.click(), 400);
+      if (m('geraete-fritz-formular')) setTimeout(() => document.querySelector('.fritz-einrichten')?.click(), 500);
+      if (marken.some((s) => fritzmarken.includes(s))) setTimeout(() => document.querySelector('.fritz-lesen')?.click(), 500);
       if (m('geraete-gefiltert')) setTimeout(() => [...document.querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Drucker'))?.click(), 400);
     }, 150));
   }
