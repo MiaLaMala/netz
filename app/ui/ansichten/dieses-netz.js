@@ -109,6 +109,10 @@
     const sz = zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || 'Die Verschlüsselung ist zeitgemäß.');
     sz.querySelector('.wert').className += warn;
     return gruppe('WLAN', [
+      ...(w.ssid ? [
+        zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.'),
+        zeile('Kennung (BSSID)', w.bssid, 'Die Hardware-Adresse des Funkgeräts, mit dem du verbunden bist. Gespeichert wird davon nur ein Hash, nie die Adresse selbst.'),
+      ] : []),
       zeile('Standard', w.standard, 'Der Standard (Wi-Fi 4, 5, 6) bestimmt, wie schnell die Funkstrecke höchstens sein kann. Neuere Standards sind schneller und gehen besser mit vielen Geräten um.'),
       zeile('Band', w.band, '2,4 GHz reicht weiter durch Wände, 5 und 6 GHz sind schneller, brauchen aber Nähe zum Router.'),
       zeile('Kanal', w.kanal, 'Auf dem Kanal funkt dein WLAN. Teilen sich viele Nachbarnetze denselben Kanal, stören sie sich gegenseitig.'),
@@ -122,6 +126,42 @@
       zeile('Land', w.land, 'Das Land bestimmt, welche Kanäle und welche Sendeleistung erlaubt sind.'),
     ]);
   };
+
+  // Standortfreigabe (#35): macOS gibt Netzname und Kennung nur mit Standortfreigabe heraus.
+  const ORT_WARUM = 'macOS behandelt den Namen eines WLANs als Ortsangabe, denn aus ihm lässt sich ableiten, wo du bist. Deshalb zeigt es Name und Kennung nur Apps mit Standortfreigabe. Netzinfo liest damit nur das WLAN, mit dem du verbunden bist, und merkt sich keinen Standort. Ohne Freigabe erkennt Netzinfo Netze etwas ungenauer, alles andere geht weiter.';
+  function ortKarte(status) {
+    if (status === 'Erlaubt') return null;
+    const aktion = (text, fn) => el('button', { class: 'knopf haupt', type: 'button', text, onclick: fn });
+    const fehler = el('div', { 'aria-live': 'polite' });
+    const nachrichten = {
+      NichtGefragt: 'Netzinfo hat noch nicht nach dem Standort gefragt, deshalb zeigt macOS Name und Kennung des WLANs nicht.',
+      Abgelehnt: 'Der Standort ist abgelehnt. Netzinfo funktioniert weiter, erkennt Netze aber ungenauer. Ändern geht in den Systemeinstellungen unter Datenschutz & Sicherheit > Ortungsdienste.',
+      Eingeschraenkt: 'macOS beschränkt den Standort auf diesem Mac (z. B. durch Bildschirmzeit oder ein Profil). Netzinfo kann ihn nicht selbst freigeben.',
+    };
+    const knopf = status === 'NichtGefragt'
+      ? aktion('Standort freigeben …', async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          await Netz.invoke('ort_anfragen');
+          // Die Antwort kommt erst nach dem Klick im Systemdialog: kurz warten und neu lesen.
+          for (let i = 0; i < 60 && (await Netz.invoke('ort_status')) === 'NichtGefragt'; i++) await new Promise((r) => setTimeout(r, 1000));
+          Netz.neuLaden();
+        } catch (err) {
+          fehler.replaceChildren(meldung(Netz.text(err)));
+          e.currentTarget.disabled = false;
+        }
+      })
+      : status === 'Abgelehnt'
+        ? aktion('Systemeinstellungen öffnen', () => Netz.invoke('ort_einstellungen_oeffnen').catch((err) => fehler.replaceChildren(meldung(Netz.text(err)))))
+        : null;
+    return el('section', { class: 'gruppe ort-karte', 'aria-labelledby': 'g-ort' },
+      el('h3', { id: 'g-ort', text: 'Standortfreigabe' }),
+      el('div', { class: 'liste' },
+        el('div', { class: 'zeile' }, el('p', { class: 'ort-status', text: nachrichten[status] || nachrichten.NichtGefragt })),
+        el('details', { class: 'zeile' }, el('summary', { text: 'Warum fragt Netzinfo nach dem Standort?' }), el('p', { class: 'hilfe', text: ORT_WARUM }))),
+      fehler,
+      knopf && el('div', { class: 'knoepfe' }, knopf));
+  }
 
   function offenKnopf() {
     return el('button', { class: 'knopf haupt', type: 'button', text: 'Dieses Netz merken …', onclick: oeffne });
@@ -187,7 +227,11 @@
       }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       const funk = await Netz.invoke('wlan_lesen').catch(() => null);
-      if (funk) wurzel.append(wlanKarte(funk));
+      if (funk) {
+        const ort = ortKarte(await Netz.invoke('ort_status').catch(() => 'Erlaubt'));
+        if (ort) wurzel.append(ort);
+        wurzel.append(wlanKarte(funk));
+      }
     },
   });
 })();

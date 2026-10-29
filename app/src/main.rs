@@ -124,6 +124,33 @@ fn verbindungen_loeschen() -> Result<bool, String> {
     netzinfo::verbindungen::loeschen()
 }
 
+/// Location permission for SSID and BSSID, see issue #35. Reading the state shows no dialog.
+#[tauri::command]
+fn ort_status() -> netzinfo::ort::OrtStatus {
+    netzinfo::ort::status()
+}
+
+/// Shows the system dialog (first time only). Not `async`: Tauri then runs it on the main thread.
+#[tauri::command]
+fn ort_anfragen() -> Result<netzinfo::ort::OrtStatus, String> {
+    netzinfo::ort::anfragen()
+}
+
+/// Opens the Location Services pane. Fixed URL on purpose: the UI passes nothing.
+#[tauri::command]
+fn ort_einstellungen_oeffnen() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Die Systemeinstellungen ließen sich nicht öffnen ({e}). Öffne sie von Hand unter Datenschutz & Sicherheit > Ortungsdienste."))
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err("Die Systemeinstellungen gibt es nur auf dem Mac.".into())
+}
+
 #[tauri::command(async)]
 fn netz_vergessen(name: String) -> Result<(), String> {
     netze::vergessen(&name)
@@ -151,7 +178,10 @@ fn main() {
             verbindungen_zeigen,
             verbindungen_loeschen,
             geraete_karten,
-            geraet_setzen
+            geraet_setzen,
+            ort_status,
+            ort_anfragen,
+            ort_einstellungen_oeffnen
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {

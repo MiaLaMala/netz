@@ -597,6 +597,7 @@ mod tests {
             dhcp_server: ip("192.168.178.1"),
             domain: None,
             subnet: "192.168.178.0/24".into(),
+            bssid_hash: None,
         }
     }
 
