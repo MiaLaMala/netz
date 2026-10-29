@@ -30,6 +30,7 @@ Befehle:
                              Geräte im eigenen Netz, neu und verschwunden, mit MAC
   netzinfo geraete --karten  Gerätekarten mit Typ und Hinweisen aus dem Gemerkten
   netzinfo pfad [Ziel]       Weg ins Internet Hop für Hop
+  netzinfo mtu [Ziel]        Größte Paketgröße des Weges, mit Erklärung
   netzinfo portal [--json]   Hängt das Netz hinter einer Anmeldeseite?
   netzinfo offen [--json]    Welche Programme auf diesem Rechner Ports offen haben
   netzinfo offen --aussen [--meins]  Dazu: Port auch von außen erreichbar? (wie ports)
@@ -69,6 +70,7 @@ fn main() -> ExitCode {
         "bericht" => messen::run_bericht(rest, explain_on),
         "geraete" => geraete::run(rest, explain_on),
         "pfad" => pfad::run(rest, explain_on),
+        "mtu" => netzinfo::mtu::run(rest, explain_on),
         "portal" => portal::run(rest, explain_on),
         "offen" => offen::run(rest, explain_on),
         "bonjour" => bonjour::run(rest, explain_on),

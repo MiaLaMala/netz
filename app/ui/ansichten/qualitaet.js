@@ -324,6 +324,62 @@
     return k;
   }
 
+  // ---- Karte „Paketgröße“ (`netzinfo mtu`, src/mtu.rs, issue #47) ----
+  const EM = {
+    karte: 'Jedes Netzgerät gibt nur Pakete bis zu einer Obergrenze weiter (MTU). Ich schicke Pings mit dem Zeichen „Nicht zerlegen“ und halbiere den Bereich von 576 bis 1500 Byte, bis die Grenze feststeht. Normal sind 1500 Byte; weniger heißt, dass etwas auf dem Weg Platz für eigene Kopfdaten braucht (DSL, Tunnel, VPN, Mobilfunk). Das ist eine Erklärung, kein Beweis.',
+  };
+  const MTU_AMPEL = { normal: 'gruen', pppoe: 'gruen', tunnel: 'gruen', klein: 'orange', ungewoehnlich: 'orange' };
+  let mtuLaeuft = null; // { ziel, p }, outside the view like the path card: ⌘R must not start a second run
+  let mtuLetzt = null; // { erg } | { fehler }
+
+  function mtuKarte() {
+    const eingabe = el('input', { type: 'text', class: 'ziel-feld', value: mtuLaeuft?.ziel ?? '1.1.1.1', 'aria-label': 'Ziel', placeholder: '1.1.1.1', autocapitalize: 'off', spellcheck: 'false' });
+    const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Paketgröße messen', onclick: messe });
+    const lauf = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
+    const ort = el('div', { 'aria-live': 'polite' });
+    const k = el('section', { class: 'gruppe mtu-karte', 'aria-labelledby': 'g-mtu' },
+      el('h3', { id: 'g-mtu', text: 'Paketgröße' }),
+      el('div', { class: 'karte mtu' }, el('div', { class: 'werkzeuge' }, eingabe, knopf), lauf, ort,
+        el('p', { class: 'erklaerung', text: EM.karte })));
+
+    function zeichneMtu() {
+      const laeuft = mtuLaeuft != null;
+      knopf.disabled = eingabe.disabled = laeuft;
+      lauf.replaceChildren(...(laeuft ? [el('progress', { 'aria-label': 'Messung läuft' }), ` Messe die Paketgröße zu ${mtuLaeuft.ziel} … das dauert bis zu 30 Sekunden.`] : []));
+      if (laeuft) return ort.replaceChildren();
+      if (!mtuLetzt) return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Noch nicht gemessen. „Paketgröße messen“ zeigt, wie große Pakete bis zum Ziel unzerlegt ankommen.'));
+      if (mtuLetzt.fehler) return ort.replaceChildren(meldung(mtuLetzt.fehler));
+      const e = mtuLetzt.erg;
+      ort.replaceChildren(...[
+        status(e.quelle === 'stille' ? 'orange' : MTU_AMPEL[e.einstufung], `${e.ziel} (${e.ziel_ip}) · ${e.pfad_mtu} Byte · ${zeit(e.zeitpunkt)}`),
+        gruppe('Ergebnis', [
+          zeile('Größtes Paket ohne Zerlegen', `${e.pfad_mtu} Byte`),
+          e.lokale_mtu != null && zeile('Grenze deiner Schnittstelle', `${e.lokale_mtu} Byte`),
+          e.netz && zeile('Gespeichert für', e.netz),
+          e.vorher != null && zeile('Letzter Besuch', `${e.vorher} Byte`),
+        ].filter(Boolean)),
+        el('p', { class: 'mtu-satz', text: e.satz }),
+        e.vorher != null && e.vorher !== e.pfad_mtu && meldung(`Beim letzten Besuch waren es ${e.vorher} Byte, jetzt ${e.pfad_mtu} Byte.`, 'orange'),
+        !e.netz && meldung('Dieses Netz ist nicht gemerkt, es wird nichts gespeichert.', 'orange'),
+      ].filter(Boolean));
+    }
+
+    async function messe() {
+      if (mtuLaeuft) return;
+      const ziel = eingabe.value.trim() || '1.1.1.1';
+      const p = Netz.invoke('mtu_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
+      mtuLaeuft = { ziel, p };
+      zeichneMtu();
+      mtuLetzt = await p;
+      mtuLaeuft = null;
+      if (k.isConnected) { zeichneMtu(); knopf.focus(); }
+    }
+
+    zeichneMtu();
+    if (mtuLaeuft) mtuLaeuft.p.then(() => k.isConnected && zeichneMtu());
+    return k;
+  }
+
   Netz.registriere({
     id: 'qualitaet',
     titel: 'Qualität',
@@ -421,6 +477,7 @@
       zeichne();
       wurzel.append(wegKarte());
       wurzel.append(wlanKarte());
+      wurzel.append(mtuKarte());
       if (weiter) schalte(true);
     },
   });

@@ -49,7 +49,7 @@ pub struct PfadErgebnis {
 
 // ---- packets -------------------------------------------------------------------------------
 
-fn checksum(data: &[u8]) -> u16 {
+pub(crate) fn checksum(data: &[u8]) -> u16 {
     let mut sum: u32 = data
         .chunks(2)
         .map(|c| u32::from(u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)])))
@@ -79,7 +79,7 @@ pub(crate) struct Reply {
 }
 
 /// Skips an IPv4 header if the buffer starts with one (macOS delivers it); `None` if malformed.
-fn strip_ip(b: &[u8]) -> Option<&[u8]> {
+pub(crate) fn strip_ip(b: &[u8]) -> Option<&[u8]> {
     if b.first()? >> 4 != 4 {
         return Some(b);
     }
@@ -87,7 +87,7 @@ fn strip_ip(b: &[u8]) -> Option<&[u8]> {
     if ihl < 20 { None } else { b.get(ihl..) }
 }
 
-fn be16(b: &[u8], i: usize) -> Option<u16> {
+pub(crate) fn be16(b: &[u8], i: usize) -> Option<u16> {
     Some(u16::from_be_bytes([*b.get(i)?, *b.get(i + 1)?]))
 }
 
