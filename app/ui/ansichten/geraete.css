@@ -63,7 +63,6 @@
 [data-ansicht='geraete'] .fritz-formular .knoepfe { flex-basis: 100%; display: flex; gap: 8px; justify-content: flex-end; margin: 0; }
 
 /* Nur für Vorlesen: Beschriftung und Ansagen, die man nicht sieht. */
-[data-ansicht='geraete'] .nur-vorlesen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* Gerätename und Abschnittstitel sind Überschriften (h3, h4) und sehen aus wie vorher. */
 [data-ansicht='geraete'] h3.netz-name, [data-ansicht='geraete'] h4.router-titel { margin: 0; font-size: inherit; }
 [data-ansicht='geraete'] h4.router-titel { margin: 0 0 4px; font-size: 13px; }

@@ -24,6 +24,4 @@
 [data-ansicht='pruefung'] .portal-hinweis { margin: 0 0 24px; }
 [data-ansicht='pruefung'] .portal-hinweis p { margin: 4px 0 12px; }
 [data-ansicht='pruefung'] .portal-hinweis .erklaerung { margin: 12px 0 0; }
-[data-ansicht='pruefung'] .nur-vo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-[data-ansicht='pruefung'] h2:focus { outline: none; } /* focus lands here by script only, the next Tab leaves it */
 [data-ansicht='pruefung'] .knopf[aria-disabled='true'] { opacity: 0.5; cursor: default; }

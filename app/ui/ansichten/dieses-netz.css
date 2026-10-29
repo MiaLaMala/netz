@@ -39,4 +39,3 @@
 [data-ansicht='dieses-netz'] .ort-karte .zeile.aktionszeile { display: flex; }
 [data-ansicht='dieses-netz'] .ort-karte .ort-status { margin: 0; }
 /* Nur für VoiceOver: Ergebnis der DNS-Messung, einmal höflich angesagt. */
-[data-ansicht='dieses-netz'] .nur-vorlesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

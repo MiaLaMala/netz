@@ -63,10 +63,13 @@ dd, .meldung, .wert { -webkit-user-select: text; user-select: text; }
 h1, h2, p, dl, dd, ul { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--fokus); outline-offset: 2px; }
-/* Überschrift und Inhaltsfeld nimmt der Fokus nach dem Neuzeichnen (app.js, zumKopf): ohne eigenen Ring. */
-.scroll:focus { outline: none; }
+/* Überschriften, Sätze und Inhaltsfeld bekommen den Fokus nur per Skript (zumKopf, nach dem Neuzeichnen): ohne eigenen Ring. */
+.scroll:focus, :is(h2, h3, p)[tabindex='-1']:focus { outline: none; }
 /* Gekürzter Text: eine Zeile mit Auslassung. Der volle Text bleibt im DOM, VoiceOver liest ihn. */
 .kuerzen { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nur für VoiceOver: unsichtbar, aber im Vorlesebaum. */
+.nur-vorlesen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+input[aria-invalid='true'] { border-color: var(--rot); }
 .num, .wert { font-variant-numeric: tabular-nums; }
 
 /* Seitenleiste: läuft bis ganz nach oben, Material kommt vom Fenster */
