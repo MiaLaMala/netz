@@ -8,6 +8,12 @@ ignore = [
     # Nur "nicht mehr gepflegt", keine Sicherheitslücke. Kommt über Tauri/GTK3
     # (glib-macros), also nur auf Linux, nicht in der Mac-App. Entfällt mit GTK4.
     "RUSTSEC-2024-0370",
+    # Ebenfalls nur "nicht mehr gepflegt" (in zbus 6 aufgegangen). Kommt über
+    # tauri-plugin-notification und notify-rust, die unter Linux D-Bus sprechen.
+    # Die Mac-App nimmt mac-notification-sys und enthält zbus nicht.
+    "RUSTSEC-2026-0370", # zvariant
+    "RUSTSEC-2026-0371", # zbus_names
+    "RUSTSEC-2026-0372", # zvariant_derive
 ]
 
 [licenses]
