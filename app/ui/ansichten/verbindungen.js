@@ -77,28 +77,24 @@
       .map((g) => ({ ...g, verbindungen: zustand.nurNeue ? g.verbindungen.filter((v) => v.neu) : g.verbindungen }))
       .filter((g) => g.verbindungen.length);
     const alle = r.gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
-    const neu = r.gruppen.reduce((s, g) => s + g.neu, 0);
-    const teile = [alle ? `${alle} ${alle === 1 ? 'Verbindung' : 'Verbindungen'} von ${r.gruppen.length} ${r.gruppen.length === 1 ? 'Programm' : 'Programmen'}` : 'Keine Verbindungen'];
-    if (r.netz_name && !r.erster_lauf) teile.push(`${neu} neu in „${r.netz_name}“`);
-    const kopf = status(alle ? '' : 'orange', teile.join(' · '));
     const hinweis = !r.netz_name
       ? 'Dieses Netz ist nicht gemerkt: Es gibt kein „neu“ und nichts wird gespeichert.'
       : r.erster_lauf ? `Erster Lauf in „${r.netz_name}“: Das ist der Ausgangsstand, nichts ist „neu“.${r.gespeichert ? '' : ' Gespeichert wird nichts, schalte „Merken“ ein.'}`
       : r.gespeichert ? null : 'Gespeichert wird nichts, deshalb bleiben alte Ziele „neu“. Schalte „Merken“ ein.';
     const fuss = hinweis && el('p', { class: 'fuss', text: hinweis });
     if (!gruppen.length) {
-      return [kopf, fuss, leerZustand(Netz.icons.verbindungen,
+      return [fuss, leerZustand(Netz.icons.verbindungen,
         !alle ? 'Keine aktiven Verbindungen von dir gefunden. Öffne eine Webseite oder ein Programm, dann erscheint es hier.'
           : !r.netz_name ? 'Ohne gemerktes Netz gibt es kein „neu“. Merke das Netz unter „Gemerkte Netze“.'
           : r.erster_lauf ? 'Beim ersten Lauf ist nichts „neu“. Schau beim nächsten Mal wieder nach.'
           : 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.', 'verbindungen')];
     }
-    return [kopf, fuss, ...gruppen.map((g) => {
+    return [fuss, ...gruppen.map((g) => {
       const n = g.verbindungen.length;
       return el('section', { class: 'gruppe' },
         el('h3', { text: `${g.programm} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
         el('div', { class: 'liste', role: 'list' }, g.verbindungen.map(verbindung)));
-    }), nachLand(gruppen), herkunftFuss(r)];
+    }), herkunftFuss(r)];
   }
 
   // „Wer sendet gerade“ (#58): measures only on click; repeats only while this view is on screen.
@@ -123,7 +119,7 @@
 
   function trafficAbschnitt() {
     const ort = el('div', { class: 'traffic-liste' }, el('p', { class: 'traffic-leer', text: 'Noch nicht gemessen.' }));
-    const messen = el('button', { class: 'knopf haupt', type: 'button', text: 'Messen' });
+    const messen = el('button', { class: 'knopf haupt', type: 'button', text: 'Wer sendet gerade?' });
     let wiederholen = false;
     let laeuft = false;
     let timer = null;
@@ -151,7 +147,7 @@
       }
       laeuft = false;
       messen.disabled = false;
-      messen.textContent = 'Messen';
+      messen.textContent = 'Wer sendet gerade?';
       if (hatteFokus) messen.focus();
       clearTimeout(timer);
       if (wiederholen && messen.isConnected) timer = setTimeout(takt, TRAFFIC_TAKT);
@@ -170,12 +166,57 @@
       if (wiederholen) einmal();
     });
     messen.addEventListener('click', () => einmal());
-    return Object.assign(el('section', { class: 'gruppe traffic', 'aria-labelledby': 'g-traffic' },
-      el('h3', { id: 'g-traffic', text: 'Wer sendet gerade' }),
-      el('div', { class: 'liste' },
-      el('p', { class: 'traffic-text', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt und sendet. Die Balken zeigen das Verhältnis zum lautesten Programm, gezählt werden alle Wege, auch zum Router.` }),
-      el('div', { class: 'traffic-werkzeuge' }, messen, sw),
-      ort)), { className: 'gruppe traffic' });
+    // Die Hauptaktion steht unter der Antwort, der Wiederholungsschalter eine Ebene tiefer unter „Details“.
+    const aktion = el('section', { class: 'traffic', 'aria-label': 'Wer sendet gerade' },
+      el('div', { class: 'traffic-werkzeuge' }, messen,
+        el('p', { class: 'fein', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt und sendet. Die Balken zeigen das Verhältnis zum lautesten Programm.` })),
+      ort);
+    const optionen = el('div', { class: 'netz-zeile' }, sw);
+    return { aktion, optionen };
+  }
+
+  // Der Satz oben fasst beide Seiten zusammen. Fehlt eine Hälfte (Fehler beim Lesen), steht nur die andere da.
+  const SEGMENT_KEY = 'netzinfo.verbindungen.segment';
+  const mal = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+  function satz(r, lauschend) {
+    const teile = [];
+    let aufmerksam = false;
+    if (r) {
+      const alle = r.gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
+      const neu = r.netz_name && !r.erster_lauf ? r.gruppen.reduce((s, g) => s + g.neu, 0) : 0;
+      aufmerksam ||= neu > 0;
+      teile.push(alle ? `${mal(alle, 'Verbindung', 'Verbindungen')} von ${mal(r.gruppen.length, 'Programm', 'Programmen')}${r.netz_name && !r.erster_lauf ? (neu ? `, ${neu} neu` : ', nichts neu') : ''}.` : 'Keine Verbindungen.');
+    }
+    if (lauschend) {
+      const netz = new Set(lauschend.filter((l) => l.reichweite === 'Netz').map((l) => l.pid)).size;
+      aufmerksam ||= netz > 0;
+      teile.push(netz ? `${mal(netz, 'Programm ist', 'Programme sind')} fürs Netz erreichbar.` : 'Kein Programm ist fürs Netz erreichbar.');
+    }
+    return { text: teile.join(' ') || 'Verbindungen ließen sich nicht lesen.', farbe: aufmerksam ? 'orange' : 'gruen' };
+  }
+
+  const SEGMENTE = [['ausgehend', 'Ausgehend'], ['lauschend', 'Lauschend']];
+  function segmentSteuerung(aktiv, wechseln) {
+    const knoepfe = SEGMENTE.map(([id, text]) => el('button', {
+      class: 'segment', type: 'button', role: 'tab', id: `seg-${id}`, 'aria-controls': 'seg-flaeche',
+      'aria-selected': String(id === aktiv), tabindex: id === aktiv ? '0' : '-1', text,
+    }));
+    const leiste = el('div', { class: 'segmente', role: 'tablist', 'aria-label': 'Ansicht der Verbindungen' }, knoepfe);
+    const waehle = (n, fokus) => {
+      knoepfe.forEach((k, i) => { k.setAttribute('aria-selected', String(i === n)); k.tabIndex = i === n ? 0 : -1; });
+      if (fokus) knoepfe[n].focus();
+      wechseln(SEGMENTE[n][0]);
+    };
+    knoepfe.forEach((k, i) => {
+      k.addEventListener('click', () => waehle(i, false));
+      k.addEventListener('keydown', (e) => {
+        const n = { ArrowRight: (i + 1) % 2, ArrowLeft: (i + 1) % 2, Home: 0, End: 1 }[e.key];
+        if (n === undefined) return;
+        e.preventDefault();
+        waehle(n, true);
+      });
+    });
+    return leiste;
   }
 
   Netz.registriere({
@@ -184,8 +225,12 @@
     icon: Netz.icons.verbindungen,
     async render(wurzel) {
       const ort = el('div', { class: 'ergebnis' }, el('p', { class: 'fuss', text: 'Wird gelesen …' }));
+      const landOrt = el('div');
       ansage.textContent = '';
-      const zeichne = () => ort.replaceChildren(...liste(ergebnis).filter(Boolean));
+      const zeichne = () => {
+        ort.replaceChildren(...liste(ergebnis).filter(Boolean));
+        landOrt.replaceChildren(...[ergebnis.gruppen.length && nachLand(ergebnis.gruppen.map((g) => ({ ...g, verbindungen: zustand.nurNeue ? g.verbindungen.filter((v) => v.neu) : g.verbindungen })))].filter(Boolean));
+      };
       let loeschenAus = () => {};
       const merkenGruppe = () => {
         const fehler = el('div', { 'aria-live': 'polite' });
@@ -219,32 +264,50 @@
             zeileLoeschen),
           fehler);
       };
-      wurzel.append(
-        el('div', { class: 'kopf' }, el('h2', { text: 'Verbindungen' }),
-          el('p', { class: 'status' }, el('span', { text: 'Wer gerade mit wem spricht, nach Programm gruppiert.' }))),
-        el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => {
-          if (!ergebnis) return;
-          zeichne();
-          ansage.textContent = ort.querySelector('.status')?.textContent ?? '';
-        })),
-        ort,
-        ansage,
-        merkenGruppe(),
-        trafficAbschnitt(),
-        Object.assign(gruppe('So entsteht die Liste', [
-          zeile('Verbunden', 'nur ESTABLISHED', E.verbunden),
-          zeile('Name', 'Rückwärts-DNS (PTR)', E.ptr),
-          zeile('Land und Anbieter', 'aus einer Datei im Programm', E.herkunft),
-          zeile('Neu', 'in diesem Netz noch nie gesehen', E.neu),
-          zeile('Sichtbar', 'nur deine Programme', E.fremd),
-        ]), { className: 'gruppe erklaer-gruppe' }));
-      try {
-        ergebnis = await Netz.invoke('verbindungen_zeigen', { speichern: zustand.merken });
+
+      // Beide Seiten werden vorab gelesen, damit der Satz oben stimmt. Lauschend liest seine Liste beim Einbetten selbst noch einmal (nur Sockets, kein Netz).
+      const [verb, lausch] = await Promise.allSettled([Netz.invoke('verbindungen_zeigen', { speichern: zustand.merken }), Netz.invoke('offen_zeigen', { aussen: false })]);
+      ergebnis = verb.status === 'fulfilled' ? verb.value : null;
+      const s = satz(ergebnis, lausch.status === 'fulfilled' ? lausch.value : null);
+      const kopf = el('div', { class: 'kopf' },
+        el('h2', { class: 'satz' }, el('span', { class: `punkt ${s.farbe}`, 'aria-hidden': 'true' }), el('span', { text: s.text })));
+
+      const fl = el('div', { id: 'seg-flaeche', role: 'tabpanel', tabindex: '-1' });
+      let aktiv;
+      try { aktiv = localStorage.getItem(SEGMENT_KEY) === 'lauschend' ? 'lauschend' : 'ausgehend'; } catch { aktiv = 'ausgehend'; }
+      let nr = 0;
+      const zeigeSegment = async (id) => {
+        const mein = ++nr;
+        try { localStorage.setItem(SEGMENT_KEY, id); } catch { /* ohne Speicher bleibt es pro Start */ }
+        fl.setAttribute('aria-labelledby', `seg-${id}`);
+        if (id === 'lauschend') {
+          const e = await Netz.einbetten('offen');
+          if (mein === nr) fl.replaceChildren(e);
+          return;
+        }
+        if (!ergebnis) { fl.replaceChildren(Netz.fehlerKarte(verb.reason ? Netz.text(verb.reason) : 'Die Liste der Verbindungen ließ sich nicht lesen.')); return; }
+        const traffic = trafficAbschnitt();
+        fl.replaceChildren(
+          el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => {
+            zeichne();
+            ansage.textContent = `${mal(ort.querySelectorAll('.verbindung').length, 'Verbindung', 'Verbindungen')} in der Liste.`;
+          })),
+          traffic.aktion, ort, ansage,
+          el('details', { class: 'details', open: fokusNach ? '' : null },
+            el('summary', { text: 'Details' }),
+            traffic.optionen, landOrt, merkenGruppe(),
+            Object.assign(gruppe('So entsteht die Liste', [
+              zeile('Verbunden', 'nur ESTABLISHED', E.verbunden),
+              zeile('Name', 'Rückwärts-DNS (PTR)', E.ptr),
+              zeile('Land und Anbieter', 'aus einer Datei im Programm', E.herkunft),
+              zeile('Neu', 'in diesem Netz noch nie gesehen', E.neu),
+              zeile('Sichtbar', 'nur deine Programme', E.fremd),
+            ]), { className: 'gruppe erklaer-gruppe' })));
         zeichne();
         if (!ergebnis.netz_name) loeschenAus();
-      } catch (f) {
-        ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
-      }
+      };
+      wurzel.append(kopf, segmentSteuerung(aktiv, zeigeSegment), fl);
+      await zeigeSegment(aktiv);
       if (fokusNach) {
         const ziel = fokusNach;
         fokusNach = null;

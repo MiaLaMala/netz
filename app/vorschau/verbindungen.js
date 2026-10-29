@@ -1,5 +1,5 @@
 // Fake answers for the view „verbindungen“ in vorschau.html.
-// Marks: verbindungen (grouped list), verbindungen-traffic / verbindungen-trafficfehler (Messung läuft / scheitert), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database), verbindungen-keinnetz (Netz nicht gemerkt), verbindungen-fehler; add ,erklaeren.
+// Marks: verbindungen (grouped list), verbindungen-traffic / verbindungen-trafficfehler (Messung läuft / scheitert), verbindungen-neu (filter „nur neue“ on), verbindungen-leer, verbindungen-ohnedb (no database), verbindungen-keinnetz (Netz nicht gemerkt), verbindungen-fehler; lauschend (Segment „Lauschend“ gewählt, die Liste dort kommt aus vorschau/offen.js, dessen Marken offen-netz, offen-aussen usw. dazu passen); add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
   const v = (ziel, ziel_port, dienst, art, name, quelle, neu, land = null, anbieter = null) => ({
@@ -32,11 +32,13 @@
     return { gruppen: ohne, netz_name: 'WG', erster_lauf: false, gespeichert: true, datenbank_stand: null };
   };
   VORSCHAU.verbindungen_loeschen = async () => {};
+  // Das gewählte Segment steht in localStorage: die Marke setzt es, ohne sie beginnt jede Vorschau bei „Ausgehend“.
+  try { localStorage.setItem('netzinfo.verbindungen.segment', m('lauschend') ? 'lauschend' : 'ausgehend'); } catch { /* ohne Speicher */ }
 
-  if (marken.some((s) => s.startsWith('verbindungen'))) {
+  if (marken.some((s) => s.startsWith('verbindungen') || s === 'lauschend')) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-verbindungen')?.click();
-      if (m('verbindungen-neu') || m('verbindungen-keinnetz-neu')) setTimeout(() => document.querySelector('.werkzeuge button')?.click(), 250);
+      if (m('verbindungen-neu') || m('verbindungen-keinnetz-neu')) setTimeout(() => document.querySelector('.werkzeuge button')?.click(), 400);
     }, 150));
   }
 })();

@@ -90,12 +90,13 @@
     id: 'offen',
     titel: 'Offen',
     icon: Netz.icons.offen,
+    teil: true, // lebt in „Verbindungen“ unter „Lauschend“
     async render(wurzel) {
       ansage.textContent = '';
       const ort = el('div', { class: 'ergebnis' });
       const titel = el('h2', { text: 'Wird gelesen …' });
       const unter = el('p', { class: 'status' });
-      const pruefen = el('button', { class: 'knopf', type: 'button', 'aria-describedby': 'beschr-pruefen', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
+      const pruefen = el('button', { class: 'knopf haupt', type: 'button', 'aria-describedby': 'beschr-pruefen', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
       pruefen.addEventListener('click', () => {
         zustand.aussen = true;
         pruefen.disabled = true;
@@ -104,7 +105,8 @@
         Netz.neuLaden();
       });
       wurzel.append(
-        el('div', { class: 'kopf' }, titel, unter),
+        // Eingebettet trägt der Satz von „Verbindungen“ die Antwort: keine zweite Überschrift mit dem Zähler.
+        el('div', { class: 'kopf' }, wurzel.classList.contains('eingebettet') ? null : titel, unter),
         el('div', { class: 'werkzeuge' },
           el('div', { class: 'werkzeug' }, schalter('Nur Netz', 'nurNetz', () => {
             if (!liste) return;
