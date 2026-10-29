@@ -44,7 +44,9 @@
 
   // Zeit in der Zeitzone des Macs, z. B. „26.10.2026, 21:30“.
   const zeit = (sekunden) =>
-    new Date(sekunden * 1000).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+    Number.isFinite(sekunden)
+      ? new Date(sekunden * 1000).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+      : 'unbekannt';
 
   // Fehler aus dem Kern sind deutsche Sätze, entweder pur oder als { art, text } (art: nicht_gemerkt,
   // nicht_meins, sonstiges). Ansichten fragen `f?.art`, nie den Satz. Alles andere ist ein Fehler der Oberfläche.
@@ -62,8 +64,10 @@
     el('p', { class: 'status' }, el('span', { class: `punkt ${farbe}` }), el('span', { text: wort }));
 
   // Gruppe wie in den Systemeinstellungen: Titel, abgerundete Liste, optional eine Fußnote.
+  let gruppenNr = 0;
   function gruppe(titel, zeilen, fuss) {
-    const id = `g-${titel.toLowerCase().replace(/[^a-zäöüß]+/g, '-')}`;
+    // Die Nummer hält die id eindeutig, auch wenn zwei Gruppen denselben Titel tragen.
+    const id = `g-${titel.toLowerCase().replace(/[^a-zäöüß]+/g, '-')}-${++gruppenNr}`;
     return el('section', { class: 'gruppe', 'aria-labelledby': id },
       el('h3', { id, text: titel }),
       el('dl', { class: 'liste' }, zeilen),
@@ -100,7 +104,7 @@
       try {
         const h = await invoke('woher_zeigen', { pid });
         inhalt.append(
-          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle]}` }),
+          el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle] ?? 'unbekannt'}` }),
           el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
             el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
           el('p', { class: 'fein', text: h.satz }));
@@ -182,12 +186,21 @@
     // data-ansicht scopes a view's CSS file: all views share one document.
     const wurzel = el('div', { class: `ansicht${wechsel ? ' neu' : ''}`, 'data-ansicht': id });
     feld.setAttribute('aria-busy', 'true');
+    // Dauert das Laden, steht beim Wechsel nicht die alte Ansicht unter dem neuen Titel.
+    const knopf = document.getElementById('aktualisieren');
+    knopf.disabled = true;
+    const wartet = wechsel && setTimeout(() => {
+      if (nr === zaehler) feld.replaceChildren(el('div', { class: 'ansicht' }, leerZustand('', 'Lädt …')));
+    }, 250);
     try {
       await a.render(wurzel);
     } catch (e) {
+      console.error(e);
       wurzel.replaceChildren(meldung(text(e)));
     }
+    clearTimeout(wartet);
     if (nr !== zaehler) return; // inzwischen woanders hingeklickt
+    knopf.disabled = false;
     const oben = wechsel || !neuLaden ? 0 : feld.scrollTop;
     feld.replaceChildren(wurzel);
     feld.scrollTop = oben;
