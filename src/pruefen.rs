@@ -318,9 +318,9 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
                 .map(|(klasse, text)| Unterschied { klasse, text }),
         );
     }
-    // Rule from #34: Wi-Fi security weaker than at an earlier visit.
-    if let Some((klasse, text)) =
-        crate::wlan::abstieg_pruefen(&path.with_file_name("wlan.json"), &fp.key())
+    // Rules from #34 (Wi-Fi security weaker than before) and #35 (access points).
+    for (klasse, text) in
+        crate::wlan::funk_pruefen(&path.with_file_name("wlan.json"), &fp.key(), known[i].meins)
     {
         erg.unterschiede.push(Unterschied { klasse, text });
     }

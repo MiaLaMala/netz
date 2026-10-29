@@ -1,6 +1,6 @@
 //! `netzinfo wlan`: radio link of the current Wi-Fi connection (issue #34).
 //!
-//! No SSID and no BSSID here (that is #35). Every value is an `Option`: a platform or driver
+//! SSID and BSSID only come with the location permission (`ort`, #35). Every value is an `Option`: a platform or driver
 //! that does not report a value leaves it empty, and the output says so.
 
 use crate::explain;
@@ -96,6 +96,10 @@ pub struct Funkverbindung {
     pub sicherheit: Option<Sicherheit>,
     /// Two-letter country code of the regulatory domain.
     pub land: Option<String>,
+    /// Only with the location permission (`ort::status()` is `Erlaubt`).
+    pub ssid: Option<String>,
+    /// Raw BSSID, only in memory and for the screen. The store only gets `ort::bssid_hash`.
+    pub bssid: Option<String>,
 }
 
 /// Signal minus noise.
@@ -137,7 +141,11 @@ pub fn parse_iw(text: &str) -> Result<Option<Funkverbindung>, String> {
             .find_map(|l| l.trim().strip_prefix(key))
             .map(str::trim)
     };
-    let mut f = Funkverbindung::default();
+    let mut f = Funkverbindung {
+        ssid: val("SSID:").map(Into::into),
+        bssid: text.split_whitespace().nth(2).map(Into::into),
+        ..Funkverbindung::default()
+    };
     if let Some(freq) = val("freq:").and_then(|v| v.split('.').next()?.trim().parse::<u32>().ok()) {
         f.band = Some(band_name(freq).into());
         f.kanal = match freq {
@@ -174,6 +182,7 @@ pub fn lesen() -> Result<Option<Funkverbindung>, String> {
     use objc2_core_wlan::CWWiFiClient;
     // SAFETY: plain getters on CoreWLAN objects, no pointers or callbacks are passed.
     unsafe {
+        let frei = crate::ort::status() == crate::ort::OrtStatus::Erlaubt;
         let Some(i) = CWWiFiClient::sharedWiFiClient().interface() else {
             return Ok(None);
         };
@@ -207,6 +216,8 @@ pub fn lesen() -> Result<Option<Funkverbindung>, String> {
             rate_mbit: (rate > 0.0).then_some(rate),
             sicherheit: Some(Sicherheit::aus_cw(i.security().0 as i64)),
             land: i.countryCode().map(|c| c.to_string()),
+            ssid: i.ssid().filter(|_| frei).map(|s| s.to_string()),
+            bssid: i.bssid().filter(|_| frei).map(|s| s.to_string()),
         }))
     }
 }
@@ -225,6 +236,23 @@ pub struct Merk {
     pub staerkste_sicherheit: Sicherheit,
     pub band: Option<String>,
     pub standard: Option<String>,
+    /// SSID of the last visit (#35), empty without the location permission.
+    #[serde(default)]
+    pub ssid: Option<String>,
+    #[serde(default)]
+    pub meins: bool,
+    /// Access points seen in this network, newest last. Only hashes, never the raw BSSID.
+    #[serde(default)]
+    pub funkpunkte: Vec<Funkpunkt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Funkpunkt {
+    pub hash: String,
+    /// First three bytes of the BSSID ("00:00:5e"): the maker of the radio.
+    pub praefix: String,
+    pub zuerst: u64,
+    pub zuletzt: u64,
 }
 
 type Store = BTreeMap<String, Merk>;
@@ -238,7 +266,8 @@ fn aufzeichnen_in(
     now: u64,
 ) -> Option<(Klasse, String)> {
     let neu = f.sicherheit.filter(|s| s.rang().is_some())?;
-    let alt = store.get(key).map(|m| m.staerkste_sicherheit);
+    let alt_merk = store.get(key).cloned();
+    let alt = alt_merk.as_ref().map(|m| m.staerkste_sicherheit);
     let schwaecher = alt.filter(|a| neu.rang() < a.rang());
     let staerkste = alt.filter(|a| a.rang() >= neu.rang()).unwrap_or(neu);
     store.insert(
@@ -249,6 +278,9 @@ fn aufzeichnen_in(
             staerkste_sicherheit: staerkste,
             band: f.band.clone(),
             standard: f.standard.clone(),
+            ssid: alt_merk.as_ref().and_then(|m| m.ssid.clone()),
+            meins: alt_merk.as_ref().is_some_and(|m| m.meins),
+            funkpunkte: alt_merk.map(|m| m.funkpunkte).unwrap_or_default(),
         },
     );
     schwaecher.map(|a| {
@@ -263,13 +295,105 @@ fn aufzeichnen_in(
     })
 }
 
-/// Reads the link and runs the rule for the network `key`. Any problem means no finding.
-pub fn abstieg_pruefen(store_path: &Path, key: &str) -> Option<(Klasse, String)> {
-    let f = lesen().ok()??;
-    let mut store: Store = netze::load_json(store_path).ok()?;
-    let r = aufzeichnen_in(&mut store, key, &f, netze::now());
-    netze::save(store_path, &store).ok()?;
-    r
+fn router_von(key: &str) -> &str {
+    key.split('|').next().unwrap_or("")
+}
+
+/// Rules for access points (#35), after `aufzeichnen_in` created the entry for `key`.
+///
+/// Same SSID as a „meins“ network with another router, and an access point that network never
+/// had: „gleicher Name, anderes Netz“ (possible fake hotspot), conspicuous. In a „meins“ network,
+/// an access point whose hash and maker prefix were not seen there: „neuer Funkpunkt“, conspicuous
+/// (same prefix is roaming or mesh and harmless). Elsewhere (hotel, school) many access points are
+/// normal and only remembered. Never an alarm: the BSSID changes with private addresses and mesh.
+fn funkpunkt_aufzeichnen(
+    store: &mut Store,
+    key: &str,
+    meins: bool,
+    ssid: &str,
+    bssid: [u8; 6],
+    salz: &str,
+    now: u64,
+) -> Vec<(Klasse, String)> {
+    let hash = crate::ort::bssid_hash(salz, bssid);
+    let praefix = crate::ort::praefix(bssid);
+    let mut out = Vec::new();
+    let fremd = store.iter().any(|(k, m)| {
+        k != key
+            && m.meins
+            && m.ssid.as_deref() == Some(ssid)
+            && router_von(k) != router_von(key)
+            && !m.funkpunkte.is_empty()
+            && m.funkpunkte.iter().all(|p| p.hash != hash)
+    });
+    if fremd {
+        out.push((
+            Klasse::Auffaellig,
+            format!("Gleicher Name, anderes Netz: Das WLAN „{ssid}“ kenne ich aus einem deiner Netze, aber mit anderem Router und anderem Funkpunkt. Das kann ein nachgebauter Hotspot sein. Prüfe, ob du mit dem richtigen WLAN verbunden bist."),
+        ));
+    }
+    let Some(m) = store.get_mut(key) else {
+        return out;
+    };
+    let bekannt = m.funkpunkte.iter().any(|p| p.hash == hash);
+    let gleicher_hersteller = m.funkpunkte.iter().any(|p| p.praefix == praefix);
+    if meins && !m.funkpunkte.is_empty() && !bekannt && !gleicher_hersteller {
+        out.push((
+            Klasse::Auffaellig,
+            "Neuer Funkpunkt in einem deiner Netze, von einem anderen Hersteller als die bekannten. Bei einem neuen Repeater oder Router ist das richtig, sonst sieh nach, wer das WLAN anbietet.".into(),
+        ));
+    }
+    match m.funkpunkte.iter_mut().find(|p| p.hash == hash) {
+        Some(p) => p.zuletzt = now,
+        None => m.funkpunkte.push(Funkpunkt {
+            hash,
+            praefix,
+            zuerst: now,
+            zuletzt: now,
+        }),
+    }
+    // ponytail: at most 32 per network (hotel Wi-Fi has hundreds), oldest first out.
+    if m.funkpunkte.len() > 32 {
+        m.funkpunkte.remove(0);
+    }
+    m.ssid = Some(ssid.to_string());
+    m.meins = meins;
+    out
+}
+
+/// Reads the link and runs the rules for the network `key`: security step down (#34) and
+/// access points (#35). Any problem, or no location permission, means no finding.
+pub fn funk_pruefen(store_path: &Path, key: &str, meins: bool) -> Vec<(Klasse, String)> {
+    let Ok(Some(f)) = lesen() else {
+        return Vec::new();
+    };
+    let Ok(mut store) = netze::load_json::<Store>(store_path) else {
+        return Vec::new();
+    };
+    let now = netze::now();
+    let mut out: Vec<_> = aufzeichnen_in(&mut store, key, &f, now)
+        .into_iter()
+        .collect();
+    if let (Some(ssid), Some(b)) = (
+        &f.ssid,
+        f.bssid.as_deref().and_then(crate::ort::bssid_bytes),
+    ) && let Ok(salz) = crate::ort::salz(&store_path.with_file_name("salz.json"))
+    {
+        out.extend(funkpunkt_aufzeichnen(
+            &mut store, key, meins, ssid, b, &salz, now,
+        ));
+    }
+    let _ = netze::save(store_path, &store);
+    out
+}
+
+/// Hash of the BSSID the Mac is connected to, for the fingerprint. `None` without permission.
+pub fn bssid_hash_jetzt(salz_pfad: &Path) -> Option<String> {
+    let b = crate::ort::bssid_bytes(lesen().ok()??.bssid.as_deref()?)?;
+    Some(crate::ort::bssid_hash(
+        &crate::ort::salz(salz_pfad).ok()?,
+        b,
+    ))
 }
 
 /// Key of the current network if it is stored, with the store file next to `netze.json`.
@@ -374,6 +498,18 @@ fn zeigen(f: &Funkverbindung, on: bool) {
         explain(on, sicherheit_note(s).1);
     }
     zeile("Land", f.land.clone());
+    zeile("SSID", f.ssid.clone());
+    zeile("Kennung (BSSID)", f.bssid.clone());
+    if f.ssid.is_none() {
+        println!("Standort: {}", crate::ort::status().satz());
+        println!(
+            "Hinweis: Name und Kennung zeigt macOS nur Apps mit Standortfreigabe. Die Kommandozeile hat ohne App-Bündel und Signatur keine, die Netzinfo-App zeigt beides."
+        );
+    }
+    explain(
+        on,
+        "Die Kennung des Zugangspunkts (BSSID) ist die Hardware-Adresse des Funkgeräts. Zwei Netze mit gleichem Namen, aber anderer Kennung sind nicht dasselbe Netz. Der Standort wird nur gebraucht, weil macOS Netznamen als Ortsdaten behandelt. Netzinfo speichert keinen Standort.",
+    );
     explain(
         on,
         "Standard, Band, Kanal und Breite bestimmen, wie schnell und wie weit das Funknetz trägt: 2,4 GHz reicht weiter, 5 und 6 GHz sind schneller, aber näher am Router. Breitere Kanäle sind schneller und störanfälliger.",
@@ -482,5 +618,107 @@ mod tests {
         assert_eq!(g.standard.as_deref(), Some("Wi-Fi 4 (802.11n)"));
         assert_eq!(parse_iw("Not connected.\n").unwrap(), None);
         assert!(parse_iw("Quatsch").is_err());
+    }
+
+    const MAC_A: &str = "00:00:5e:00:53:01"; // Router zu Hause
+    const MAC_B: &str = "00:00:5e:00:53:02"; // gleicher Hersteller (Mesh-Knoten)
+    const MAC_D: &str = "02:00:5e:00:53:03"; // anderer Hersteller-Präfix
+
+    fn punkt(
+        st: &mut Store,
+        key: &str,
+        meins: bool,
+        ssid: &str,
+        mac: &str,
+        now: u64,
+    ) -> Vec<(Klasse, String)> {
+        // Der Eintrag entsteht in `aufzeichnen_in`, wie in `funk_pruefen`.
+        aufzeichnen_in(st, key, &mit(Sicherheit::Wpa2), now);
+        let b = crate::ort::bssid_bytes(mac).unwrap();
+        funkpunkt_aufzeichnen(st, key, meins, ssid, b, "salz", now)
+    }
+
+    #[test]
+    fn funkpunkte_im_meins_netz() {
+        let mut st = Store::new();
+        let k = "192.0.2.1|192.0.2.1||192.0.2.0/24";
+        assert!(
+            punkt(&mut st, k, true, "Beispiel", MAC_A, 1).is_empty(),
+            "erster Besuch"
+        );
+        assert!(
+            punkt(&mut st, k, true, "Beispiel", MAC_A, 2).is_empty(),
+            "derselbe"
+        );
+        assert!(
+            punkt(&mut st, k, true, "Beispiel", MAC_B, 3).is_empty(),
+            "gleicher Hersteller: Mesh"
+        );
+        assert_eq!(st[k].funkpunkte.len(), 2);
+        let r = punkt(&mut st, k, true, "Beispiel", MAC_D, 4);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, Klasse::Auffaellig, "nie Alarm");
+        assert!(r[0].1.contains("Neuer Funkpunkt"));
+        assert!(
+            punkt(&mut st, k, true, "Beispiel", MAC_D, 5).is_empty(),
+            "jetzt bekannt"
+        );
+    }
+
+    #[test]
+    fn funkpunkte_ausserhalb_von_meins_nur_merken() {
+        let mut st = Store::new();
+        let k = "198.51.100.1|198.51.100.1||198.51.100.0/24";
+        for (i, m) in [MAC_A, MAC_D, MAC_B].into_iter().enumerate() {
+            assert!(punkt(&mut st, k, false, "Gast", m, i as u64).is_empty());
+        }
+        assert_eq!(st[k].funkpunkte.len(), 3);
+    }
+
+    #[test]
+    fn gleicher_name_anderes_netz() {
+        let mut st = Store::new();
+        let daheim = "192.0.2.1|192.0.2.1||192.0.2.0/24";
+        let cafe = "203.0.113.1|203.0.113.1||203.0.113.0/24";
+        punkt(&mut st, daheim, true, "Beispiel", MAC_A, 1);
+        // anderer Name: nichts
+        assert!(punkt(&mut st, cafe, false, "Anderes", MAC_D, 2).is_empty());
+        // gleicher Name, anderer Router, anderer Funkpunkt: auffällig
+        let r = punkt(&mut st, cafe, false, "Beispiel", MAC_D, 3);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, Klasse::Auffaellig);
+        assert!(r[0].1.starts_with("Gleicher Name, anderes Netz"));
+        // derselbe Funkpunkt (z. B. Repeater in beiden Netzen): nichts
+        assert!(punkt(&mut st, cafe, false, "Beispiel", MAC_A, 4).is_empty());
+        // gleiches Netz, anderer Funkpunkt ist Sache der Meins-Regel, nicht dieser
+        assert!(punkt(&mut st, daheim, true, "Beispiel", MAC_B, 5).is_empty());
+    }
+
+    #[test]
+    fn speicher_hat_nie_die_rohe_bssid() {
+        let mut st = Store::new();
+        punkt(&mut st, "k", true, "Beispiel", MAC_A, 1);
+        let json = serde_json::to_string(&st).unwrap();
+        assert!(!json.contains(MAC_A));
+        assert!(json.contains(&crate::ort::bssid_hash(
+            "salz",
+            crate::ort::bssid_bytes(MAC_A).unwrap()
+        )));
+    }
+
+    #[test]
+    fn alter_speicher_ohne_neue_felder_laedt() {
+        let alt = r#"{"k":{"zeit":1,"letzte_sicherheit":"Wpa2","staerkste_sicherheit":"Wpa3","band":null,"standard":null}}"#;
+        let mut st: Store = serde_json::from_str(alt).unwrap();
+        assert!(st["k"].funkpunkte.is_empty() && st["k"].ssid.is_none());
+        // die Sicherheitsregel läuft weiter, die neuen Felder bleiben beim Fortschreiben erhalten
+        assert!(aufzeichnen_in(&mut st, "k", &mit(Sicherheit::Wpa2), 2).is_some());
+    }
+
+    #[test]
+    fn iw_gibt_ssid_und_bssid() {
+        let f = parse_iw(IW).unwrap().unwrap();
+        assert_eq!(f.ssid.as_deref(), Some("Beispiel"));
+        assert_eq!(f.bssid.as_deref(), Some(MAC_A));
     }
 }

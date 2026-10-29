@@ -1890,6 +1890,8 @@ name = "netzinfo"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "objc2",
+ "objc2-core-location",
  "objc2-core-wlan",
  "ring",
  "rustls",

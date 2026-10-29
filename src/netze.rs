@@ -21,9 +21,25 @@ pub struct Fingerprint {
     pub domain: Option<String>,
     /// Network address and prefix, e.g. "192.168.178.0/24".
     pub subnet: String,
+    /// Hash of the BSSID (access point) when the network was remembered, `None` without the
+    /// location permission (#35). Never the raw BSSID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bssid_hash: Option<String>,
 }
 
 impl Fingerprint {
+    /// Same network? Router, DHCP server, domain and subnet decide. The access point does not:
+    /// a mesh system or a repeater has several, and roaming must not make the network unknown.
+    pub fn gleiches_netz(&self, other: &Self) -> bool {
+        self.key() == other.key()
+    }
+
+    /// Same access point? `None` if either side has no hash: then it counts neither for nor
+    /// against. Rules about a new access point live in `wlan::funk_pruefen`.
+    pub fn gleicher_funkpunkt(&self, other: &Self) -> Option<bool> {
+        Some(self.bssid_hash.as_ref()? == other.bssid_hash.as_ref()?)
+    }
+
     /// Stable string key for per-network data in other files (survives renaming a network).
     pub fn key(&self) -> String {
         let domain = self.domain.as_deref().unwrap_or("");
@@ -59,6 +75,7 @@ pub fn fingerprint(n: &NetInfo) -> Result<Fingerprint, String> {
             dhcp_server: *dhcp_server,
             domain: n.domain.clone(),
             subnet: format!("{}/{}", s.network, s.prefix),
+            bssid_hash: None,
         }),
         _ => Err("Dieses Netz lässt sich nicht wiedererkennen: Ohne DHCP-Antwort (z. B. bei einem VPN-Tunnel) gibt es keinen Fingerabdruck. Verbinde dich direkt mit dem WLAN oder Kabel und versuche es noch mal.".into()),
     }
@@ -141,7 +158,7 @@ pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> 
 }
 
 pub fn find(list: &[Netz], fp: &Fingerprint) -> Option<usize> {
-    list.iter().position(|n| &n.fingerprint == fp)
+    list.iter().position(|n| n.fingerprint.gleiches_netz(fp))
 }
 
 /// Stores the network under `name`. A known fingerprint is renamed/updated, not duplicated.
@@ -312,8 +329,10 @@ fn aendern<T>(
 
 /// Remembers the current network. Like `remember`: `meins` replaces the old marking.
 pub fn merken(name: &str, meins: bool) -> Result<Netz, String> {
-    let fp = fingerprint(&hier::collect()?)?;
-    merken_in(&data_path()?, name, fp, meins)
+    let mut fp = fingerprint(&hier::collect()?)?;
+    let path = data_path()?;
+    fp.bssid_hash = crate::wlan::bssid_hash_jetzt(&path.with_file_name("salz.json"));
+    merken_in(&path, name, fp, meins)
 }
 
 fn merken_in(path: &Path, name: &str, fp: Fingerprint, meins: bool) -> Result<Netz, String> {
@@ -653,5 +672,50 @@ mod tests {
         assert_eq!(format_utc(1793050200), "Mo 26.10.2026, 21:30 (UTC)");
         assert_eq!(format_utc(0), "Do 01.01.1970, 00:00 (UTC)");
         assert_eq!(format_utc(951782405), "Di 29.02.2000, 00:00 (UTC)");
+    }
+
+    #[test]
+    fn fingerprint_with_and_without_bssid_hash() {
+        let mut a = info_fp();
+        let mut b = a.clone();
+        // fehlt das Feld auf einer Seite, zählt es weder dafür noch dagegen
+        assert!(a.gleiches_netz(&b) && a.gleicher_funkpunkt(&b).is_none());
+        a.bssid_hash = Some("aa".into());
+        assert!(a.gleiches_netz(&b) && a.gleicher_funkpunkt(&b).is_none());
+        // mit Hash auf beiden Seiten: anderer Funkpunkt, aber dasselbe Netz (Mesh, Repeater)
+        b.bssid_hash = Some("bb".into());
+        assert!(a.gleiches_netz(&b));
+        assert_eq!(a.gleicher_funkpunkt(&b), Some(false));
+        b.bssid_hash = Some("aa".into());
+        assert_eq!(a.gleicher_funkpunkt(&b), Some(true));
+        assert_eq!(a.key(), b.key(), "der Hash gehört nicht in den Schlüssel");
+        // find: ein gemerktes Netz mit Hash wird auch ohne Hash gefunden
+        let list = vec![Netz {
+            name: "WG".into(),
+            fingerprint: a.clone(),
+            meins: true,
+            first_seen: 1,
+            last_seen: 1,
+        }];
+        assert_eq!(find(&list, &info_fp()), Some(0));
+    }
+
+    #[test]
+    fn old_store_without_bssid_hash_loads() {
+        let alt = r#"[{"name":"WG","fingerprint":{"router":"192.0.2.1","dhcp_server":"192.0.2.1","domain":null,"subnet":"192.0.2.0/24"},"meins":true,"first_seen":1,"last_seen":2}]"#;
+        let list: Vec<Netz> = serde_json::from_str(alt).unwrap();
+        assert_eq!(list[0].fingerprint.bssid_hash, None);
+        // und ohne Hash steht auch kein leeres Feld im neu geschriebenen Speicher
+        assert!(!serde_json::to_string(&list).unwrap().contains("bssid_hash"));
+    }
+
+    fn info_fp() -> Fingerprint {
+        Fingerprint {
+            router: "192.0.2.1".parse().unwrap(),
+            dhcp_server: "192.0.2.1".parse().unwrap(),
+            subnet: "192.0.2.0/24".into(),
+            domain: None,
+            bssid_hash: None,
+        }
     }
 }
