@@ -1,88 +1,225 @@
-# Netzinfo
+<p align="center">
+  <img src="app/icons/128x128@2x.png" width="128" height="128" alt="Netzinfo-Symbol: drei WLAN-Bögen mit Lesezeichen">
+</p>
 
-## English in short
+<h1 align="center">Netzinfo</h1>
 
-Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before (new router, changed DNS answers, TLS interception, new devices). It is a Rust CLI (`netzinfo hier`, `dns`, `tls`, `pruefen`, `messen`, `geraete`, `pfad`, `portal`, `offen`) plus a Tauri Mac app. Output and docs are in German; `--erklaer` explains in plain German what each command does on the wire.
-Scanning only targets private addresses on networks you marked as yours (`--meins`). Install: see the German "Installieren" section below. Status: macOS is the main platform, the CLI core also builds on Linux (CI), Windows is untested. License: MIT. Security reports: see [SECURITY.md](SECURITY.md).
+<p align="center">
+  Kennt jedes Netz, in dem dein Mac war, und meldet sich, wenn eins sich anders verhält als sonst.
+</p>
 
-Kennt jedes Netz, in dem dein Mac war, und meldet sich, wenn eins sich anders verhält als sonst.
+<p align="center">
+  <a href="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml"><img src="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B%20%C2%B7%20Apple%20Silicon-111?logo=apple&logoColor=white" alt="macOS 13 oder neuer, Apple Silicon">
+  <img src="https://img.shields.io/badge/Rust-2024-b7410e?logo=rust&logoColor=white" alt="Rust 2024">
+  <img src="https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white" alt="Tauri 2">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-1d5fd8" alt="Lizenz MIT"></a>
+</p>
 
-Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netzinfo` merkt sich jedes Netz (WG, Arbeit, Schule, Hotspot) und vergleicht beim nächsten Besuch: Ist es derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Mit `--erklaer` zeigt jeder Befehl auf Deutsch, was im Netz gerade passiert, passend zum Stoff der IHK-Prüfung.
+<p align="center">
+  <a href="#installieren">Installieren</a> ·
+  <a href="#was-netzinfo-kann">Was Netzinfo kann</a> ·
+  <a href="#kommandozeile">Kommandozeile</a> ·
+  <a href="#datenschutz">Datenschutz</a> ·
+  <a href="#wie-es-gebaut-ist">Wie es gebaut ist</a> ·
+  <a href="#english-in-short">English</a>
+</p>
 
-## Befehle
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/dieses-netz-dunkel.png">
+    <img src="docs/bilder/dieses-netz-hell.png" width="820" alt="Netzinfo-Fenster mit der Ansicht „Dieses Netz“: Netzname, Adresse, Router, DNS und WLAN">
+  </picture>
+</p>
 
-| Befehl | Was er macht | Issue |
-|---|---|---|
-| `netzinfo hier` | IP, Subnetz, Router und DNS des aktuellen Netzes | #1 |
-| `netzinfo subnetz 172.16.0.0/16` | Netz, Broadcast und Hostbereich ausrechnen | #1 |
-| `netzinfo dns <Name>` | Antwort deines Netzes gegen 1.1.1.1 und Quad9 | #2 |
-| `netzinfo tls [Host]` | Zertifikatsaussteller prüfen, SSL-Inspection erkennen | #3 |
-| `netzinfo ports <Host>` | offene Ports eines eigenen Geräts | #4 |
-| `netzinfo ports --raus [--ziel <Server>]` | welche ausgehenden TCP-Ports das Netz durchlässt (siehe „Ausgehende Ports“) | #54 |
-| `netzinfo merken <Name> [--meins]` | aktuelles Netz speichern, optional als „meins“ markieren | #5 |
-| `netzinfo netze` | gemerkte Netze auflisten | #5 |
-| `netzinfo vergessen <Name>` | ein gemerktes Netz löschen | #5 |
-| `netzinfo pruefen` | was ist anders als beim letzten Besuch? Router, DNS, Umleitungen, Zertifikate, öffentliche IP | #6 |
-| `netzinfo messen [--minuten N]` | Antwortzeiten und Aussetzer sammeln | #7 |
-| `netzinfo bericht [Netz] [--markdown Datei]` | Median, Ausreißer, Verluste und längster Aussetzer, auch als Datei für den IT-Support | #7 |
-| `netzinfo geraete [CIDR] [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit `--nachbarn` auch MAC-Adressen und Geräte ohne offenen Port | #8, #26 |
-| `netzinfo pfad [Ziel]` | Weg zum Ziel Hop für Hop mit Verlust und Laufzeiten, ohne sudo | #30 |
-| `netzinfo portal [--json]` | Hängt das Netz hinter einer Anmeldeseite (Captive Portal)? | #32 |
-| `netzinfo offen [--json]` | Welche Programme auf diesem Rechner lauschen, nur lokal oder fürs ganze Netz | #38 |
+Andere Netzwerk-Werkzeuge schauen auf ein Netz, und zwar jetzt. Netzinfo merkt sich jedes Netz, in dem du warst (WG, Arbeit, Schule, Hotspot), und vergleicht beim nächsten Besuch: Ist das derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Ist ein Gerät dazugekommen?
 
-`netzinfo hier` sagt oben, ob das Netz bekannt ist („Bekanntes Netz: WG, zuletzt am …“) oder neu. Erkannt wird es an Router, DHCP-Server, Domain und Subnetz, nicht am WLAN-Namen. Die Liste liegt in `~/Library/Application Support/netzinfo/netze.json` (anderer Pfad: Umgebungsvariable `NETZ_DATEN`). Zwei Netze mit demselben Werksrouter (z. B. zwei FRITZ!Boxen) sehen gleich aus.
+Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen denselben Kern in Rust. Mit „Erklären“ (in der App) oder `--erklaer` (im Terminal) sagt jeder Schritt auf Deutsch, was gerade im Netz passiert, passend zum Stoff der IHK-Prüfung für Fachinformatiker.
 
-`netzinfo pruefen` sortiert jede Abweichung ein. Harmlos ist etwa eine neue öffentliche IP. Auffällig sind andere DNS-Server. Alarm gibt es, wenn jemand die HTTPS-Verschlüsselung aufbricht oder das Netz für Namen, die es nicht gibt, Adressen erfindet. Messungen, Prüfungen und Gerätelisten liegen neben `netze.json`, jeweils nach Netz getrennt. `pruefen`, `messen` und `geraete` laufen nur in gemerkten Netzen, `geraete` zusätzlich nur in Netzen, die als „meins“ markiert sind.
+## Was Netzinfo kann
 
-`netzinfo geraete --nachbarn` zeigt zu jeder MAC den Hersteller aus der eingebauten IEEE-Liste (`data/oui.tsv`, Quelle und Lizenzhinweis in [THIRD_PARTY.md](THIRD_PARTY.md)). Ist die Adresse zufällig (Handys mit „privater WLAN-Adresse“), steht dort „zufällige Adresse“: Sie verrät keinen Hersteller, bleibt aber pro Netz gleich und gilt deshalb beim nächsten Besuch als bekannt. `netzinfo pruefen` meldet ein neues Gerät mit zufälliger Adresse als „auffällig“, nie als Alarm. Die Liste aktualisiert nur ein Release: `python3 scripts/oui.py` holt die Register neu und schreibt `data/oui.tsv`.
+<table>
+  <tr>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/pruefung-dunkel.png"><img src="docs/bilder/pruefung-hell.png" width="400" alt="Ansicht „Prüfung“ mit zwei Alarmen: Der DHCP-Server ist nicht mehr der Router, und das Zertifikat von github.com stammt von einer unbekannten Stelle"></picture><br><sub>Prüfung: Was ist anders als beim letzten Besuch?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/qualitaet-dunkel.png"><img src="docs/bilder/qualitaet-hell.png" width="400" alt="Ansicht „Qualität“: Antwortzeiten der letzten Stunde zu Router und 1.1.1.1 mit Verlusten und Statistik"></picture><br><sub>Qualität: Wie gut ist die Leitung über den Tag?</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/geraete-dunkel.png"><img src="docs/bilder/geraete-hell.png" width="400" alt="Ansicht „Geräte“: Router und Fernseher mit offenen Ports und Diensten, Filter nach Gerätetyp"></picture><br><sub>Geräte: Wer ist noch in deinem Netz?</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/bilder/live-dunkel.png"><img src="docs/bilder/live-hell.png" width="400" alt="Ansicht „Live“: Ping-Kurve zu 1.1.1.1 mit Median, Jitter, Verlust und Bewertung für Videoanruf, Spiele und Streaming"></picture><br><sub>Live: Reicht die Leitung gerade für einen Anruf?</sub></td>
+  </tr>
+</table>
 
-`netzinfo hier` zeigt auch, welche IPv6-Router das Netz ankündigt (Mac: `ndp`, Linux: `ip`, ohne Root und ohne Mitschnitt). Grenzen: Gesehen wird nur, was das System gelernt hat; ein Router, den das Gerät ignoriert, bleibt unsichtbar. Mehrere Router sind in Mesh- und Firmennetzen normal, deshalb entsteht aus diesem Signal allein nie ein Alarm, sondern höchstens „auffällig“. Alarm gibt es nur zusammen mit einem DHCP-Server, der nicht der Router ist.
+- **Dieses Netz** zeigt Adresse, Router, DNS, WLAN mit Signal und Sicherheit, Proxy, IPv6 und verschlüsseltes DNS. Oben steht, ob du hier schon warst.
+- **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
+- **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
+- **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
+- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden.
+- **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
+- **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
+- **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
+- **In der Menüleiste** wacht Netzinfo weiter, wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und meldet sich, wenn etwas auffällt.
 
 ## Installieren
 
 Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App als `.dmg`, die Kommandozeile als `netzinfo-<tag>-aarch64-apple-darwin.tar.gz` und `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`). Nur Apple Silicon, macOS 13 oder neuer.
 
-1. `.dmg` öffnen und `Netzinfo` in den Ordner „Programme“ ziehen.
-2. Netzinfo starten. macOS meldet, dass es die App nicht prüfen konnte: Das Programm ist nur ad hoc signiert, nicht notarisiert. Auf aktuellem macOS hilft Rechtsklick und „Öffnen“ nicht mehr.
-3. „Fertig“ wählen, dann Systemeinstellungen, Datenschutz & Sicherheit, ganz nach unten scrollen, bei Netzinfo „Trotzdem öffnen“ und mit Passwort oder Touch ID bestätigen.
+1. `.dmg` öffnen und Netzinfo in den Ordner „Programme“ ziehen.
+2. Netzinfo starten. macOS meldet, dass es die App nicht prüfen konnte: Sie ist nur ad hoc signiert, nicht notarisiert.
+3. „Fertig“ wählen, dann Systemeinstellungen, Datenschutz & Sicherheit, ganz nach unten, bei Netzinfo „Trotzdem öffnen“ und mit Passwort oder Touch ID bestätigen.
 4. Beim ersten Scan fragt macOS nach „Lokales Netzwerk“. Erlauben, sonst findet Netzinfo keine Geräte.
 
-Im Terminal geht Schritt 2 und 3 auch so: `xattr -dr com.apple.quarantine /Applications/Netzinfo.app`. Dasselbe gilt für das entpackte `netzinfo` aus dem Archiv. Nach einem Update kann macOS die Berechtigung „Lokales Netzwerk“ erneut abfragen, weil die Ad-hoc-Signatur bei jedem Build anders ist.
+Im Terminal gehen Schritt 2 und 3 auch so: `xattr -dr com.apple.quarantine /Applications/Netzinfo.app`, genauso für das entpackte `netzinfo`. Nach einem Update kann macOS „Lokales Netzwerk“ noch einmal abfragen, weil die Ad-hoc-Signatur bei jedem Build anders ist.
 
-## Bauen
+## Kommandozeile
 
-    cargo build --release
-    ./target/release/netzinfo hier --erklaer
+Alle Befehle verstehen `--erklaer`. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
 
-Läuft auf macOS und braucht keine Root-Rechte.
+```console
+$ netzinfo subnetz 192.0.2.77/26 --erklaer
+Adresse:       192.0.2.77/26
+Maske:         255.255.255.192 (11111111.11111111.11111111.11000000)
+Netzadresse:   192.0.2.64
+Broadcast:     192.0.2.127
+Erster Host:   192.0.2.65
+Letzter Host:  192.0.2.126
+Anzahl Hosts:  62
 
-## App
+  ↳ Rechenweg wie in der Prüfung:
+  IP      11000000.00000000.00000010.01001101  192.0.2.77
+  Maske   11111111.11111111.11111111.11000000  255.255.255.192
+  UND     11000000.00000000.00000010.01000000  192.0.2.64
+  ↳ UND-Verknüpfung: Ein Bit bleibt nur 1, wenn es in IP und Maske 1 ist. Das Ergebnis ist die Netzadresse.
+  Host    00000000.00000000.00000000.00001101  0.0.0.13
+  ↳ Hostanteil: die letzten 6 Bit der IP (IP UND invertierte Maske). Es bleibt der Teil, der das Gerät im Netz benennt.
+  ↳ Broadcast: alle 6 Hostbits auf 1 setzen, hier 11000000.00000000.00000010.01111111.
+  ↳ Hosts: 2^6 minus 2 (Netzadresse und Broadcast sind nicht vergebbar) = 62.
+```
 
-Die Mac-App liegt in `app/` (Tauri 2, Oberfläche in schlichtem HTML, CSS und JavaScript ohne npm). Sie braucht nur Rust und die Xcode Command Line Tools:
+<details>
+<summary><b>Dieses Netz</b></summary>
 
-    cargo build -p netzinfo-app
-    ./target/debug/netzinfo-app
+| Befehl | Was er macht |
+|---|---|
+| `netzinfo hier` | IP, Subnetz, Router und DNS, und ob du hier schon warst |
+| `netzinfo subnetz <CIDR>` | Netz, Broadcast und Hostbereich ausrechnen |
+| `netzinfo dns <Name>` | Antwort deines Netzes gegen 1.1.1.1 und Quad9 |
+| `netzinfo dns --verschluesselt` | Verschlüsseltes DNS (DoT, DoH) prüfen |
+| `netzinfo tls [Host]` | Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection |
+| `netzinfo sni` | Filtert das Netz Seiten am Servernamen? |
+| `netzinfo proxy` | Proxy, PAC und WPAD erkennen |
+| `netzinfo portal` | Hängt das Netz hinter einer Anmeldeseite? |
+| `netzinfo wlan` | Funkverbindung, Signal und Sicherheit |
+| `netzinfo ipv6 [Dienst]` | IPv4 und IPv6 im Vergleich, mit Happy Eyeballs |
+| `netzinfo zeit` | Geht deine Uhr richtig? NTP und HTTPS-Date |
 
-Sie liest dieselbe Liste wie die Kommandozeile (`NETZ_DATEN` gilt auch hier). Die CI baut nur den Kern (`netzinfo`), nicht die App. `app/vorschau.html` zeigt die Oberfläche mit erfundenen Daten in jedem Browser, ohne die App zu starten.
+</details>
 
-## Nur im eigenen Netz scannen
+<details open>
+<summary><b>Merken und prüfen</b></summary>
 
-`netzinfo ports` und `netzinfo geraete` laufen nur gegen private Adressen und nur, wenn das Netz als deins markiert ist (`netzinfo merken <Name> --meins`) oder du `--meins` angibst. Auf dem eigenen Rechner (Loopback) geht es immer. In fremden Netzen (Schule, Arbeit, Hotspot) macht `netzinfo` nur, was jeder Laptop beim Verbinden ohnehin tut.
+| Befehl | Was er macht |
+|---|---|
+| `netzinfo merken <Name> [--meins]` | Aktuelles Netz merken, optional als „meins“ |
+| `netzinfo netze` | Gemerkte Netze auflisten |
+| `netzinfo vergessen <Name>` | Ein gemerktes Netz löschen |
+| `netzinfo pruefen [--pfad]` | Was ist anders als beim letzten Besuch? |
+| `netzinfo portfreigaben` | Ports, die der Router per UPnP ins Internet geöffnet hat (nur lesen) |
+
+</details>
+
+<details>
+<summary><b>Qualität</b></summary>
+
+| Befehl | Was er macht |
+|---|---|
+| `netzinfo messen [--minuten N]` | Antwortzeiten und Aussetzer sammeln |
+| `netzinfo bericht [Netz] [--markdown Datei]` | Median, Ausreißer, Verluste, auch als Datei für den IT-Support |
+| `netzinfo diagnose` | Wo liegt das Problem? Schicht für Schicht |
+| `netzinfo live <Ziel>…` | Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele |
+| `netzinfo pfad [Ziel]` | Weg ins Internet Hop für Hop, ohne sudo |
+| `netzinfo mtu [Ziel]` | Größte Paketgröße des Weges |
+| `netzinfo dns --tempo` | Dein DNS gegen 1.1.1.1, 8.8.8.8 und 9.9.9.9 |
+| `netzinfo wlan --verlauf` | Signal, Roaming und Abbrüche über Minuten |
+| `netzinfo wlan --umfeld` | Netze je Kanal und Band, mit Rat für einen leereren Kanal |
+| `netzinfo last --start` | Antwortzeit unter Last (Bufferbloat), belastet die Leitung 30 s |
+| `netzinfo ports --raus --ziel <Server>` | Welche ausgehenden Ports lässt das Netz durch? |
+
+</details>
+
+<details>
+<summary><b>Geräte im Netz</b></summary>
+
+| Befehl | Was er macht |
+|---|---|
+| `netzinfo geraete [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit MAC und Hersteller |
+| `netzinfo geraete --karten` | Gerätekarten mit Typ und Hinweisen |
+| `netzinfo ports <Host>` | Offene Ports eines eigenen Geräts |
+| `netzinfo bonjour` | Dienste, die sich per Bonjour melden |
+| `netzinfo upnp` | Geräte, die sich per UPnP vorstellen, mit Modell |
+| `netzinfo router` | Router-Oberfläche passiv einschätzen |
+
+</details>
+
+<details>
+<summary><b>Dieser Mac</b></summary>
+
+| Befehl | Was er macht |
+|---|---|
+| `netzinfo offen [--aussen]` | Welche Programme lauschen, und sind sie von außen erreichbar? |
+| `netzinfo verbindungen` | Aktive Verbindungen je Programm mit Zielname |
+| `netzinfo woher <Port&#124;Programm>` | Wer hat das Programm gestartet? Kette bis launchd |
+| `netzinfo traffic [--sekunden N]` | Datenmenge je Programm, ohne Root |
+
+</details>
+
+Ausführlicher zu einzelnen Befehlen (Erkennung eines Netzes, Einstufung in `pruefen`, Hersteller-Liste, IPv6-Router, Testserver für `ports --raus`): [docs/befehle.md](docs/befehle.md).
+
+## Datenschutz
+
+- Netzinfo hat keinen eigenen Server, kein Konto und keine Telemetrie. Was es sich merkt (Merkmale jedes Netzes, Messwerte, Gerätelisten), liegt nur auf deinem Mac in `~/Library/Application Support/netzinfo/` (anderer Ort: Umgebungsvariable `NETZ_DATEN`).
+- Gescannt wird nur, was dir gehört: `ports`, `geraete` und `portfreigaben` laufen nur gegen private Adressen und nur in Netzen, die du als „meins“ markiert hast. Auf dem eigenen Rechner geht es immer. In fremden Netzen macht Netzinfo nur, was jeder Laptop beim Verbinden ohnehin tut.
+- Ins Internet gehen nur Prüfanfragen, keine Daten von dir: DNS-Fragen an öffentliche Resolver (1.1.1.1, 8.8.8.8, 9.9.9.9) zum Vergleich und für die eigene öffentliche IP, TLS-Verbindungsaufbau mit bekannten Seiten (github.com, apple.com, cloudflare.com, für den SNI-Test auch youtube.com, bbc.com und telegram.org), die Portal-Prüfadressen von Apple, Google und Firefox, die Uhrzeit von time.apple.com und pool.ntp.org, Pings und der Weg zu 1.1.1.1 und 9.9.9.9. Mit `--erklaer` sagt jeder Befehl, was er wohin schickt.
+- Der Lasttest (`last`, lädt mehrere hundert Megabyte) und der Test ausgehender Ports (`ports --raus`, nur gegen deinen eigenen Server) laufen nur auf ausdrücklichen Start.
+- Vom Weg ins Internet speichert Netzinfo nur gekürzte Hop-Adressen (/24 und /48).
+
+Sicherheitslücken bitte nicht als Issue melden, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
+
+## Selbst bauen
+
+Du brauchst Rust (stable) und die Xcode Command Line Tools, sonst nichts. Die Oberfläche ist schlichtes HTML, CSS und JavaScript ohne npm.
+
+```sh
+cargo build --release                 # Kommandozeile
+./target/release/netzinfo hier --erklaer
+
+cargo build -p netzinfo-app           # Mac-App
+./target/debug/netzinfo-app
+```
+
+`app/vorschau.html` zeigt die ganze Oberfläche mit erfundenen Daten in jedem Browser, ohne die App zu starten. Daraus stammen auch die Bilder oben.
+
+## Wie es gebaut ist
+
+```
+src/            Kern als Bibliothek und Kommandozeile, Rust
+app/src/        Mac-App mit Tauri 2, Menüleisten-Wache
+app/ui/         Oberfläche: HTML, CSS und JavaScript ohne npm und ohne Framework
+app/vorschau/   Beispieldaten für app/vorschau.html
+data/           Herstellerliste aus dem IEEE-Register
+testdata/       Aufgezeichnete Antworten für die Tests
+```
+
+- Knapp 24 000 Zeilen Rust in 44 Modulen, über 330 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
+- Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
+- Die CI prüft jeden Pull Request mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
+- Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
+
+Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## English in short
+
+Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before: a new router, changed DNS answers, TLS interception, new devices. It is a Rust command line tool plus a Tauri Mac app. Output and docs are in German; `--erklaer` (or the “Erklären” switch in the app) explains in plain German what each step does on the wire. Scanning only targets private addresses on networks you marked as yours. macOS 13+ on Apple Silicon is the main platform; the core also builds on Linux (CI). No telemetry, no account, MIT licensed.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
-
-## Ausgehende Ports
-
-`netzinfo ports --raus` verbindet sich mit deinem eigenen Testserver auf 16 TCP-Ports (22, 25, 53, 80, 123, 143, 443, 465, 587, 853, 993, 1194, 3389, 5222, 8080, 8443), in zufälliger Reihenfolge, höchstens vier gleichzeitig. „offen“: Verbindung steht. „abgelehnt“: sofortige Ablehnung. „verschluckt“: keine Antwort in 3 Sekunden. Es sendet nur an diesen einen Server und braucht kein „meins“. Nur TCP, und eine Verbindung heißt nicht, dass Inhalte ungefiltert bleiben.
-
-Testserver aufstellen (ein Linux-Rechner oder Server mit fester Adresse, Firewall für die Ports offen):
-
-```sh
-for p in 22 25 53 80 123 143 443 465 587 853 993 1194 3389 5222 8080 8443; do
-  socat TCP-LISTEN:$p,fork,reuseaddr /dev/null &
-done
-```
-
-Port 22 braucht dort einen anderen SSH-Port oder den echten `sshd`; Ports unter 1024 brauchen Root oder `setcap`. Einmal eintragen: `netzinfo ports --raus --ziel <Server>`. Danach vergleicht `netzinfo pruefen` in gemerkten Netzen mit der letzten Messung und meldet nur neu gesperrte Ports, nie als Alarm. Ohne Ziel sendet Netzinfo nichts.
+MIT, siehe [LICENSE](LICENSE). Herstellerliste aus dem IEEE-Register, siehe [THIRD_PARTY.md](THIRD_PARTY.md).
