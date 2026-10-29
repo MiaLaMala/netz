@@ -4,3 +4,5 @@
 [data-ansicht='gemerkte-netze'] .meins-zeile { flex-basis: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler { flex-basis: 100%; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler .meldung { margin-top: 2px; font-size: 12px; }
+[data-ansicht='gemerkte-netze'] .autostart { margin-bottom: 16px; }
+[data-ansicht='gemerkte-netze'] .autostart .fein { margin: 6px 4px 0; }

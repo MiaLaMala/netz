@@ -101,12 +101,35 @@
     return ort;
   }
 
+  // Start mit der Anmeldung (#9). Fehlt der Befehl oder scheitert er beim Lesen, bleibt der Schalter weg.
+  async function autostart() {
+    const an = await Netz.invoke('autostart_lesen').catch(() => null);
+    if (an === null) return null;
+    const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': an, 'aria-describedby': 'autostart-hilfe' },
+      el('span', { class: 'spur' }), el('span', { text: 'Mit der Anmeldung starten' }));
+    const fehler = el('div', { 'aria-live': 'polite' });
+    s.addEventListener('click', async () => {
+      s.disabled = true;
+      try {
+        s.setAttribute('aria-checked', await Netz.invoke('autostart_setzen', { an: s.getAttribute('aria-checked') !== 'true' }));
+        fehler.replaceChildren();
+      } catch (err) {
+        fehler.replaceChildren(meldung(Netz.text(err)));
+      }
+      s.disabled = false;
+    });
+    return el('section', { class: 'gruppe autostart' }, s,
+      el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }), fehler);
+  }
+
   Netz.registriere({
     id: 'gemerkte-netze',
     titel: 'Gemerkte Netze',
     icon: Netz.icons.merken,
     async render(wurzel) {
       const liste = await Netz.invoke('gemerkte_netze');
+      const start = await autostart();
+      if (start) wurzel.append(start);
       if (!liste.length) {
         wurzel.append(Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. Unter „Dieses Netz“ merkst du das aktuelle.'));
         return;

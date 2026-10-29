@@ -3,6 +3,8 @@
 //! Every command returns data or a German sentence; the UI (app/ui) shows the sentence where it
 //! happened.
 
+mod wache;
+
 use netzinfo::netze::{self, Aktuell, AppFehler as Fehler, Netz};
 
 #[tauri::command(async)]
@@ -276,8 +278,28 @@ fn last_messen(trotz_hotspot: bool) -> Result<netzinfo::last::Lauf, Fehler> {
     netzinfo::last::messen_und_speichern(trotz_hotspot).map_err(Into::into)
 }
 
+/// Whether the app starts with the login, see issue #9.
+#[tauri::command]
+fn autostart_lesen() -> Result<bool, Fehler> {
+    wache::autostart_lesen().map_err(Into::into)
+}
+
+/// Switches the start with the login on or off, see issue #9.
+#[tauri::command]
+fn autostart_setzen(an: bool) -> Result<bool, Fehler> {
+    wache::autostart_setzen(an).map_err(Into::into)
+}
+
 fn main() {
     let r = tauri::Builder::default()
+        .setup(|app| Ok(wache::starten(app)?))
+        // Closing the window hides it; the guard keeps running in the menu bar.
+        .on_window_event(|w, ev| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+                api.prevent_close();
+                let _ = w.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             dieses_netz,
             netz_merken,
@@ -321,6 +343,8 @@ fn main() {
             router_seite,
             last_vorab,
             last_messen,
+            autostart_lesen,
+            autostart_setzen,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
