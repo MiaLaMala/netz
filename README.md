@@ -34,7 +34,7 @@
 
 Andere Netzwerk-Werkzeuge schauen auf ein Netz, und zwar jetzt. Netzinfo merkt sich jedes Netz, in dem du warst (WG, Arbeit, Schule, Hotspot), und vergleicht beim nächsten Besuch: Ist das derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Ist ein Gerät dazugekommen?
 
-Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen denselben Kern in Rust. Mit „Erklären“ (in der App) oder `--erklaer` (im Terminal) sagt jeder Schritt auf Deutsch, was gerade im Netz passiert, passend zum Stoff der IHK-Prüfung für Fachinformatiker.
+Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo` (die läuft auch unter Linux). Beide nutzen denselben Kern in Rust. Mit „Erklären“ (in der App) oder `--erklaer` (im Terminal) sagt jeder Schritt auf Deutsch, was gerade im Netz passiert, passend zum Stoff der IHK-Prüfung für Fachinformatiker.
 
 ## Was Netzinfo kann
 
@@ -53,7 +53,7 @@ Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo`. Beide nutzen dens
 - **Gemerkte Netze** sind alle Netze, die du dir gemerkt hast. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
 - **Prüfung** vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Sperren und Umleitungen, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und den Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
 - **Qualität** sammelt Antwortzeiten und Aussetzer und kopiert sie als Bericht für den IT-Support. „Wo hakt es?“ grenzt ein, ob es am Funk, am Router, am DNS oder am Internet liegt. Ein Ausfallprotokoll hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. Dazu WLAN-Verlauf und Kanalwahl, MTU, der Weg Hop für Hop, IPv4 gegen IPv6, die Uhrzeit, DNS-Server im Vergleich, Antwortzeit unter Last und ausgehende Ports.
-- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat. Bei einer Fritz!Box liest es mit einem eigenen Zugang auch deren Geräteliste, die auch Geräte kennt, die auf keinen Scan antworten.
+- **Geräte** findet Geräte im eigenen Netz, mit Hersteller und Namen aus Bonjour, UPnP und DNS, und merkt sich, wer neu dazugekommen ist. Beim Router schätzt es die Router-Oberfläche ein, ohne sich anzumelden, und zeigt, welche Ports er per UPnP ins Internet geöffnet hat. Bei einer Fritz!Box liest es mit einem eigenen Zugang (nur auf dem Mac) auch deren Geräteliste, die Geräte kennt, die auf keinen Scan antworten.
 - **Verbindungen** zeigt jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade wie viel sendet und mit „Woher?“, wer ein Programm gestartet hat.
 - **Offen** zeigt, welche Programme auf deinem Mac lauschen, ob nur für den Mac selbst oder fürs ganze Netz, und ob sie von Apple signiert sind.
 - **Live** zeichnet eine Ping-Kurve mit Jitter und Verlust und sagt, ob die Leitung für Anrufe und Spiele reicht.
@@ -74,7 +74,7 @@ Unter Linux gibt es die Kommandozeile, nicht die App: `netzinfo-<tag>-x86_64-unk
 
 ## Kommandozeile
 
-`netzinfo --help` zeigt alle Befehle nach Thema, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
+`netzinfo --help` zeigt alle Befehle nach Thema, `netzinfo <Befehl> --help` nur die Zeilen eines Befehls, bei einem Tippfehler fragt Netzinfo nach („Meintest du `netzinfo pruefen`?“). Alle Befehle verstehen `--erklaer`. Exit-Code: 0 = geklappt, 1 = Fehler beim Ausführen, 2 = falscher Aufruf. Befehle, die es nur auf dem Mac gibt, sind in der Hilfe mit „(nur Mac)“ markiert. Was Netzinfo dabei sagt, ist Prüfungsstoff, hier am Beispiel Subnetting:
 
 ```console
 $ netzinfo subnetz 192.0.2.77/26 --erklaer
@@ -104,15 +104,18 @@ Anzahl Hosts:  62
 |---|---|
 | `netzinfo hier` | IP, Subnetz, Router und DNS, und ob du hier schon warst |
 | `netzinfo subnetz <CIDR>` | Netz, Broadcast und Hostbereich ausrechnen |
-| `netzinfo dns <Name>` | Antwort deines Netzes gegen 1.1.1.1 und Quad9 |
+| `netzinfo dns <Name> [--typ A\|AAAA\|MX\|TXT]` | Antwort deines Netzes gegen 1.1.1.1 und Quad9 |
+| `netzinfo dns --meine-ip` | Öffentliche IP per DNS-Abfrage ermitteln |
 | `netzinfo dns --verschluesselt` | Verschlüsseltes DNS (DoT, DoH) prüfen |
 | `netzinfo tls [Host]` | Wer hat das Zertifikat unterschrieben? Erkennt SSL-Inspection |
 | `netzinfo sni` | Filtert das Netz Seiten am Servernamen? |
-| `netzinfo proxy` | Proxy, PAC und WPAD erkennen |
+| `netzinfo proxy` | Proxy, PAC und WPAD erkennen (nur Mac) |
 | `netzinfo portal` | Hängt das Netz hinter einer Anmeldeseite? |
 | `netzinfo wlan` | Funkverbindung, Signal und Sicherheit |
 | `netzinfo ipv6 [Dienst]` | IPv4 und IPv6 im Vergleich, mit Happy Eyeballs |
 | `netzinfo zeit` | Geht deine Uhr richtig? NTP und HTTPS-Date |
+| `netzinfo router` | Router-Oberfläche passiv einschätzen: http, https, Zertifikat |
+| `netzinfo portfreigaben` | Ports, die der Router per UPnP ins Internet geöffnet hat (nur lesen) |
 
 </details>
 
@@ -125,7 +128,6 @@ Anzahl Hosts:  62
 | `netzinfo netze` | Gemerkte Netze auflisten |
 | `netzinfo vergessen <Name>` | Ein gemerktes Netz löschen |
 | `netzinfo pruefen [--pfad]` | Was ist anders als beim letzten Besuch? |
-| `netzinfo portfreigaben` | Ports, die der Router per UPnP ins Internet geöffnet hat (nur lesen) |
 
 </details>
 
@@ -137,13 +139,13 @@ Anzahl Hosts:  62
 | `netzinfo messen [--minuten N]` | Antwortzeiten und Aussetzer sammeln |
 | `netzinfo bericht [Netz] [--markdown Datei]` | Median, Ausreißer, Verluste, auch als Datei für den IT-Support |
 | `netzinfo diagnose` | Wo liegt das Problem? Schicht für Schicht |
-| `netzinfo live <Ziel>…` | Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele |
+| `netzinfo live <Ziel>… [--sekunden N]` | Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele |
 | `netzinfo pfad [Ziel]` | Weg ins Internet Hop für Hop, ohne sudo |
 | `netzinfo mtu [Ziel]` | Größte Paketgröße des Weges |
 | `netzinfo dns --tempo` | Dein DNS gegen 1.1.1.1, 8.8.8.8 und 9.9.9.9 |
 | `netzinfo wlan --verlauf` | Signal, Roaming und Abbrüche über Minuten |
-| `netzinfo wlan --umfeld` | Netze je Kanal und Band, mit Rat für einen leereren Kanal |
-| `netzinfo last --start` | Antwortzeit unter Last (Bufferbloat), belastet die Leitung 30 s |
+| `netzinfo wlan --umfeld` | Netze je Kanal und Band, mit Rat für einen leereren Kanal (nur Mac) |
+| `netzinfo last --start` | Antwortzeit unter Last (Bufferbloat), belastet die Leitung 30 s (nur Mac) |
 | `netzinfo ports --raus --ziel <Server>` | Welche ausgehenden Ports lässt das Netz durch? |
 
 </details>
@@ -153,18 +155,17 @@ Anzahl Hosts:  62
 
 | Befehl | Was er macht |
 |---|---|
-| `netzinfo geraete [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit MAC und Hersteller |
+| `netzinfo geraete [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit MAC und Hersteller (`--nachbarn` nur Mac) |
 | `netzinfo geraete --karten` | Gerätekarten mit Typ und Hinweisen |
-| `netzinfo fritzbox` | Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund |
+| `netzinfo fritzbox [--zugang <Benutzer>\|--entfernen]` | Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund (nur Mac) |
 | `netzinfo ports <Host>` | Offene Ports eines eigenen Geräts |
-| `netzinfo bonjour` | Dienste, die sich per Bonjour melden |
+| `netzinfo bonjour [--txt]` | Dienste, die sich per Bonjour melden |
 | `netzinfo upnp` | Geräte, die sich per UPnP vorstellen, mit Modell |
-| `netzinfo router` | Router-Oberfläche passiv einschätzen |
 
 </details>
 
 <details>
-<summary><b>Dieser Mac</b></summary>
+<summary><b>Dieser Mac</b> (unter Linux nicht verfügbar)</summary>
 
 | Befehl | Was er macht |
 |---|---|
@@ -218,12 +219,12 @@ tools/          Skripte, die diese Datenbanken bauen
 testdata/       Aufgezeichnete Antworten für die Tests
 ```
 
-- Gut 25 000 Zeilen Rust in 47 Modulen, über 350 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
+- Gut 25 000 Zeilen Rust in knapp 50 Modulen, über 360 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
-- Unter Linux liest Netzinfo Default-Route, Adresse und DHCP ohne Root (`/proc/net/route`, `getifaddrs`, systemd-networkd oder NetworkManager), danach laufen `hier`, `dns`, `pruefen`, `merken`, `messen`, `diagnose`, `mtu`, `pfad`, `bonjour`, `upnp`, `router` und `wlan` (mit `iw`). `geraete` läuft ohne `--nachbarn`; auch `proxy` und das Prüfen der Proxy-Einstellungen gibt es dort nicht.
-- Nur auf dem Mac gehen `offen`, `verbindungen`, `woher`, `traffic`, `last`, `wlan --umfeld`, `geraete --nachbarn`, `proxy` und die Standortfreigabe, weil sie libproc, CoreWLAN, `nettop`, `networkQuality` oder `scutil` brauchen. Sie melden das mit einem klaren Satz. Die Linux-Fassung ist bisher nur in der CI und im Release-Probelauf gelaufen, nicht von Hand auf einem Server oder Raspberry Pi.
+- Unter Linux liest Netzinfo Default-Route, Adresse und DHCP ohne Root (`/proc/net/route`, `getifaddrs`, systemd-networkd oder NetworkManager), danach laufen `hier`, `dns`, `pruefen`, `merken`, `messen`, `diagnose`, `mtu`, `pfad`, `bonjour`, `upnp`, `router` und `wlan` (mit `iw`). `geraete` läuft ohne `--nachbarn`.
+- Nur auf dem Mac gehen `offen`, `verbindungen`, `woher`, `traffic`, `last`, `wlan --umfeld`, `geraete --nachbarn`, `proxy`, `fritzbox` (Schlüsselbund) und die Standortfreigabe, weil sie libproc, CoreWLAN, `nettop`, `networkQuality` oder `scutil` brauchen. Sie melden das mit einem klaren Satz. Die Linux-Fassung ist bisher nur in der CI und im Release-Probelauf gelaufen, nicht von Hand auf einem Server oder Raspberry Pi.
 
 Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
 

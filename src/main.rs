@@ -20,9 +20,10 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
                 "Subnetz ausrechnen, z. B. für 172.16.0.0/16",
             ),
             (
-                "dns <Name>",
+                "dns <Name> [--typ A|AAAA|MX|TXT]",
                 "DNS-Antwort deines Netzes mit 1.1.1.1 und Quad9 vergleichen",
             ),
+            ("dns --meine-ip", "Öffentliche IP per DNS-Abfrage ermitteln"),
             (
                 "dns --verschluesselt",
                 "Verschlüsseltes DNS (DoT, DoH) prüfen",
@@ -42,7 +43,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
             ),
             (
                 "proxy [--ansehen]",
-                "Proxy, PAC und WPAD in diesem Netz erkennen",
+                "Proxy, PAC und WPAD in diesem Netz erkennen (nur Mac)",
             ),
             (
                 "ipv6 [Dienst]",
@@ -81,14 +82,17 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
         "Qualität",
         &[
             ("messen [--minuten N]", "Antwortzeiten und Aussetzer messen"),
-            ("bericht [Netz]", "Qualität eines Netzes über die Zeit"),
             (
-                "live <Ziel>...",
+                "bericht [Netz] [--markdown <Datei>]",
+                "Qualität eines Netzes über die Zeit, auch als Datei für den IT-Support",
+            ),
+            (
+                "live <Ziel>... [--sekunden N]",
                 "Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele",
             ),
             (
                 "last --start",
-                "Antwortzeit unter Last (Bufferbloat), belastet die Leitung 30 s",
+                "Antwortzeit unter Last (Bufferbloat), 30 s volle Leitung (nur Mac)",
             ),
             ("pfad [Ziel]", "Weg ins Internet Hop für Hop"),
             ("mtu [Ziel]", "Größte Paketgröße des Weges, mit Erklärung"),
@@ -106,7 +110,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
             ),
             (
                 "wlan --umfeld [--json]",
-                "Scan: Netze je Kanal und Band, Rat für einen leereren Kanal",
+                "Scan: Netze je Kanal und Band, Rat für einen leereren Kanal (nur Mac)",
             ),
         ],
     ),
@@ -115,7 +119,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
         &[
             (
                 "geraete [--nachbarn]",
-                "Geräte im eigenen Netz, neu und verschwunden, mit MAC",
+                "Geräte im eigenen Netz, neu und verschwunden, mit MAC (--nachbarn nur Mac)",
             ),
             (
                 "geraete --karten",
@@ -123,14 +127,17 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
             ),
             (
                 "fritzbox [--zugang <Benutzer>|--entfernen]",
-                "Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund",
+                "Geräteliste der Fritz!Box (TR-064), Zugang im Schlüsselbund (nur Mac)",
             ),
             ("ports <Host>", "Offene Ports eines eigenen Geräts"),
             (
                 "ports --raus [--ziel <Server>]",
                 "Welche ausgehenden Ports lässt dieses Netz durch?",
             ),
-            ("bonjour", "Dienste im Netz, die sich per Bonjour melden"),
+            (
+                "bonjour [--txt]",
+                "Dienste im Netz, die sich per Bonjour melden",
+            ),
             (
                 "upnp",
                 "Geräte, die sich per UPnP/SSDP vorstellen, mit Modell",
@@ -138,7 +145,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     (
-        "Dieser Mac",
+        "Dieser Mac (unter Linux nicht verfügbar)",
         &[
             (
                 "offen [--json]",
@@ -149,7 +156,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
                 "Dazu: Port auch von außen erreichbar? (wie ports)",
             ),
             (
-                "verbindungen",
+                "verbindungen [--programm Name]",
                 "Aktive Verbindungen je Programm mit Zielname",
             ),
             (
@@ -162,7 +169,7 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
             ),
             (
                 "traffic [--sekunden N] [--json]",
-                "Datenmenge je Programm ohne Root (nur Mac)",
+                "Datenmenge je Programm ohne Root",
             ),
         ],
     ),
@@ -205,10 +212,14 @@ fn help() -> String {
             "Erklärt bei jedem Schritt, was im Netz passiert",
         ),
         ("-V, --version", "Version anzeigen"),
-        ("-h, --help", "Diese Hilfe"),
+        (
+            "-h, --help",
+            "Diese Hilfe; `netzinfo <Befehl> --help` zeigt nur die Zeilen dieses Befehls",
+        ),
     ] {
         s += &format!("  {o:<breite$}  {t}\n");
     }
+    s += "\nExit-Code: 0 = geklappt, 1 = Fehler beim Ausführen, 2 = falscher Aufruf.\n";
     s += "\nBeispiele:\n";
     for (a, t) in BEISPIELE {
         s += &format!(
@@ -221,6 +232,22 @@ fn help() -> String {
         );
     }
     s
+}
+
+/// Hilfe für einen Befehl: seine Zeilen aus `GRUPPEN`, sonst `None`.
+fn befehlshilfe(name: &str) -> Option<String> {
+    let zeilen: Vec<_> = GRUPPEN
+        .iter()
+        .flat_map(|(_, z)| z.iter())
+        .filter(|(a, _)| a.split_whitespace().next() == Some(name))
+        .collect();
+    let breite = zeilen.iter().map(|(a, _)| a.chars().count()).max()?;
+    let mut s = String::from("Aufruf:\n");
+    for (a, t) in zeilen {
+        s += &format!("  netzinfo {a:<breite$}  {t}\n");
+    }
+    s += "\n`--erklaer` erklärt bei jedem Schritt, was im Netz passiert. `netzinfo --help` zeigt alle Befehle.\n";
+    Some(s)
 }
 
 /// Alle Befehlsnamen aus der Hilfe, ohne Doppelte.
@@ -285,6 +312,12 @@ fn main() -> ExitCode {
         print!("{}", help());
         return ExitCode::SUCCESS;
     };
+    if rest.iter().any(|a| a == "--help" || a == "-h")
+        && let Some(h) = befehlshilfe(command)
+    {
+        print!("{h}");
+        return ExitCode::SUCCESS;
+    }
     let result = match command.as_str() {
         "hier" => hier::run(rest, explain_on),
         "subnetz" => hier::run_subnet(rest, explain_on),
@@ -319,12 +352,23 @@ fn main() -> ExitCode {
         "portfreigaben" => portfreigaben::run(rest, explain_on),
         "last" => last::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
-            print!("{}", help());
+            print!(
+                "{}",
+                rest.first()
+                    .and_then(|b| befehlshilfe(b))
+                    .unwrap_or_else(help)
+            );
             Ok(())
         }
         "-V" | "--version" => {
             println!("netzinfo {}", env!("CARGO_PKG_VERSION"));
             Ok(())
+        }
+        other if other.starts_with('-') => {
+            eprintln!(
+                "Unbekannte Option „{other}“. `netzinfo --help` zeigt alle Befehle und Optionen."
+            );
+            return ExitCode::from(2);
         }
         other => {
             let tipp = match aehnlich(other) {
@@ -339,7 +383,11 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("Fehler: {e}");
-            ExitCode::from(if ist_bedienfehler(&e) { 2 } else { 1 })
+            let bedienfehler = ist_bedienfehler(&e);
+            if bedienfehler && befehlshilfe(command).is_some() {
+                eprintln!("Mehr dazu: `netzinfo {command} --help`");
+            }
+            ExitCode::from(if bedienfehler { 2 } else { 1 })
         }
     }
 }
@@ -415,6 +463,7 @@ mod tests {
             "merken" => vec![netze::OPTIONEN_MERKEN],
             "pruefen" => vec![pruefen::OPTIONEN],
             "messen" => vec![messen::OPTIONEN],
+            "bericht" => vec![messen::OPTIONEN_BERICHT],
             "last" => vec![last::OPTIONEN],
             "geraete" => vec![geraete::OPTIONEN],
             "fritzbox" => vec![netzinfo::fritzbox::OPTIONEN],
@@ -461,6 +510,16 @@ mod tests {
             }
         }
         assert!(geprueft > 20, "Hilfe nicht gelesen: {geprueft}");
+    }
+
+    #[test]
+    fn hilfe_je_befehl() {
+        let h = befehlshilfe("wlan").unwrap();
+        assert!(
+            h.contains("wlan --umfeld") && !h.contains("netzinfo dns"),
+            "{h}"
+        );
+        assert!(befehlshilfe("xyzzy").is_none());
     }
 
     #[test]

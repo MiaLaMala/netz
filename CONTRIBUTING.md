@@ -3,6 +3,7 @@
 - Ein Issue, ein Zweig, ein Pull Request. Der PR schließt das Issue mit `Closes #N`.
 - Befehle, Ausgaben und Doku auf Deutsch, mit echten Umlauten, „deutschen“ Anführungszeichen und ohne Gedankenstriche. Code-Bezeichner und Kommentare auf Englisch.
 - Jeder Befehl erklärt mit `--erklaer` (über `crate::explain`), was er im Netz tut. Die Sätze soll jemand in der Ausbildung verstehen.
+- Ein neuer Befehl braucht eine Zeile in `GRUPPEN` in `src/main.rs` (Hilfe, `<Befehl> --help` und „Meintest du“ lesen von dort; ein Test prüft Hilfe und Dispatch gegeneinander) und eine Zeile in README und `docs/befehle.md`. Geht er nur auf dem Mac, steht „(nur Mac)“ dahinter.
 - Fehler sind `Result<_, String>` mit einem deutschen Satz: was schiefging und was man tun kann. Kein `unwrap()` oder `expect()` auf Daten von außen (Netz, Ausgaben anderer Programme, Dateien).
 - Neue Abhängigkeiten nur, wenn die Standardbibliothek wirklich nicht reicht, mit Begründung im PR.
 - Vor jedem Commit: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`. Parser und Rechenlogik bekommen Tests mit echten Beispieldaten.

@@ -682,8 +682,10 @@ fn zeige_ausfall(a: &Option<Ausfaelle>) {
     }
 }
 
+pub const OPTIONEN_BERICHT: &[&str] = &["--markdown"];
+
 pub fn run_bericht(args: &[String], explain_on: bool) -> Result<(), String> {
-    crate::optionen::nur(args, &["--markdown"], "bericht")?;
+    crate::optionen::nur(args, OPTIONEN_BERICHT, "bericht")?;
     let mut name = None;
     let mut md = None;
     let mut it = args.iter();

@@ -2,6 +2,10 @@
 
 Ergänzt die Übersicht im [README](../README.md). Jeder Befehl erklärt mit `--erklaer` selbst, was er im Netz tut.
 
+## Hilfe, Fehler und Exit-Codes
+
+`netzinfo --help` listet alle Befehle nach Thema, `netzinfo <Befehl> --help` (auch `netzinfo hilfe <Befehl>`) nur die Zeilen dieses Befehls. Was es nur auf dem Mac gibt, steht in der Hilfe als „(nur Mac)“ oder unter „Dieser Mac“; unter Linux antwortet der Befehl mit einem Satz, warum er dort nicht geht. Exit-Code 0: geklappt. 1: Der Befehl lief, aber etwas ging schief (kein Netz, Zeitüberschreitung, Gerät nicht erreichbar). 2: falscher Aufruf (unbekannter Befehl oder unbekannte Option, fehlendes Argument). `pruefen` meldet Abweichungen im Text, nicht im Exit-Code.
+
 ## Wie Netzinfo ein Netz wiedererkennt
 
 `netzinfo hier` sagt oben, ob das Netz bekannt ist („Bekanntes Netz: WG, zuletzt am …“) oder neu. Erkannt wird es an Router, DHCP-Server, Domain und Subnetz, nicht am WLAN-Namen. Die Liste liegt in `~/Library/Application Support/netzinfo/netze.json` (anderer Pfad: Umgebungsvariable `NETZ_DATEN`). Zwei Netze mit demselben Werksrouter (z. B. zwei FRITZ!Boxen) sehen gleich aus.
