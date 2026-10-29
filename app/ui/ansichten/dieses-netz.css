@@ -1,10 +1,24 @@
-/* Styles for the view „dieses-netz“ only (WLAN card, #34). */
-[data-ansicht='dieses-netz'] .wert.wlan-signal.gut { color: var(--gruen); }
-[data-ansicht='dieses-netz'] .wert.wlan-signal.mittel { color: var(--orange); }
-[data-ansicht='dieses-netz'] .wert.wlan-signal.schwach, [data-ansicht='dieses-netz'] .wert.wlan-warn { color: var(--rot); }
+/* Styles for the view „dieses-netz“ only. */
+/* Kopf: Netzname und Status sind die erste Aussage der Ansicht. */
+[data-ansicht='dieses-netz'] .kopf h2 { font-size: 30px; letter-spacing: -0.025em; line-height: 1.1; }
+[data-ansicht='dieses-netz'] .status { flex-wrap: wrap; gap: 2px 8px; margin-top: 8px; font-size: 15px; }
+[data-ansicht='dieses-netz'] .status-wort { color: var(--fg); font-weight: 500; }
+[data-ansicht='dieses-netz'] .status-rest { color: var(--fg2); font-size: 13px; }
+/* Farbe nur für eine Bewertung. Gemischt mit der Schriftfarbe, damit sie 4,5:1 hält (hell wie dunkel). */
+[data-ansicht='dieses-netz'] .wert.gut { color: color-mix(in srgb, var(--gruen) 80%, var(--fg)); }
+[data-ansicht='dieses-netz'] .wert.mittel { color: color-mix(in srgb, var(--orange) 80%, var(--fg)); }
+[data-ansicht='dieses-netz'] .wert.schlecht { color: color-mix(in srgb, var(--rot) 80%, var(--fg)); }
+/* Mehrere Werte untereinander */
+[data-ansicht='dieses-netz'] .wert.stapel { white-space: pre-line; }
+/* Aufklappen für seltene Werte */
+[data-ansicht='dieses-netz'] .mehr { margin-top: 8px; background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; }
+[data-ansicht='dieses-netz'] .mehr summary { padding: 8px 14px; cursor: pointer; color: var(--fg2); }
+[data-ansicht='dieses-netz'] .mehr dl { margin: 0; }
+[data-ansicht='dieses-netz'] .mehr .zeile { border-top: 0.5px solid var(--linie); }
+/* Stand der Messung mit „Neu messen“ */
+[data-ansicht='dieses-netz'] .stand { align-items: center; }
+[data-ansicht='dieses-netz'] .stand .label { font-size: 12px; color: var(--fg2); }
 /* Standortfreigabe (#35) */
 [data-ansicht='dieses-netz'] .ort-karte .zeile { display: block; }
 [data-ansicht='dieses-netz'] .ort-karte summary { cursor: pointer; }
 [data-ansicht='dieses-netz'] .ort-karte .ort-status { margin: 0; }
-/* Verschlüsseltes DNS (#88) */
-[data-ansicht='dieses-netz'] .dns-neu { margin: 8px 14px 0; }

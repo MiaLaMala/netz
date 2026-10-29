@@ -1,3 +1,10 @@
+// Beispielbereiche statt privater Adressen (gilt für alle Ansichten gleich): Router 192.0.2.1, Mac 192.0.2.20, VPN 198.51.100.7.
+// Die Grunddaten stehen in vorschau.html (Gerüst), hier werden sie nur umgeschrieben.
+(() => {
+  const grund = VORSCHAU.dieses_netz;
+  VORSCHAU.dieses_netz = async () => JSON.parse(JSON.stringify(await grund())
+    .replaceAll('192.168.178.', '192.0.2.').replaceAll('100.64.0.', '198.51.100.').replaceAll('fd7a:115c:a1e0::53', '2001:db8::53'));
+})();
 // Fake answers for the WLAN card of the view „dieses-netz“ in vorschau.html.
 // Marks: wlan-gut, wlan-schwach; without a mark (cable) the card stays hidden.
 (() => {
