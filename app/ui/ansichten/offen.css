@@ -17,3 +17,11 @@
 [data-ansicht='offen'] .offen-art.netz { color: var(--fg); font-weight: 600; }
 [data-ansicht='offen'] .offen-tabelle td:last-child { white-space: nowrap; }
 [data-ansicht='offen'] .woher-knopf { margin-left: -6px; }
+/* Ausrichtung: Texte links, Adresse rechtsbündig, Zahlen tabellarisch; lange Programmnamen werden gekürzt. */
+[data-ansicht='offen'] .offen-tabelle th:last-child, [data-ansicht='offen'] .offen-tabelle td.adresse { text-align: right; }
+[data-ansicht='offen'] .offen-tabelle th { padding: 4px 10px 8px; border-bottom: 0.5px solid var(--linie); }
+[data-ansicht='offen'] .offen-tabelle tr:first-child td { border-top: 0; }
+[data-ansicht='offen'] .offen-tabelle td.programm { width: 100%; max-width: 0; }
+[data-ansicht='offen'] .kuerzen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-ansicht='offen'] .offen-tabelle .warn { display: flex; align-items: flex-start; gap: 6px; }
+[data-ansicht='offen'] .offen-tabelle .warn .punkt { margin-top: 5px; width: 7px; height: 7px; }

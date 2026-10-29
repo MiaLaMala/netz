@@ -1,5 +1,10 @@
 /* Styles for the view „verbindungen“ only, scoped: class names like .werkzeuge exist in other views too. */
-[data-ansicht='verbindungen'] .verbindung-status { margin: 0; }
+[data-ansicht='verbindungen'] .verbindung-status { margin: 1px 0 0; font-size: 12px; font-weight: 500; gap: 6px; }
+[data-ansicht='verbindungen'] .verbindung-status .punkt { width: 7px; height: 7px; }
+/* Titel, „neu“ und „Woher?“ stehen auf einer Linie, auch wenn die Zeile mehr Zeilen hat. */
+[data-ansicht='verbindungen'] .netz-zeile.verbindung { flex-wrap: nowrap; align-items: flex-start; gap: 12px; }
+[data-ansicht='verbindungen'] .netz-zeile.verbindung .woher-knopf { margin-top: -2px; flex: none; }
+[data-ansicht='verbindungen'] .kuerzen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-ansicht='verbindungen'] .werkzeuge { display: flex; align-items: center; gap: 18px; margin: 14px 0 0; }
 [data-ansicht='verbindungen'] .werkzeuge .erklaeren-schalter { margin-right: auto; padding-left: 0; }
 [data-ansicht='verbindungen'] .ergebnis .leer-zustand { min-height: 0; padding-top: 48px; }
@@ -8,13 +13,19 @@
 [data-ansicht='verbindungen'] .liste .netz-zeile .erklaeren-schalter { padding-right: 0; }
 [data-ansicht='verbindungen'] .liste .fein { margin: 0; }
 /* #58 „Wer sendet gerade“ */
-[data-ansicht='verbindungen'] .traffic-text { margin: 12px 14px 10px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='verbindungen'] .traffic-text { margin: 12px 14px 12px; max-width: 64ch; font-size: 12px; color: var(--fg2); }
 [data-ansicht='verbindungen'] .traffic-werkzeuge { display: flex; align-items: center; gap: 14px; padding: 0 14px 4px; }
 [data-ansicht='verbindungen'] .traffic-leer { margin: 0; padding: 18px 14px 14px; text-align: center; font-size: 13px; color: var(--fg2); }
 [data-ansicht='verbindungen'] .traffic-zeile { padding: 6px 14px; }
 [data-ansicht='verbindungen'] .traffic-liste { padding-bottom: 8px; }
 [data-ansicht='verbindungen'] .traffic-balken span { min-width: 3px; }
-[data-ansicht='verbindungen'] .traffic-kopf { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-[data-ansicht='verbindungen'] .traffic-balken { display: flex; height: 8px; border-radius: 3px; background: var(--linie); overflow: hidden; }
+[data-ansicht='verbindungen'] .traffic-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+[data-ansicht='verbindungen'] .traffic-rate { display: flex; flex: none; gap: 12px; }
+[data-ansicht='verbindungen'] .traffic-rate span { min-width: 76px; text-align: right; }
+[data-ansicht='verbindungen'] .traffic-legende { display: flex; gap: 16px; padding: 4px 14px 6px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='verbindungen'] .traffic-legende span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--accent); }
+[data-ansicht='verbindungen'] .traffic-legende .aus::before { background: var(--orange); }
+[data-ansicht='verbindungen'] .traffic-balken span { transition: width 200ms ease-out; }
+[data-ansicht='verbindungen'] .traffic-balken { display: flex; height: 8px; border-radius: 4px; background: var(--linie); overflow: hidden; }
 [data-ansicht='verbindungen'] .traffic-balken .ein { background: var(--accent); }
 [data-ansicht='verbindungen'] .traffic-balken .aus { background: var(--orange); }

@@ -32,25 +32,29 @@
   // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
     const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
-    const fein = [v.name && adresse, v.dienst ? `Port ${v.ziel_port} (${v.dienst})` : `Port ${v.ziel_port}`, ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
-    return el('div', { class: 'netz-zeile' },
+    const ziel = [v.name && adresse, v.dienst ? `Port ${v.ziel_port} (${v.dienst})` : `Port ${v.ziel_port}`].filter(Boolean);
+    const herkunft = [ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
+    const titel = v.name || adresse;
+    return el('div', { class: 'netz-zeile verbindung' },
       el('div', { class: 'text' },
-        el('div', { class: 'netz-name num', text: v.name || adresse }),
-        el('div', { class: 'fein', text: fein.join(' · ') })),
+        el('div', { class: 'netz-name num kuerzen', title: titel, text: titel }),
+        el('div', { class: 'fein num', text: ziel.join(' · ') }),
+        herkunft.length ? el('div', { class: 'fein', text: herkunft.join(' · ') }) : null),
       v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })),
       Netz.woher(v.pid, v.programm));
   }
 
   // „Nach Land“: Zählung der Verbindungen je Land, nur wenn die Datenbank da ist und etwas trifft.
-  function nachLand(r) {
+  // Folgt dem Filter „Nur neue“: Sonst zählte die Gruppe etwas anderes, als die Liste darüber zeigt.
+  function nachLand(gruppen) {
     const zaehler = new Map();
-    for (const g of r.gruppen) for (const v of g.verbindungen) if (v.land) zaehler.set(v.land, (zaehler.get(v.land) || 0) + 1);
+    for (const g of gruppen) for (const v of g.verbindungen) if (v.land) zaehler.set(v.land, (zaehler.get(v.land) || 0) + 1);
     if (!zaehler.size) return null;
-    const ohne = r.gruppen.reduce((s, g) => s + g.verbindungen.filter((v) => !v.land).length, 0);
+    const ohne = gruppen.reduce((s, g) => s + g.verbindungen.filter((v) => !v.land).length, 0);
     const sortiert = [...zaehler].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'));
     const n = (x) => `${x} ${x === 1 ? 'Verbindung' : 'Verbindungen'}`;
     const rest = sortiert.slice(6).reduce((s, [, x]) => s + x, 0);
-    return gruppe('Nach Land', [
+    return gruppe(zustand.nurNeue ? 'Nach Land, nur neue' : 'Nach Land', [
       ...sortiert.slice(0, 6).map(([land, x]) => zeile(land, n(x))),
       rest && zeile(`${sortiert.length - 6} weitere Länder`, n(rest)),
       ohne ? zeile('Ohne Land', n(ohne), 'Verbindungen im eigenen Netz, zu diesem Mac selbst oder zu Adressen, die nicht in der Datei stehen.') : null,
@@ -89,7 +93,7 @@
       return el('section', { class: 'gruppe', 'aria-label': g.programm },
         el('h3', { text: `${g.programm} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
         el('div', { class: 'liste' }, g.verbindungen.map(verbindung)));
-    }), nachLand(r), herkunftFuss(r)];
+    }), nachLand(gruppen), herkunftFuss(r)];
   }
 
   // „Wer sendet gerade“ (#58): measures only on click; repeats only while this view is on screen.
@@ -101,13 +105,15 @@
     const aktiv = liste.filter((v) => v.ein + v.aus > 0).slice(0, 8);
     if (!aktiv.length) return [el('p', { class: 'fuss', text: 'In diesen Sekunden floss bei keinem Programm etwas.' })];
     const max = Math.max(...aktiv.map((v) => v.rate_ein + v.rate_aus));
-    return aktiv.map((v) => el('div', { class: 'traffic-zeile' },
+    const legende = el('div', { class: 'traffic-legende' },
+      el('span', { class: 'ein', text: '↓ Empfangen' }), el('span', { class: 'aus', text: '↑ Gesendet' }));
+    return [legende, ...aktiv.map((v) => el('div', { class: 'traffic-zeile' },
       el('div', { class: 'traffic-kopf' },
-        el('span', { class: 'netz-name', text: v.programm }),
-        el('span', { class: 'fein num', text: `↓ ${menge(v.rate_ein)}/s · ↑ ${menge(v.rate_aus)}/s` })),
+        el('span', { class: 'netz-name kuerzen', title: v.programm, text: v.programm }),
+        el('span', { class: 'fein num traffic-rate' }, el('span', { text: `↓ ${menge(v.rate_ein)}/s` }), el('span', { text: `↑ ${menge(v.rate_aus)}/s` }))),
       el('div', { class: 'traffic-balken', role: 'img', 'aria-label': `${v.programm}: ${menge(v.ein)} empfangen, ${menge(v.aus)} gesendet` },
         el('span', { class: 'ein', style: `width:${((v.rate_ein / max) * 100).toFixed(1)}%` }),
-        el('span', { class: 'aus', style: `width:${((v.rate_aus / max) * 100).toFixed(1)}%` }))));
+        el('span', { class: 'aus', style: `width:${((v.rate_aus / max) * 100).toFixed(1)}%` }))))];
   }
 
   function trafficAbschnitt() {
@@ -126,7 +132,7 @@
         const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         ort.replaceChildren(...balken, el('p', { class: 'fuss', text: `Gemessen um ${uhr} Uhr, ${TRAFFIC_SEKUNDEN} Sekunden lang.` }));
       } catch (f) {
-        ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+        ort.replaceChildren(Netz.fehlerKarte(Netz.text(f), einmal));
         wiederholen = false;
         sw.setAttribute('aria-checked', 'false');
       }
@@ -151,7 +157,7 @@
     });
     messen.addEventListener('click', einmal);
     return Object.assign(gruppe('Wer sendet gerade', [
-      el('p', { class: 'traffic-text', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt (blau) und sendet (orange). Die Balken zeigen das Verhältnis zum lautesten Programm, gezählt werden alle Wege, auch zum Router.` }),
+      el('p', { class: 'traffic-text', text: `Misst ${TRAFFIC_SEKUNDEN} Sekunden lang, welches Programm empfängt und sendet. Die Balken zeigen das Verhältnis zum lautesten Programm, gezählt werden alle Wege, auch zum Router.` }),
       el('div', { class: 'traffic-werkzeuge' }, messen, sw),
       ort,
     ]), { className: 'gruppe traffic' });
@@ -216,7 +222,7 @@
         zeichne();
         if (!ergebnis.netz_name) loeschenAus();
       } catch (f) {
-        ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+        ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
       }
     },
   });

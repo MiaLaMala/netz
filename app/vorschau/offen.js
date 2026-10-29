@@ -12,6 +12,7 @@
     l('UDP', 5353, 'Namensdienst', '*', 'Netz', 'mDNS'),
     l('TCP', 8384, 'Sync-Programm', '198.51.100.7', 'Vpn', ''),
     l('UDP', 53211, 'Namensauflösung', '*', 'UdpClient', ''),
+    l('TCP', 3000, 'Code Helper (Plugin) für lange Programmnamen im Beispiel', '*', 'Netz', ''),
     l('TCP', 631, 'Druckdienst', '127.0.0.1', 'Lokal', 'IPP'),
     l('TCP', 5432, 'Datenbank', '::1', 'Lokal', 'PostgreSQL'),
   ];
