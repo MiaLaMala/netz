@@ -324,7 +324,7 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     {
         erg.unterschiede.push(Unterschied { klasse, text });
     }
-    // Wave 10 (#44, #47, #52, #53, #68, #69, #74): each module reads its own store next to netze.json.
+    // Waves 10 and 11 (#44, #45, #47, #52, #53, #54, #66, #68, #69, #74): each module reads its own store next to netze.json.
     let mut weitere = crate::gatewaywache::fuer_pruefen(&path, &fp.key(), known[i].meins);
     weitere.extend(crate::mtu::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::proxy::fuer_pruefen(&path, &fp.key(), known[i].meins));
@@ -342,6 +342,21 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     weitere.extend(crate::ipv6::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::zeit::fuer_pruefen(&path, &fp.key(), known[i].meins));
     weitere.extend(crate::offen::fuer_pruefen(&path, &fp.key(), known[i].meins));
+    weitere.extend(crate::portfreigaben::fuer_pruefen(
+        &path,
+        &fp.key(),
+        known[i].meins,
+    ));
+    weitere.extend(crate::egress::fuer_pruefen(
+        &path,
+        &fp.key(),
+        known[i].meins,
+    ));
+    weitere.extend(crate::pfadspur::fuer_pruefen(
+        &path,
+        &fp.key(),
+        known[i].meins,
+    ));
     erg.unterschiede.extend(
         weitere
             .into_iter()
