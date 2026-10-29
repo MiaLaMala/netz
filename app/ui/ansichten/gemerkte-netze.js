@@ -7,6 +7,7 @@
     const ort = el('div', { class: 'netz-zeile', role: 'listitem' });
     const fehler = el('div', { class: 'zeilenfehler', 'aria-live': 'polite' });
     const knopf = el('button', { class: 'knopf', type: 'button', text: 'Vergessen' });
+    knopf.classList.add('gefahr');
     const zeigeFehler = (e) => fehler.replaceChildren(meldung(Netz.text(e)));
     // Quiet confirmation for screen readers and eyes, gone after a few seconds.
     let weg;
@@ -62,19 +63,24 @@
       return s;
     };
 
-    // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, bleibt der Satz weg.
+    // Label über Wert, in einem Raster: bricht nie mitten im Satz, sondern nur als ganzes Feld um.
+    const feld = (label, wert, farbe, leer) => el('div', { class: 'feld' }, el('span', { class: 'fl', text: label }),
+      el('span', { class: `fw wert${leer ? ' leer' : ''}` }, farbe && el('span', { class: `punkt ${farbe}` }), wert));
+    // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, steht ein Feld mit „noch nicht geprüft“.
     const tag = (s) => new Date(s * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' });
-    const ja = { Erreichbar: 'ja', Blockiert: 'nein', Abgefangen: 'abgefangen' };
-    const dns = el('div', { class: 'fein wert', text: 'Verschlüsseltes DNS: noch nicht geprüft' });
+    const ja = { Erreichbar: ['ja', 'gruen'], Blockiert: ['nein', 'orange'], Abgefangen: ['abgefangen', 'rot'] };
+    const dns = el('div', { class: 'felder' }, feld('Verschlüsseltes DNS', 'noch nicht geprüft', null, true));
     Netz.invoke('dns_gespeichert', { name: n.name }).then((g) => {
       if (!g) return;
       const m = g.messung;
-      dns.textContent = `Verschlüsseltes DNS: DoT ${ja[m.dot] ?? 'unbekannt'}, DoH ${ja[m.doh] ?? 'unbekannt'}, DDR ${m.ddr ? 'ja' : 'nein'}, geprüft am ${tag(m.zeit)}`;
+      const [dot, doh] = [m.dot, m.doh].map((x) => ja[x] ?? ['unbekannt', 'grau']);
+      dns.replaceChildren(feld('DoT', dot[0], dot[1]), feld('DoH', doh[0], doh[1]),
+        feld('DDR', m.ddr ? 'ja' : 'nein', m.ddr ? 'gruen' : 'grau'), feld('DNS geprüft am', tag(m.zeit)));
     }).catch(() => {});
 
-    // Segments wrap as whole pieces, no separator characters: a line can never start with one.
-    const fein = () => [...(hier ? [] : [`Zuletzt hier ${zeit(n.last_seen)}`]), `Gemerkt seit ${tag(n.first_seen)}`, `Router ${n.fingerprint.router}`, n.fingerprint.domain ? `Domain ${n.fingerprint.domain}` : 'ohne Domain']
-      .map((t) => el('span', { class: 'teil', text: t }));
+    // Verbunden: Der Status steht schon oben, der Platz bleibt leer, damit die Felder in allen Zeilen untereinander stehen.
+    const fein = () => [...(hier ? [el('div', { 'aria-hidden': 'true' })] : [feld('Zuletzt hier', zeit(n.last_seen))]), feld('Gemerkt seit', tag(n.first_seen)),
+      feld('Router', n.fingerprint.router), feld('Domain', n.fingerprint.domain || 'ohne Domain', null, !n.fingerprint.domain)];
     const normal = () => {
       ort.classList.remove('bearbeiten');
       knopf.setAttribute('aria-label', `${n.name} vergessen`);
@@ -85,7 +91,7 @@
             hier && el('span', { class: 'hier' }, el('span', { class: 'punkt gruen' }), 'Verbunden')),
           el('button', { class: 'knopf umbenennen-knopf', type: 'button', text: 'Umbenennen', 'aria-label': `${n.name} umbenennen`, onclick: umbenennen }),
           knopf),
-        el('div', { class: 'fein meta' }, fein()), dns,
+        el('div', { class: 'felder' }, fein()), dns,
         el('div', { class: 'meins-zeile' }, schalter()),
         fehler);
     };
@@ -147,8 +153,9 @@
       // Which saved network is the Mac in right now? Unknown or not saved: no row is marked.
       const jetzt = (await Netz.invoke('dieses_netz').catch(() => null))?.netz?.name;
       const start = await autostart();
-      if (start) wurzel.append(start);
       if (!liste.length) {
+        // Leere Liste: Der Leerzustand füllt die Höhe, der Schalter steht deshalb davor.
+        if (start) wurzel.append(start);
         wurzel.append(Netz.leerZustand(Netz.icons.merken, 'Noch kein Netz gemerkt. Unter „Dieses Netz“ merkst du das aktuelle.', 'gemerkte-netze'));
         return;
       }
@@ -158,6 +165,7 @@
         el('div', { class: 'liste', role: 'list' }, liste.map((n, i) => zeile(n, i, n.name === jetzt))),
         el('p', { class: 'fuss', id: 'meins-hilfe', text: '„meins“ erlaubt Gerätesuche und Portscans in diesem Netz. Schalte es nur für Netze ein, die dir gehören.' }),
         el('p', { class: 'fuss erklaer-gruppe', text: 'DoT und DoH verschlüsseln deine DNS-Anfragen (die Frage nach der Adresse zu einem Namen). DDR heißt: Der Router verrät selbst, welchen verschlüsselten Server er anbietet. „nein“ heißt: Bei der letzten Prüfung ging das in diesem Netz nicht.' })));
+      if (start) wurzel.append(start);
     },
   });
 })();

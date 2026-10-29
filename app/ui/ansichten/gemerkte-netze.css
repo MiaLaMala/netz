@@ -1,22 +1,29 @@
 /* Styles for the view „gemerkte-netze“ only. */
-[data-ansicht='gemerkte-netze'] .netz-zeile { padding: 12px 0; gap: 4px 0; }
+[data-ansicht='gemerkte-netze'] .netz-zeile { padding: 16px 0; gap: 8px 0; }
 [data-ansicht='gemerkte-netze'] .kopf-zeile { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
 [data-ansicht='gemerkte-netze'] .name-ort { flex: 1; min-width: 0; min-height: 30px; display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
 [data-ansicht='gemerkte-netze'] .netz-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
-[data-ansicht='gemerkte-netze'] .hier { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg2); }
-[data-ansicht='gemerkte-netze'] .meta { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0 16px; }
-[data-ansicht='gemerkte-netze'] .netz-zeile > .fein { flex-basis: 100%; }
+[data-ansicht='gemerkte-netze'] .hier { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg); }
+[data-ansicht='gemerkte-netze'] .felder { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px 16px; }
+[data-ansicht='gemerkte-netze'] .feld { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+[data-ansicht='gemerkte-netze'] .fl { font-size: 12px; color: var(--fg2); }
+[data-ansicht='gemerkte-netze'] .fw { font-size: 13px; display: flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+[data-ansicht='gemerkte-netze'] .fw .punkt { width: 8px; height: 8px; }
 [data-ansicht='gemerkte-netze'] .netz-zeile .umbenennen { flex: 1; width: 100%; }
-[data-ansicht='gemerkte-netze'] .meins-zeile { flex-basis: 100%; margin-top: 4px; }
+[data-ansicht='gemerkte-netze'] .meins-zeile { flex-basis: 100%; margin-top: 0; }
 [data-ansicht='gemerkte-netze'] .meins-zeile .erklaeren-schalter { padding-left: 0; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler { flex-basis: 100%; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler .meldung { margin-top: 2px; font-size: 12px; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler .rueckmeldung { margin-top: 2px; }
-[data-ansicht='gemerkte-netze'] .autostart { margin-bottom: 16px; }
-[data-ansicht='gemerkte-netze'] .autostart .fein { margin: 6px 4px 0; }
+[data-ansicht='gemerkte-netze'] .autostart { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 14px; }
+[data-ansicht='gemerkte-netze'] .autostart .erklaeren-schalter { padding-left: 0; margin-right: 0; }
+[data-ansicht='gemerkte-netze'] .autostart .fein { margin: 8px 0 0; font-size: 12px; color: var(--fg2); }
 [data-ansicht='gemerkte-netze'] .fuss { text-wrap: pretty; }
 /* The error sits right under the header (and the field), not at the bottom of the row. */
 [data-ansicht='gemerkte-netze'] .netz-zeile > * { order: 2; }
 [data-ansicht='gemerkte-netze'] .netz-zeile > .kopf-zeile { order: 0; }
 [data-ansicht='gemerkte-netze'] .netz-zeile > .zeilenfehler { order: 1; }
 [data-ansicht='gemerkte-netze'] .bearbeiten .kopf-zeile .knopf { display: none; }
+[data-ansicht='gemerkte-netze'] .fw.leer { color: var(--fg2); }
+[data-ansicht='gemerkte-netze'] .autostart .fein { text-wrap: balance; }
+[data-ansicht='gemerkte-netze'] .felder > .feld:only-child { grid-column: 1 / -1; }

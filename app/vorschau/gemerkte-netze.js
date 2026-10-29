@@ -17,7 +17,7 @@ VORSCHAU.netz_markieren = async ({ name, meins }) => {
   return n;
 };
 if (marken.includes('netze-eins')) netze = netze.slice(0, 1);
-if (marken.includes('netze-ladefehler')) VORSCHAU.gemerkte_netze = async () => { throw 'Die gemerkten Netze ließen sich nicht lesen. Starte die App neu; die Datei bleibt dabei unverändert.'; };
+if (marken.includes('netze-ladefehler')) VORSCHAU.gemerkte_netze = async () => { throw 'Die gemerkten Netze ließen sich nicht lesen. Die Datei bleibt dabei unverändert.'; };
 // Beispielbereiche statt privater Adressen (WG = Router 192.0.2.1, wie in allen Ansichten).
 const beispiel = { WG: ['192.0.2.1', '192.0.2.0/24'], Arbeit: ['198.51.100.1', '198.51.100.0/24'], Hotspot: ['203.0.113.1', '203.0.113.0/28'] };
 for (const n of netze) if (beispiel[n.name]) Object.assign(n.fingerprint, { router: beispiel[n.name][0], dhcp_server: beispiel[n.name][0], subnet: beispiel[n.name][1] });
