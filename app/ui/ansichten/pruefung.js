@@ -57,7 +57,7 @@
     const t = /DHCP/.test(label) ? 'DHCP-Server' : /^DNS/.test(label) ? 'DNS' : /^Erfundene/.test(label) ? 'Umleitung'
       : /blockiert/.test(label) ? 'Sperre' : label === 'Öffentliche IP' ? label : `Zertifikat von ${label}`;
     const rang = Math.max(-1, ...aktErg.unterschiede.filter((u) => thema(u.text) === t).map((u) => KLASSE_RANG[u.klasse]));
-    const farbe = ['orange', 'orange', 'rot'][rang < 0 ? 1 : rang] ?? 'orange';
+    const farbe = ['gruen', 'orange', 'rot'][rang < 0 ? 1 : rang]; // same colour as the sentence in „Unterschiede“
     return el('div', { class: 'zeile' },
       el('dt', { class: 'label', text: label }),
       el('dd', { class: `wert${neu == null ? ' leer' : ''}` },
@@ -67,16 +67,20 @@
   };
 
   // What the two cards found, as head lines (dot plus word). The red box below stays for real changes since the last visit.
-  function kartenBefunde() {
+  const befunde = () => {
     const s = z.sni;
     const fremd = s?.namen?.some(([, st]) => st === 'fremdes_zertifikat');
     return [
-      z.portal?.status === 'PortalVermutet' && status('orange', 'Auffällig. Anmeldeseite vermutet.'),
+      z.portal?.status === 'PortalVermutet' && ['orange', 'Auffällig', 'Anmeldeseite vermutet.'],
       s?.gestoert?.length && (fremd
-        ? status('rot', `Alarm. Webfilter: fremdes Zertifikat bei ${s.gestoert.join(', ')}. Jemand liest vielleicht mit.`)
-        : status('orange', `Auffällig. Webfilter stört ${s.gestoert.join(', ')}.`)),
+        ? ['rot', 'Alarm', `Webfilter: fremdes Zertifikat bei ${s.gestoert.join(', ')}. Jemand liest vielleicht mit.`]
+        : ['orange', 'Auffällig', `Webfilter stört ${s.gestoert.join(', ')}.`]),
     ].filter(Boolean);
-  }
+  };
+  const kartenBefunde = (ausser) => befunde().filter((b) => b !== ausser).map(([f, w, t]) => status(f, `${w}. ${t}`));
+  // The verdict: one card, severity as dot, big word and colour; the sentence below.
+  const urteilKarte = (farbe, wort, satz) => el('div', { class: `urteil ${farbe}` },
+    el('strong', {}, el('span', { class: `punkt ${farbe}` }), wort), el('p', { text: satz }));
 
   // The head sums up the whole page: comparison with the last visit plus both cards. Green only when all say nothing.
   function urteil(erg) {
@@ -86,13 +90,16 @@
     const misst = z.offen.sni || z.offen.portal;
     const was = [z.offen.sni && 'Webfilter', z.offen.portal && 'Anmeldeseite'].filter(Boolean).join(' und ');
     const wartet = misst && status('grau', `${was} ${z.offen.sni && z.offen.portal ? 'werden' : 'wird'} noch gemessen.`);
-    if (worst === 'Alarm') return [el('div', { class: 'urteil' }, el('span', { class: 'punkt rot' }),
-      el('div', {}, el('strong', { text: 'Alarm' }), el('p', { text: `${seit} hat sich etwas geändert, das du klären solltest.` }))), ...karten, wartet];
-    if (worst === 'Auffaellig') return [status('orange', `Auffällig. ${seit} ist etwas anders, schau nach, ob das so gewollt ist.`), ...karten, wartet];
-    if (karten.length) return [...karten, wartet];
+    if (worst === 'Alarm') return [urteilKarte('rot', 'Alarm', `${seit} hat sich etwas geändert, das du klären solltest.`), ...karten, wartet];
+    if (worst === 'Auffaellig') return [urteilKarte('orange', 'Auffällig', `${seit} ist etwas anders, schau nach, ob das so gewollt ist.`), ...karten, wartet];
+    if (karten.length) {
+      const b = befunde();
+      const haupt = b.find((x) => x[0] === 'rot') ?? b[0];
+      return [urteilKarte(haupt[0], haupt[1], haupt[2]), ...kartenBefunde(haupt), wartet];
+    }
     if (misst) return [status('grau', `${seit} ist nichts anders. ${was} ${z.offen.sni && z.offen.portal ? 'werden' : 'wird'} noch gemessen.`)];
     const unklar = z.sni?.unklar && status('grau', 'Der Webfilter ließ sich nicht beurteilen.');
-    return [status('gruen', `Nichts Auffälliges. ${seit} ist alles im Rahmen.`), unklar];
+    return [urteilKarte('gruen', 'Nichts Auffälliges', `${seit} ist alles im Rahmen.`), unklar];
   }
 
   const diffs = (erg) => erg.unterschiede.filter((u) => !wegRuhig(u));
@@ -106,7 +113,7 @@
       erklaert.add(u.klasse);
       return el('div', { class: 'zeile' },
         el('dt', { class: 'label thema', text: thema(u.text) }),
-        el('dd', { class: 'wert klasse' }, el('span', { class: `punkt ${farbe}` }), wort),
+        el('dd', { class: 'wert klasse' }, el('span', { class: `punkt ${farbe}` }), el('span', { class: 'wort', text: wort })),
         el('dd', { class: 'wert text', text: u.text }),
         nochNicht && el('dd', { class: 'erklaerung', text: erkl }));
     }));
@@ -159,10 +166,10 @@
       el('dt', { class: 'label klasse' }, farbe && el('span', { class: `punkt ${farbe}` }), label),
       el('dd', { class: 'wert', text: wert }),
       erkl && el('dd', { class: 'erklaerung', text: erkl }));
-    if (s.unklar) return gruppe('Webfilter am Servernamen', [zeile('Urteil', 'unklar', 'grau', 'Schon die Kontrolle kam nicht durch. Der Testserver ist nicht erreichbar oder das Netz ist gestört, ein Urteil wäre geraten.')]);
+    if (s.unklar) return gruppe('Webfilter am Servernamen', [zeile('Ergebnis', 'unklar', 'grau', 'Schon die Kontrolle kam nicht durch. Der Testserver ist nicht erreichbar oder das Netz ist gestört, ein Urteil wäre geraten.')]);
     const farbe = (st) => (st === 'ok' ? 'gruen' : st === 'fremdes_zertifikat' ? 'rot' : 'orange');
     return gruppe('Webfilter am Servernamen', [
-      zeile('Urteil', s.gestoert.length ? `gestört für ${s.gestoert.join(', ')}` : 'kein Name gestört', s.gestoert.length ? 'orange' : 'gruen', E.sni),
+      zeile('Ergebnis', s.gestoert.length ? `gestört für ${s.gestoert.join(', ')}` : 'kein Name gestört', s.gestoert.length ? 'orange' : 'gruen', E.sni),
       ...s.namen.map(([n, st]) => zeile(n, SNI_WORT[st], farbe(st))),
     ]);
   };
@@ -180,6 +187,9 @@
     const erg = z.erg;
     const unbekannt = z.art === 'nicht_gemerkt';
     knopf.disabled = z.laeuft;
+    // One main action per area: with the portal hint its button leads.
+    knopf.classList.toggle('haupt', z.portal?.status !== 'PortalVermutet');
+    knopf.parentElement.hidden = unbekannt || (z.fehler && !z.laeuft); // there the empty state or the error card carries the button
     knopf.replaceChildren(z.laeuft ? 'Prüfe …' : 'Jetzt prüfen', ...(z.laeuft ? [] : [el('span', { class: 'kbd', 'aria-hidden': 'true', text: '⌘R' })]));
     const fuell = (ort, ...k) => ort.replaceChildren(...k.flat().filter((x) => x != null && x !== false));
     fuell(kopf,
@@ -187,13 +197,14 @@
       el('h2', { text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
       z.offen.vergleich ? status('grau', 'Prüfe …')
         : erg ? (erg.erster_besuch ? [status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis'), ...kartenBefunde()] : urteil(erg))
-        : unbekannt ? status('orange', 'Noch nicht gemerkt') : null);
+        : null);
     fuell(rest,
-      ...(z.fehler && !z.offen.vergleich ? [
-        meldung(unbekannt ? 'Dieses Netz ist nicht gemerkt, es gibt nichts zum Vergleichen. Merke es unter „Dieses Netz“ und prüfe dann noch mal.' : z.fehler, unbekannt ? 'orange' : 'rot'),
-        unbekannt && el('div', { class: 'aktion' },
-          el('button', { class: 'knopf', type: 'button', text: 'Zu „Dieses Netz“ …', onclick: () => document.getElementById('tab-dieses-netz').click() })),
-      ] : []),
+      ...(z.fehler && !z.offen.vergleich ? (unbekannt ? [
+        Netz.leerZustand('', 'Dieses Netz ist nicht gemerkt, es gibt nichts zum Vergleichen. Merke es unter „Dieses Netz“ und prüfe dann noch mal.', 'pruefung'),
+        el('div', { class: 'aktion mitte' },
+          el('button', { class: 'knopf haupt', type: 'button', text: 'Zu „Dieses Netz“ …', onclick: () => document.getElementById('tab-dieses-netz').click() }),
+          el('button', { class: 'knopf', type: 'button', text: 'Noch mal prüfen', disabled: z.laeuft, onclick: lauf })),
+      ] : [Netz.fehlerKarte(z.fehler, lauf)]) : []),
       ...(erg && !z.offen.vergleich ? [
         erg.erster_besuch && el('p', { class: 'fuss erklaerung', text: E.erst }),
         !erg.erster_besuch && diffs(erg).length > 0 && unterschiede(erg),
