@@ -12,7 +12,7 @@
     ip: (dhcp) =>
       dhcp
         ? 'Die IPv4-Adresse hat dir der DHCP-Server geliehen. Im Heimnetz ist sie privat (10.x, 172.16 bis 172.31, 192.168.x) und wird per NAT ins Internet übersetzt.'
-        : 'Diese Adresse hat kein DHCP-Server vergeben, sondern die Gegenstelle des Tunnels, z. B. Tailscale oder WireGuard.',
+        : 'Zu dieser Adresse gibt es keine DHCP-Antwort: Sie kommt von der Gegenstelle eines Tunnels (z. B. Tailscale oder WireGuard) oder ist fest eingestellt.',
     maske: 'Die Maske trennt Netzanteil und Hostanteil. Die Zahl nach dem Schrägstrich sagt, wie viele Bits vorn zum Netz gehören.',
     netzadresse: 'IP UND Maske ergibt die Netzadresse. Sie benennt das ganze Netz und ist kein Gerät.',
     broadcast: 'Alle Hostbits auf 1 ergeben den Broadcast. Ein Paket an diese Adresse erreicht alle Geräte im Netz.',
@@ -59,7 +59,7 @@
         zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`));
     }
     return el('div', { class: 'kopf' }, el('h2', { text: 'Unbekanntes Netz' }),
-      d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar', 'ohne DHCP') : zeile2('grau', 'Noch nicht gemerkt'));
+      d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar') : zeile2('grau', 'Noch nicht gemerkt'));
   }
 
   // Inline-Formular statt Dialog: Name, „meins“, Merken.
@@ -116,7 +116,7 @@
     const signal = bewertet(zeile('Signal', staerke && `${w.rssi_dbm} dBm, ${staerke}`,
       w.rssi_dbm == null ? null : `Das Signal liegt bei minus ${-w.rssi_dbm} dBm. Je näher an null, desto besser, ab minus 70 wird es merklich schlechter.`),
     { gut: 'gut', mittel: 'mittel', schwach: 'schlecht' }[staerke]);
-    const sz = bewertet(zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || 'Die Verschlüsselung ist zeitgemäß.'),
+    const sz = bewertet(zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || (sicher && w.sicherheit !== 'Unbekannt' ? 'Die Verschlüsselung ist zeitgemäß.' : 'Die Art der Verschlüsselung ließ sich nicht auslesen.')),
       ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) && 'schlecht');
     const g = gruppe('WLAN', [
       ...(w.ssid ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
@@ -142,7 +142,7 @@
   const ORT_WARUM = 'macOS behandelt den Namen eines WLANs als Ortsangabe, denn aus ihm lässt sich ableiten, wo du bist. Deshalb zeigt es Name und Kennung nur Apps mit Standortfreigabe. Netzinfo liest damit nur das WLAN, mit dem du verbunden bist, und merkt sich keinen Standort. Ohne Freigabe erkennt Netzinfo Netze etwas ungenauer, alles andere geht weiter.';
   function ortKarte(status) {
     if (status === 'Erlaubt') return null;
-    const aktion = (text, fn) => el('button', { class: 'knopf haupt', type: 'button', text, onclick: fn });
+    const aktion = (text, fn) => el('button', { class: 'knopf', type: 'button', text, onclick: fn });
     const fehler = el('div', { 'aria-live': 'polite' });
     const nachrichten = {
       NichtGefragt: 'Netzinfo hat noch nicht nach dem Standort gefragt, deshalb zeigt macOS Name und Kennung des WLANs nicht.',
@@ -152,6 +152,7 @@
     const knopf = status === 'NichtGefragt'
       ? aktion('Standort freigeben …', async (e) => {
         e.currentTarget.disabled = true;
+        e.currentTarget.textContent = 'Warte auf deine Antwort …';
         try {
           await Netz.invoke('ort_anfragen');
           // Die Antwort kommt erst nach dem Klick im Systemdialog: kurz warten und neu lesen.
@@ -160,6 +161,7 @@
         } catch (err) {
           fehler.replaceChildren(meldung(Netz.text(err)));
           e.currentTarget.disabled = false;
+          e.currentTarget.textContent = 'Standort freigeben …';
         }
       })
       : status === 'Abgelehnt'
@@ -208,18 +210,21 @@
         } })), hosts);
       }
       dienste.after(neu);
-    }).catch(() => platz.remove());
+    }).catch(() => platz.replaceWith(zeile('Proxy', 'nicht lesbar', erkl)));
   }
 
   // IPv6-Router (#68): eine Zeile unter dem Router; bei einem Fehler oder ohne App-Befehl bleibt sie weg.
   async function ipv6Zeile(dienste) {
     const r = await Netz.invoke('ipv6_router').catch(() => null);
     if (!r) return;
-    const wert = r.anzahl === 0 ? 'keiner' : r.anzahl > 1 ? `${r.anzahl} Geräte` : r.passt_zu_gateway === false ? 'ein anderes Gerät' : r.passt_zu_gateway ? 'dein Router' : 'ein Gerät';
+    const fremd = r.anzahl === 1 && r.passt_zu_gateway === false;
+    const wert = r.anzahl === 0 ? 'keiner' : r.anzahl > 1 ? `${r.anzahl} Geräte` : fremd ? 'ein anderes Gerät' : r.passt_zu_gateway ? 'dein Router' : 'ein Gerät';
     dienste.querySelector('.zeile').after(zeile('IPv6-Router', wert, r.anzahl === 0
       ? 'Ohne IPv6 im Netz meldet sich kein Gerät als IPv6-Router. Das ist ruhig und kein Fehler.'
-      : r.anzahl === 1
-        ? 'Nur dein Router meldet sich als IPv6-Router. Das ist der Normalfall.'
+      : fremd
+        ? 'Ein Gerät meldet sich als IPv6-Router, das nicht dein Router (Gateway) ist. Zu Hause ein Grund zum Nachsehen, in Firmen- und Mesh-Netzen oft normal.'
+        : r.anzahl === 1
+          ? 'Nur ein Gerät meldet sich als IPv6-Router. Das ist der Normalfall.'
         : 'In diesem Netz melden sich mehrere Geräte als IPv6-Router. Zu Hause sollte nur dein Router das tun; in Firmen- und Mesh-Netzen ist es normal.'));
   }
 
@@ -248,7 +253,7 @@
         adresse.append(mehr('Netzadresse, Broadcast, Hostbereich', [
           zeile('Netzadresse', s.network, E.netzadresse),
           zeile('Broadcast', s.broadcast, E.broadcast),
-          zeile('Hostbereich', `${s.first} bis ${s.last}`, E.hostbereich),
+          zeile('Hostbereich', `${s.first} bis ${s.last} (${s.hosts} ${s.hosts === 1 ? 'Host' : 'Hosts'})`, E.hostbereich),
         ]));
       }
       wurzel.append(adresse);
@@ -262,7 +267,7 @@
         ] : []),
         stapel('DNS des Systems', i.system_dns, E.systemDns(magic)),
         ...(dhcp ? [zeile('Domain', i.domain || 'keine', E.domain)] : []),
-      ], dhcp ? null : 'Ohne DHCP-Antwort, z. B. bei einem VPN-Tunnel, kennt der Mac die Maske nicht und kein DHCP-Server hat geantwortet. Deshalb fehlen Maske, Netzadresse, Broadcast, Hostbereich, DHCP-Server, DNS vom DHCP und Domain.');
+      ], dhcp ? null : 'Es gibt keine DHCP-Antwort, etwa bei einem VPN-Tunnel. Deshalb fehlen Maske, Netzadresse, Broadcast, Hostbereich, DHCP-Server, DNS vom DHCP und Domain.');
       wurzel.append(dienste);
       proxyZeile(dienste);
       const v6 = ipv6Zeile(dienste);
@@ -291,7 +296,7 @@
         Netz.invoke('dns_verschluesselt').then((r) => zeigeDns([...dnsZeilen(r.messung), stand(
           `Gemessen am ${zeit(r.messung.zeit)}${r.netz ? '' : '. Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert'}.`,
           neuKnopf({ messung: r.messung }))]))
-          .catch((err) => zeigeDns([stand(Netz.text(err), neuKnopf(vorher))]));
+          .catch((err) => zeigeDns([...(vorher ? dnsZeilen(vorher.messung) : []), stand(`Messung fehlgeschlagen. ${Netz.text(err)}`, neuKnopf(vorher))]));
       };
       wurzel.append(dnsOrt);
       if (gespeichert?.frisch) {
