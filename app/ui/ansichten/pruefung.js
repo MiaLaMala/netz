@@ -4,7 +4,7 @@
   const { el, zeit, status, meldung, gruppe } = Netz;
 
   const E = {
-    router: 'Der Router (Gateway) ist die Tür aus dem eigenen Subnetz. Alles, was nicht im Subnetz liegt, schickt der Mac an ihn.',
+    router: 'Der Router (Gateway) ist die Tür aus dem eigenen Subnetz. Alles, was nicht im Subnetz liegt, schickt dein Rechner an ihn.',
     dhcp: 'Der DHCP-Server vergibt IP, Maske, Router und DNS. Im Heimnetz ist er fast immer der Router. Ist er es plötzlich nicht mehr, verteilt vielleicht ein fremdes Gerät Adressen.',
     dns: 'DNS übersetzt Namen in IP-Adressen. Diese Server hat das Netz per DHCP angeboten.',
     sperre: 'Ich frage github.com (A) beim DNS-Server deines Netzes und bei 1.1.1.1. Sagt nur dein Netz „gibt es nicht“ oder 0.0.0.0, blockiert es den Namen (Werbefilter, Jugendschutz oder Zensur).',
@@ -62,7 +62,7 @@
       el('dt', { class: 'label', text: label }),
       el('dd', { class: `wert${neu == null ? ' leer' : ''}` },
         neu ?? 'nicht messbar',
-        neu != null && alt != null && alt !== neu && el('span', { class: 'alt' }, el('span', { class: `punkt ${farbe}` }), 'geändert')),
+        neu != null && alt != null && alt !== neu && el('span', { class: 'alt' }, el('span', { class: `punkt ${farbe}` }), `geändert, vorher ${alt}`)),
       erkl && el('dd', { class: 'erklaerung', text: erkl }));
   };
 
@@ -99,13 +99,16 @@
 
   // Leads: topic and severity (dot plus word) on top, the sentence below. The detail groups only mark the changed row.
   function unterschiede(erg) {
+    const erklaert = new Set();
     return gruppe('Unterschiede', diffs(erg).map((u) => {
       const [farbe, wort, erkl] = KLASSE[u.klasse];
+      const nochNicht = !erklaert.has(u.klasse);
+      erklaert.add(u.klasse);
       return el('div', { class: 'zeile' },
         el('dt', { class: 'label thema', text: thema(u.text) }),
         el('dd', { class: 'wert klasse' }, el('span', { class: `punkt ${farbe}` }), wort),
         el('dd', { class: 'wert text', text: u.text }),
-        el('dd', { class: 'erklaerung', text: erkl }));
+        nochNicht && el('dd', { class: 'erklaerung', text: erkl }));
     }));
   }
 
@@ -187,7 +190,7 @@
         : unbekannt ? status('orange', 'Noch nicht gemerkt') : null);
     fuell(rest,
       ...(z.fehler && !z.offen.vergleich ? [
-        meldung(z.fehler, unbekannt ? 'orange' : 'rot'),
+        meldung(unbekannt ? 'Dieses Netz ist nicht gemerkt, es gibt nichts zum Vergleichen. Merke es unter „Dieses Netz“ und prüfe dann noch mal.' : z.fehler, unbekannt ? 'orange' : 'rot'),
         unbekannt && el('div', { class: 'aktion' },
           el('button', { class: 'knopf', type: 'button', text: 'Zu „Dieses Netz“ …', onclick: () => document.getElementById('tab-dieses-netz').click() })),
       ] : []),
@@ -196,6 +199,7 @@
         !erg.erster_besuch && diffs(erg).length > 0 && unterschiede(erg),
         ...werte(erg),
         sniKarte(),
+        el('p', { class: 'fuss', text: `Gemessen am ${zeit(erg.messung.time)}` }),
       ] : []));
   }
 

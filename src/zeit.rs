@@ -212,7 +212,7 @@ fn einstufen(netz: Option<i64>, oeff: &[i64]) -> Option<(Klasse, String, Option<
         (Klasse::Harmlos, satz, d)
     } else {
         let satz = format!(
-            "Die Uhr deines Macs geht {} {}. Dadurch können sichere Verbindungen fehlschlagen.",
+            "Die Uhr deines Rechners geht {} {}. Dadurch können sichere Verbindungen fehlschlagen.",
             dauer(m),
             if m > 0 { "nach" } else { "vor" }
         );
@@ -451,7 +451,7 @@ mod tests {
         let (kl, satz, d) = einstufen(Some(300_000), &[300_100, 299_900]).unwrap();
         assert_eq!(kl, Klasse::Auffaellig);
         assert!(
-            satz.contains("Uhr deines Macs") && satz.contains("nach"),
+            satz.contains("Uhr deines Rechners") && satz.contains("nach"),
             "{satz}"
         );
         assert_eq!(d, Some(0));

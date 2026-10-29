@@ -591,7 +591,7 @@ fn tcp_443() -> bool {
 pub fn diagnose_daten() -> Result<DiagnoseErgebnis, String> {
     let info = hier::collect()?;
     let router = info.router.ok_or(
-        "Kein Router gefunden. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.",
+        "Kein Router gefunden. Verbinde den Rechner mit WLAN oder Kabel und versuche es noch mal.",
     )?;
     let ort = netze::fingerprint(&info)
         .ok()
@@ -688,7 +688,7 @@ fn funk_zeile(f: &Funk) -> String {
 fn schicht_erklaerung(s: Schicht) -> &'static str {
     match s {
         Schicht::Funk => {
-            "Das WLAN-Signal ist schwach (unter -75 dBm) oder liegt zu nah am Rauschen (unter 15 dB Abstand), und der Router antwortet schlecht. Dann gehen Pakete schon auf der Funkstrecke zwischen Mac und Router verloren oder müssen wiederholt werden. Das passiert bei Abstand, Wänden oder Störung durch Nachbarnetze. Näher an den Router oder ein anderes Band (5 GHz) hilft oft. Eine Messung ist kein Beweis, darum steht dort „sehr wahrscheinlich“."
+            "Das WLAN-Signal ist schwach (unter -75 dBm) oder liegt zu nah am Rauschen (unter 15 dB Abstand), und der Router antwortet schlecht. Dann gehen Pakete schon auf der Funkstrecke zwischen Rechner und Router verloren oder müssen wiederholt werden. Das passiert bei Abstand, Wänden oder Störung durch Nachbarnetze. Näher an den Router oder ein anderes Band (5 GHz) hilft oft. Eine Messung ist kein Beweis, darum steht dort „sehr wahrscheinlich“."
         }
         Schicht::WlanOderRouter => {
             "Der Router ist die erste Station hinter deinem WLAN oder Kabel. Antwortet er langsam oder verliert Pakete, liegt es am Funk, am Kabel oder am Router selbst. Ich vergleiche mit den gespeicherten Werten dieses Netzes, etwa „normalerweise antwortet dein Router hier in 3 ms, jetzt in 40 ms“. Das spricht für WLAN oder einen überlasteten Router."

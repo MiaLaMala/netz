@@ -57,7 +57,7 @@
   VORSCHAU.pruefen = async () => {
     if (marken.includes('pruefung-laeuft')) return new Promise(() => {});
     if (marken.includes('pruefung-unbekannt')) throw { art: 'nicht_gemerkt', text: 'Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netzinfo merken <Name>` und prüfe dann noch mal.' };
-    if (marken.includes('pruefung-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
+    if (marken.includes('pruefung-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Rechner mit WLAN oder Kabel und versuche es noch mal.';
     const key = ['ok', 'nm', 'erst', 'alarm'].find((k) => marken.includes(`pruefung-${k}`));
     return fall[key ?? 'auffaellig'];
   };

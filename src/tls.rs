@@ -251,7 +251,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     explain(
         explain_on,
-        "Dein Mac vertraut einer festen Liste solcher Stellen (Wurzelzertifikate). Netzinfo nimmt hier die Liste von Mozilla und nicht den Schlüsselbund deines Macs, denn in den kann eine Firma per MDM eigene Wurzeln einschleusen.",
+        "Dein Rechner vertraut einer festen Liste solcher Stellen (Wurzelzertifikate). Netzinfo nimmt hier die Liste von Mozilla und nicht den Schlüsselbund deines Rechners, denn in den kann eine Firma per MDM eigene Wurzeln einschleusen.",
     );
     for host in &hosts {
         println!("{host}");
