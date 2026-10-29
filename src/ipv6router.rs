@@ -296,7 +296,7 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
     let (Ok(b), Ok(salz)) = (befund(&info), ort::salz(&daten.with_file_name("salz.json"))) else {
         return Vec::new();
     };
-    let pfad = daten.with_file_name("ipv6.json");
+    let pfad = daten.with_file_name("ipv6router.json");
     let Ok(mut store) = netze::load_json::<Store>(&pfad) else {
         return Vec::new();
     };
