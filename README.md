@@ -35,6 +35,8 @@ Andere Netzwerk-Tools schauen auf ein Netz, und zwar jetzt. `netzinfo` merkt sic
 
 `netzinfo geraete --nachbarn` zeigt zu jeder MAC den Hersteller aus der eingebauten IEEE-Liste (`data/oui.tsv`, Quelle und Lizenzhinweis in [THIRD_PARTY.md](THIRD_PARTY.md)). Ist die Adresse zufällig (Handys mit „privater WLAN-Adresse“), steht dort „zufällige Adresse“: Sie verrät keinen Hersteller, bleibt aber pro Netz gleich und gilt deshalb beim nächsten Besuch als bekannt. `netzinfo pruefen` meldet ein neues Gerät mit zufälliger Adresse als „auffällig“, nie als Alarm. Die Liste aktualisiert nur ein Release: `python3 scripts/oui.py` holt die Register neu und schreibt `data/oui.tsv`.
 
+`netzinfo hier` zeigt auch, welche IPv6-Router das Netz ankündigt (Mac: `ndp`, Linux: `ip`, ohne Root und ohne Mitschnitt). Grenzen: Gesehen wird nur, was das System gelernt hat; ein Router, den das Gerät ignoriert, bleibt unsichtbar. Mehrere Router sind in Mesh- und Firmennetzen normal, deshalb entsteht aus diesem Signal allein nie ein Alarm, sondern höchstens „auffällig“. Alarm gibt es nur zusammen mit einem DHCP-Server, der nicht der Router ist.
+
 ## Installieren
 
 Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App als `.dmg`, die Kommandozeile als `netzinfo-<tag>-aarch64-apple-darwin.tar.gz` und `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`). Nur Apple Silicon, macOS 13 oder neuer.
