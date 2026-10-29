@@ -3,7 +3,7 @@ Datenquellen für Land und Anbieter (tools/ipdb-bauen.sh baut daraus ipdb/land.m
 Land: DB-IP "IP to Country Lite"
   Stand: Juni 2026, Paket @ip-location-db/dbip-country-mmdb 2.3.2026060120
   Lizenz: Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
-  Pflicht: Namensnennung "IP Geolocation by DB-IP", https://db-ip.com (steht in der Ansicht "Verbindungen")
+  Pflicht: Namensnennung "IP Geolocation by DB-IP", https://db-ip.com (steht in der Ansicht "Verbindungen" und im Fenster "Über Netzinfo", app/Credits.rtf)
   Quelle: https://db-ip.com/db/download/ip-to-country-lite
 
 Anbieter (AS-Nummer und Name): IPtoASN
