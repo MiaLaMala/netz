@@ -77,8 +77,12 @@ impl Schicht {
         }
     }
 
-    pub fn satz(self) -> &'static str {
+    /// The verdict sentence; with a good radio link the router verdict names the router alone.
+    pub fn satz(self, funk: FunkStatus) -> &'static str {
         match self {
+            Schicht::WlanOderRouter if funk == FunkStatus::Gut => {
+                "Das Problem liegt sehr wahrscheinlich am Router oder am Kabel dahinter, nicht am Funk."
+            }
             Schicht::Funk => {
                 "Das Problem liegt sehr wahrscheinlich im Funk (schwaches WLAN-Signal), nicht beim Internet."
             }
@@ -187,7 +191,7 @@ pub struct Ziel {
 pub struct DiagnoseErgebnis {
     pub ziele: Vec<Ziel>,
     pub urteil: Schicht,
-    /// One sentence, same as `urteil.satz()`.
+    /// One sentence, same as `urteil.satz(funk.status)`.
     pub satz: String,
     pub begruendung: Vec<String>,
     /// Radio layer, always there; `status` says whether it was checked.
@@ -644,7 +648,7 @@ pub fn diagnose_daten() -> Result<DiagnoseErgebnis, String> {
     Ok(DiagnoseErgebnis {
         ziele,
         urteil: schicht,
-        satz: schicht.satz().to_string(),
+        satz: schicht.satz(funk.status).to_string(),
         begruendung,
         funk,
         verlauf,
@@ -1123,13 +1127,18 @@ mod tests {
             b[0].contains("Signal -78 dBm, Abstand zum Rauschen 12 dB"),
             "{b:?}"
         );
-        assert!(s.satz().contains("sehr wahrscheinlich"));
+        assert!(s.satz(FunkStatus::Schwach).contains("sehr wahrscheinlich"));
         // good radio and bad router: the old verdict, with the radio as evidence
         let (_, s, b) = lauf(&funk(-55, 38), schlecht());
         assert_eq!(s, Schicht::WlanOderRouter);
         assert!(
             b.iter()
                 .any(|x| x.contains("Der Funk ist gut (Signal -55 dBm"))
+        );
+        assert!(s.satz(FunkStatus::Gut).contains("nicht am Funk"));
+        assert!(
+            s.satz(FunkStatus::NichtGeprueft)
+                .contains("im WLAN oder am Router")
         );
         // cable, not checked: old verdict, no radio sentence
         for f in [kabel(), Funk::leer(FunkStatus::NichtGeprueft)] {
@@ -1212,7 +1221,9 @@ mod tests {
             Schicht::InOrdnung,
             Schicht::KeinInternet,
         ] {
-            assert!(!schicht_erklaerung(s).is_empty() && !s.satz().is_empty());
+            assert!(
+                !schicht_erklaerung(s).is_empty() && !s.satz(FunkStatus::NichtGeprueft).is_empty()
+            );
         }
     }
 }
