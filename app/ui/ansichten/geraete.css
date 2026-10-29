@@ -5,27 +5,46 @@
 [data-ansicht='geraete'] .fortschritt:not(:empty) { margin: 10px 0 0; }
 
 [data-ansicht='geraete'] .filter { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
-[data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; }
+[data-ansicht='geraete'] .chip { border: 0.5px solid var(--linie); background: var(--knopf); color: var(--fg); border-radius: 6px; padding: 3px 10px; font: inherit; font-size: 12px; }
 [data-ansicht='geraete'] .chip[aria-pressed="true"] { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
-[data-ansicht='geraete'] .karten { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-[data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+/* Wide enough for two cards side by side (the view may grow to 880 px). */
+[data-ansicht='geraete'].ansicht { max-width: 880px; }
+[data-ansicht='geraete'] .karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; align-items: start; margin-top: 10px; }
+[data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 12px 14px; margin: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 4px; }
+/* One grid per card: the symbol has its own column, everything else shares the left edge of the second. */
+[data-ansicht='geraete'] .karte > * { grid-column: 2; min-width: 0; }
+[data-ansicht='geraete'] .karte > .karte-symbol { grid-column: 1; grid-row: 1; }
 [data-ansicht='geraete'] .karte-kopf { display: flex; align-items: center; gap: 10px; }
 [data-ansicht='geraete'] .karte-kopf .text { flex: 1; min-width: 0; }
-[data-ansicht='geraete'] .karte-symbol { font-size: 22px; line-height: 1; }
-[data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); border: 0.5px solid var(--linie); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+[data-ansicht='geraete'] .karte-symbol { color: var(--fg2); }
+[data-ansicht='geraete'] .karte-symbol svg { width: 22px; height: 22px; display: block; margin: 1px auto 0; }
+[data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); white-space: nowrap; }
 [data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; }
-[data-ansicht='geraete'] .zufall { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+[data-ansicht='geraete'] .zufall { display: flex; align-items: center; gap: 4px; }
+[data-ansicht='geraete'] .netz-name { overflow-wrap: anywhere; }
+[data-ansicht='geraete'] .netz-name + .marke { white-space: nowrap; }
 [data-ansicht='geraete'] .zufall svg { width: 12px; height: 12px; }
 [data-ansicht='geraete'] ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
-[data-ansicht='geraete'] .karte-dienste li, [data-ansicht='geraete'] .karte-hinweise li { padding: 1px 0; }
-[data-ansicht='geraete'] .karte-hinweise li::before { content: "· "; color: var(--fg2); }
+[data-ansicht='geraete'] .karte-ports li { display: grid; grid-template-columns: 3.4em 1fr; padding: 1px 0; }
+[data-ansicht='geraete'] .karte-ports .num { color: var(--fg2); }
+[data-ansicht='geraete'] .karte-hinweise li { display: flex; gap: 6px; padding: 1px 0; }
+[data-ansicht='geraete'] .karte-hinweise li::before { content: "·"; color: var(--fg2); flex: none; }
+[data-ansicht='geraete'] .karte-hinweise { margin-top: 4px; }
+[data-ansicht='geraete'] .router-titel { margin: 8px 0 2px; font-size: 12px; font-weight: 600; color: var(--fg2); }
+[data-ansicht='geraete'] .router-knoepfe, [data-ansicht='geraete'] .karte-aktionen { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+[data-ansicht='geraete'] .karte-aktionen { margin-top: 6px; }
+/* „Name und Typ ändern“ is on every card: quiet text, no button frame. */
+[data-ansicht='geraete'] .knopf.leise { border-color: transparent; background: none; color: var(--fg2); text-decoration: underline; text-underline-offset: 2px; padding: 0 6px; margin-left: -6px; font-size: 12px; }
+[data-ansicht='geraete'] .knopf.leise:active { background: var(--knopf-aktiv); }
+[data-ansicht='geraete'] .aktion-hinweis { margin: 6px 0 0; }
 [data-ansicht='geraete'] .karte .erklaerung { margin: 4px 0 0; }
-[data-ansicht='geraete'] .karte-aktion { margin-top: 6px; }
 [data-ansicht='geraete'] .karte-formular { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
 [data-ansicht='geraete'] .karte-formular input[type="text"] { flex: 1; min-width: 160px; }
 [data-ansicht='geraete'] .karte-formular > div:empty { display: none; }
 [data-ansicht='geraete'] .filter + .fuss { margin-left: 0; }
 
 /* Router-Seite (#67) */
-[data-ansicht='geraete'] .karte-router { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+[data-ansicht='geraete'] .karte-router { display: flex; flex-direction: column; gap: 4px; }
+[data-ansicht='geraete'] .karte-router > div:empty { display: none; }
 [data-ansicht='geraete'] .router-seite:empty { display: none; }
+[data-ansicht='geraete'] .karte .meldung { margin-top: 4px; }

@@ -32,6 +32,8 @@ const DIENSTE: [&str; 3] = [
     "urn:schemas-upnp-org:service:WANPPPConnection:1",
 ];
 /// External ports that are an alarm when open: SSH, Telnet, Remote Desktop, SMB.
+/// The sentence for a list the router only gives after login; the app tests against it.
+const LISTE_LOGIN: &str = "Der Router zeigt die Liste der Portfreigaben ohne Anmeldung nicht (Fehler 401). Das ist bei einer Fritz!Box üblich.";
 const RISKANT: [(u16, &str); 4] = [
     (22, "SSH"),
     (23, "Telnet"),
@@ -189,7 +191,7 @@ fn liste_lesen(
             Ok(xml) => out.push(eintrag_lesen(&xml, jetzt)?),
             Err(713 | 714) => break,
             Err(401 | 501) => {
-                return Err("Der Router zeigt die Liste der Portfreigaben ohne Anmeldung nicht (Fehler 401). Das ist bei einer Fritz!Box üblich.".into());
+                return Err(LISTE_LOGIN.into());
             }
             Err(c) => {
                 return Err(format!(
@@ -364,6 +366,58 @@ fn gate(meins: bool) -> Result<(), String> {
         return Ok(());
     }
     Err("`netzinfo portfreigaben` fragt nur in einem Netz, das du mit `netzinfo merken <Name> --meins` als „meins“ markiert hast. Es wurde nichts gesendet.".into())
+}
+
+/// What the app view shows (`netzinfo portfreigaben` as data). `upnp: false`: the router does not
+/// answer, everything else is then empty.
+#[derive(Debug, Serialize)]
+pub struct Anzeige {
+    pub gateway: Ipv4Addr,
+    pub upnp: bool,
+    pub verbindung: String,
+    pub externe_ip_klasse: String,
+    pub freigaben: Vec<Freigabe>,
+    /// The list is only given after login (usual for a Fritz!Box), not a fault.
+    pub liste_nur_mit_login: bool,
+    pub listenfehler: Option<String>,
+    /// `(alarm, sentence)`
+    pub befunde: Vec<(bool, String)>,
+}
+
+/// Same „meins“ gate as `run`; stores like `run`. For the app.
+pub fn anzeige() -> Result<Anzeige, String> {
+    gate(netze::current_is_meins())?;
+    let info = crate::hier::collect()?;
+    let gateway = info.router.ok_or(
+        "Kein Gateway gefunden. Verbinde dich mit einem Netz und versuche es noch einmal.",
+    )?;
+    let key = netze::fingerprint(&info)?.key();
+    let leer = Anzeige {
+        gateway,
+        upnp: false,
+        verbindung: String::new(),
+        externe_ip_klasse: String::new(),
+        freigaben: Vec::new(),
+        liste_nur_mit_login: false,
+        listenfehler: None,
+        befunde: Vec::new(),
+    };
+    Ok(match jetzt_pruefen(&netze::data_path()?, &key, gateway)? {
+        None => leer,
+        Some((m, befunde)) => Anzeige {
+            upnp: true,
+            verbindung: m.verbindung,
+            externe_ip_klasse: m.klasse.into(),
+            freigaben: m.freigaben,
+            liste_nur_mit_login: m.listenfehler.as_deref() == Some(LISTE_LOGIN),
+            listenfehler: m.listenfehler.filter(|f| f != LISTE_LOGIN),
+            befunde: befunde
+                .into_iter()
+                .map(|(k, t)| (k == Klasse::Alarm, t))
+                .collect(),
+            ..leer
+        },
+    })
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
@@ -590,5 +644,13 @@ mod tests {
     fn gate_blocks_outside_meins() {
         assert!(gate(false).unwrap_err().contains("nichts gesendet"));
         assert!(fuer_pruefen(Path::new("/nonexistent/netze.json"), "k", false).is_empty());
+        let e = gate(false).unwrap_err();
+        assert_eq!(netze::fehlerart(&e), netze::Fehlerart::NichtMeins);
+    }
+
+    #[test]
+    fn login_sentence_is_the_401_one() {
+        let e = liste_lesen(router(vec![fehler(401)]), 0).unwrap_err();
+        assert_eq!(e, LISTE_LOGIN);
     }
 }
