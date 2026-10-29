@@ -19,6 +19,16 @@
     fehlen: 'Ohne Root-Rechte kann Netzinfo weder pingen noch ARP lesen. Ein Gerät, das jedes Paket verwirft (Firewall im Tarnmodus, Handy im Standby), antwortet auf nichts und bleibt unsichtbar. „Verschwunden“ heißt deshalb nur: diesmal nicht gefunden.',
   };
 
+  // Eine unsichtbare, höfliche Ansage für Ergebnisse, die einmal kommen (Suche fertig, Router gelesen).
+  // Ganze Blöcke mit Erklärtexten als aria-live vorzulesen wäre zu viel.
+  const ansageOrt = el('div', { class: 'nur-vorlesen', role: 'status', 'aria-live': 'polite' });
+  const ansage = (satz) => { ansageOrt.textContent = ''; setTimeout(() => { ansageOrt.textContent = satz; }, 50); };
+  let idNr = 0;
+  const neueId = (n) => `geraete-${n}-${++idNr}`;
+  // Das Feld, das zur Fehlermeldung gehört, zeigt auf sie (VoiceOver liest sie beim Feld mit).
+  const amFeld = (felder, ort) => felder.forEach((f) => { f.setAttribute('aria-invalid', 'true'); f.setAttribute('aria-describedby', ort.id); });
+  const ohneFehler = (felder) => felder.forEach((f) => { f.removeAttribute('aria-invalid'); f.removeAttribute('aria-describedby'); });
+
   let letztes = null; // last result, so a tab change does not lose it
   let laufend = null; // running search; a re-render (⌘R) waits for it instead of starting a second scan
 
@@ -44,26 +54,33 @@
   };
 
   function bearbeiten(k, zu) {
-    const name = el('input', { type: 'text', value: k.von_mia?.name ?? '', maxlength: '60', placeholder: k.anzeigename, 'aria-label': 'Name' });
-    const typ = el('select', { 'aria-label': 'Typ' }, el('option', { value: '', text: 'Typ automatisch' }),
+    const nid = neueId('name');
+    const tid = neueId('typ');
+    const name = el('input', { id: nid, type: 'text', value: k.von_mia?.name ?? '', maxlength: '60', placeholder: k.anzeigename, autocomplete: 'off' });
+    const typ = el('select', { id: tid }, el('option', { value: '', text: 'Typ automatisch' }),
       TYPEN.slice(0, -1).map((t) => el('option', { value: t, text: t, selected: k.von_mia?.typ === t })));
-    const fehler = el('div');
+    const fehler = el('div', { id: neueId('fehler') });
     const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
     return el('form', {
-      class: 'karte-formular',
+      class: 'karte-formular', 'aria-label': `Name und Typ ändern: ${k.anzeigename}`,
       onsubmit: async (e) => {
         e.preventDefault();
         speichern.disabled = true;
+        ohneFehler([name, typ]);
         try {
           await Netz.invoke('geraet_setzen', { schluessel: k.mac || k.ip, name: name.value, typ: typ.value });
           karten = await Netz.invoke('geraete_karten');
-          zeichne();
+          zeichne(`[data-schluessel="${k.mac || k.ip}"]`);
         } catch (f) {
           fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
+          amFeld([name, typ], fehler);
           speichern.disabled = false;
+          name.focus();
         }
       },
-    }, name, typ,
+      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); zu(); } },
+    }, el('label', { class: 'nur-vorlesen', for: nid, text: 'Name' }), name,
+    el('label', { class: 'nur-vorlesen', for: tid, text: 'Typ' }), typ,
     el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: zu }), speichern, fehler);
   }
 
@@ -97,18 +114,21 @@
     const liste = angebote(k);
     // One grid: the symbol column runs through the whole card, so all text shares one left edge.
     const aendern = el('button', {
-      class: 'knopf leise', type: 'button', text: 'Name und Typ ändern',
+      class: 'knopf leise', type: 'button', text: 'Name und Typ ändern', 'data-schluessel': k.mac || k.ip,
+      'aria-label': `Name und Typ ändern: ${k.anzeigename}`,
       onclick: (e) => {
-        e.currentTarget.hidden = true;
-        formular.replaceChildren(bearbeiten(k, () => { formular.replaceChildren(); e.currentTarget.hidden = false; }));
+        const knopf = e.currentTarget;
+        knopf.hidden = true;
+        formular.replaceChildren(bearbeiten(k, () => { formular.replaceChildren(); knopf.hidden = false; knopf.focus(); }));
         formular.querySelector('input').focus();
       },
     });
-    return el('article', { class: k.gateway ? 'karte karte-breit' : 'karte', 'aria-label': k.anzeigename },
+    const kid = neueId('karte');
+    return el('div', { class: k.gateway ? 'karte karte-breit' : 'karte', role: 'group', 'aria-labelledby': kid },
       el('span', { class: 'karte-symbol', html: SYMBOLE[k.typ] ?? SYMBOLE.Unbekannt, 'aria-hidden': 'true' }),
       el('div', { class: 'karte-kopf' },
         el('div', { class: 'text' },
-          el('div', { class: 'netz-name', text: k.anzeigename }),
+          el('h3', { class: 'netz-name', id: kid, text: k.anzeigename }),
           el('div', { class: 'fein' },
             el('span', { text: k.hersteller || 'Hersteller unbekannt' }),
             k.namequelle && el('span', { text: `Name: ${k.namequelle}` }),
@@ -120,9 +140,9 @@
       k.upnp && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
       k.router && el('div', { class: 'fein', text: `${k.router.nur_router ? 'Nur vom Router bekannt' : 'Router'}: ${[k.router.verbindung !== 'unbekannt' && k.router.verbindung, k.router.aktiv ? 'aktiv' : 'nicht verbunden'].filter(Boolean).join(', ')}` }),
       el('div', { class: 'fein', text: zeiten(k) }),
-      liste.length > 0 && el('ul', { class: 'karte-ports', 'aria-label': 'Offene Ports und Dienste' },
+      liste.length > 0 && el('ul', { class: 'karte-ports', role: 'list', 'aria-label': 'Offene Ports und Dienste' },
         liste.map(([port, name, wer]) => el('li', {}, el('span', { class: 'num', text: port }), el('span', {}, name, wer && el('span', { class: 'marke', text: ` · ${wer}` }))))),
-      hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise' }, hinweise.map((h) => el('li', { text: h }))),
+      hinweise.length > 0 && el('ul', { class: 'karte-hinweise', role: 'list', 'aria-label': 'Hinweise' }, hinweise.map((h) => el('li', { text: h }))),
       el('p', { class: 'erklaerung', text: k.erklaerung }),
       k.gateway ? el('div', { class: 'karte-aktionen' }, routerKnoepfe()) : null,
       k.gateway && routerOrt,
@@ -137,22 +157,22 @@
   const portStatus = (s) => (s === 'offen' ? 'erreichbar' : s === 'zu' ? 'geschlossen' : s?.fehler ?? 'unbekannt');
   let routerErgebnis = null;
   let freigabenErgebnis = null;
-  const seiteOrt = el('div', { class: 'router-seite', 'aria-live': 'polite' });
-  const freigabenOrt = el('div', { class: 'router-seite', 'aria-live': 'polite' });
-  const fritzOrt = el('div', { class: 'router-seite fritz', 'aria-live': 'polite' });
+  const seiteOrt = el('div', { class: 'router-seite' });
+  const freigabenOrt = el('div', { class: 'router-seite' });
+  const fritzOrt = el('div', { class: 'router-seite fritz' });
   const routerOrt = el('div', { class: 'karte-router' }, seiteOrt, freigabenOrt, fritzOrt);
 
   function zeigeSeite(r) {
     const s = r.seite;
     const z = s.zertifikat;
     seiteOrt.replaceChildren(...[
-      el('p', { class: 'router-titel', text: 'Router-Webseite' }),
+      el('h4', { class: 'router-titel', text: 'Router-Webseite' }),
       el('div', { class: 'fein', text: `http (80): ${portStatus(s.http)}${s.http === 'offen' ? (s.umleitung ? ', leitet auf https um' : ', ohne Umleitung auf https') : ''}` }),
       el('div', { class: 'fein', text: `https (443): ${portStatus(s.https)}` }),
       z && el('div', { class: 'fein', text: `Zertifikat bis ${z.gueltig_bis}${z.abgelaufen ? ' (abgelaufen)' : ''}${z.selbstsigniert ? ', selbst ausgestellt' : ''}` }),
       s.server && el('div', { class: 'fein', text: `Server: ${s.server}` }),
       s.titel && el('div', { class: 'fein', text: `Seitentitel: ${s.titel}` }),
-      r.hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise zur Router-Seite' }, r.hinweise.map((h) => el('li', { text: h }))),
+      r.hinweise.length > 0 && el('ul', { class: 'karte-hinweise', role: 'list', 'aria-label': 'Hinweise zur Router-Seite' }, r.hinweise.map((h) => el('li', { text: h }))),
       el('p', { class: 'erklaerung', text: E_ROUTER })].filter(Boolean));
   }
 
@@ -166,9 +186,9 @@
     else if (!a.freigaben.length) kopf = [status('gruen', 'Keine Portfreigaben')];
     else kopf = [status(alarm ? 'rot' : 'orange', `${a.freigaben.length} ${a.freigaben.length === 1 ? 'Portfreigabe' : 'Portfreigaben'}`)];
     freigabenOrt.replaceChildren(...[
-      el('p', { class: 'router-titel', text: 'Portfreigaben' }),
+      el('h4', { class: 'router-titel', text: 'Portfreigaben' }),
       ...kopf,
-      a.freigaben.length > 0 && el('ul', { class: 'karte-ports freigaben', 'aria-label': 'Portfreigaben' },
+      a.freigaben.length > 0 && el('ul', { class: 'karte-ports freigaben', role: 'list', 'aria-label': 'Portfreigaben' },
         a.freigaben.map((f) => el('li', {},
           el('span', { class: 'num', text: f.extern }),
           el('span', {}, `${f.protokoll} → ${f.intern_ip}:${f.intern_port}`,
@@ -179,19 +199,23 @@
   }
 
   function routerKnoepfe() {
-    const lauf = (knopf, ort, ruf, zeige, ergebnis) => async () => {
+    const lauf = (knopf, ort, ruf, zeige, fertig) => async () => {
       knopf.disabled = true;
       try {
-        zeige(await ruf());
+        const r = await ruf();
+        zeige(r);
+        ansage(fertig(r));
       } catch (f) {
         ort.replaceChildren(meldung(Netz.text(f), f?.art === 'nicht_meins' ? 'orange' : 'rot'));
       }
       knopf.disabled = false;
+      knopf.focus(); // ein deaktivierter Knopf gibt den Fokus ab
     };
     const seite = el('button', { class: 'knopf', type: 'button', text: 'Sicherheit der Router-Webseite prüfen' });
     const freigaben = el('button', { class: 'knopf', type: 'button', text: 'Portfreigaben ansehen' });
-    seite.addEventListener('click', lauf(seite, seiteOrt, async () => (routerErgebnis = await Netz.invoke('router_seite')), zeigeSeite));
-    freigaben.addEventListener('click', lauf(freigaben, freigabenOrt, async () => (freigabenErgebnis = await Netz.invoke('portfreigaben')), zeigeFreigaben));
+    seite.addEventListener('click', lauf(seite, seiteOrt, async () => (routerErgebnis = await Netz.invoke('router_seite')), zeigeSeite, () => 'Router-Webseite geprüft. Das Ergebnis steht unter dem Knopf.'));
+    freigaben.addEventListener('click', lauf(freigaben, freigabenOrt, async () => (freigabenErgebnis = await Netz.invoke('portfreigaben')), zeigeFreigaben,
+      (a) => (a.freigaben.length ? `Portfreigaben gelesen: ${a.freigaben.length}. Das Ergebnis steht unter dem Knopf.` : 'Portfreigaben gelesen. Das Ergebnis steht unter dem Knopf.')));
     if (routerErgebnis) zeigeSeite(routerErgebnis);
     if (freigabenErgebnis) zeigeFreigaben(freigabenErgebnis);
     return el('span', { class: 'router-knoepfe' }, seite, freigaben);
@@ -208,16 +232,21 @@
     keine_fritzbox: ['grau', 'Keine Fritz!Box'],
   };
 
+  const FRITZ_START = '.fritz-einrichten, .fritz-aendern'; // der Knopf, der das Formular geöffnet hat
+
   function fritzFormular() {
-    const benutzer = el('input', { type: 'text', value: fritz.benutzer ?? '', placeholder: 'Benutzer', 'aria-label': 'Benutzer der Fritz!Box', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', maxlength: '60' });
-    const passwort = el('input', { type: 'password', placeholder: 'Passwort', 'aria-label': 'Passwort der Fritz!Box', autocomplete: 'off', maxlength: '200' });
-    const fehler = el('div');
+    const bid = neueId('benutzer');
+    const pid = neueId('passwort');
+    const benutzer = el('input', { id: bid, type: 'text', value: fritz.benutzer ?? '', placeholder: 'Benutzer', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false', maxlength: '60' });
+    const passwort = el('input', { id: pid, type: 'password', placeholder: 'Passwort', autocomplete: 'current-password', maxlength: '200' });
+    const fehler = el('div', { id: neueId('fehler') });
     const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
     return el('form', {
-      class: 'karte-formular fritz-formular',
+      class: 'karte-formular fritz-formular', 'aria-label': 'Zugang zur Fritz!Box',
       onsubmit: async (e) => {
         e.preventDefault();
         speichern.disabled = true;
+        ohneFehler([benutzer, passwort]);
         try {
           await Netz.invoke('fritzbox_speichern', { benutzer: benutzer.value, passwort: passwort.value });
           passwort.value = '';
@@ -226,14 +255,17 @@
           await fritzLesen();
         } catch (f) {
           fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
+          amFeld([benutzer, passwort], fehler);
           speichern.disabled = false;
+          passwort.focus();
         }
       },
-      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); fritz.formular = false; fritzZeichne('.fritz-einrichten'); } },
-    }, benutzer, passwort,
+      onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); fritz.formular = false; fritzZeichne(FRITZ_START); } },
+    }, el('label', { class: 'nur-vorlesen', for: bid, text: 'Benutzer der Fritz!Box' }), benutzer,
+    el('label', { class: 'nur-vorlesen', for: pid, text: 'Passwort der Fritz!Box' }), passwort,
     el('p', { class: 'fein hinweis', text: 'Lege in der Fritz!Box unter System, Fritz!Box-Benutzer einen eigenen Benutzer an und gib ihm das Recht „FRITZ!Box Einstellungen“. Das Passwort speichert Netzinfo nur im macOS-Schlüsselbund.' }),
     el('div', { class: 'knoepfe' },
-      el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: () => { fritz.formular = false; fritzZeichne('.fritz-einrichten'); } }), speichern),
+      el('button', { class: 'knopf', type: 'button', text: 'Abbrechen', onclick: () => { fritz.formular = false; fritzZeichne(FRITZ_START); } }), speichern),
     fehler);
   }
 
@@ -255,7 +287,7 @@
 
   function fritzZeichne(fokus) {
     if (!fritz.erkannt || !fritz.geladen) { fritzOrt.replaceChildren(); return; }
-    const teile = [el('p', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
+    const teile = [el('h4', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
     const e = fritz.ergebnis;
     if (fritz.formular) {
       teile.push(fritzFormular());
@@ -265,7 +297,7 @@
       if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), 'rot'));
     } else {
       const zeile = el('div', { class: 'karte-aktionen' },
-        el('button', { class: 'knopf leise', type: 'button', text: 'Zugang ändern', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } }),
+        el('button', { class: 'knopf leise fritz-aendern', type: 'button', text: 'Zugang ändern', onclick: () => { fritz.formular = true; fritzZeichne(); fritzOrt.querySelector('input')?.focus(); } }),
         el('button', { class: 'knopf leise gefahr fritz-entfernen', type: 'button', text: 'Zugang entfernen', onclick: () => fritzEntfernen(zeile) }));
       teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund` }),
         el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen })));
@@ -296,6 +328,8 @@
     fritz.laeuft = false;
     zeichne();
     fritzZeichne('.fritz-lesen');
+    const e = fritz.ergebnis;
+    ansage(fritz.fehler ? 'Geräteliste der Fritz!Box nicht gelesen.' : e?.zustand === 'ok' ? `Geräteliste der Fritz!Box gelesen: ${e.gefunden} ${e.gefunden === 1 ? 'Gerät' : 'Geräte'}, ${e.neu} neu.` : `Geräteliste der Fritz!Box nicht gelesen: ${FRITZ_ZUSTAND[e?.zustand]?.[1] ?? 'unbekannter Fehler'}.`);
   }
 
   async function fritzLaden() {
@@ -309,12 +343,12 @@
   }
 
   const kartenOrt = el('div', { class: 'karten-ort' });
-  function zeichne() {
+  function zeichne(fokus) {
     const vorhanden = new Set(karten.map((k) => k.typ));
     if (filter && !vorhanden.has(filter)) filter = null;
     const sicht = karten.filter((k) => !filter || k.typ === filter);
     const chip = (t) => el('button', {
-      class: 'chip', type: 'button', 'aria-pressed': String(filter === t), onclick: () => { filter = t; zeichne(); },
+      class: 'chip', type: 'button', 'aria-pressed': String(filter === t), onclick: () => { filter = t; zeichne(`.chip[data-filter="${t ?? ''}"]`); ansage(`${t ?? 'Alle'}: ${karten.filter((k) => !t || k.typ === t).length} Geräte angezeigt.`); }, 'data-filter': t ?? '',
       text: t === null ? `Alle ${karten.length}` : `${t} ${karten.filter((k) => k.typ === t).length}`,
     });
     if (!karten.length) {
@@ -326,6 +360,7 @@
         [null, ...TYPEN.filter((t) => vorhanden.has(t))].map(chip)),
       el('p', { class: 'fuss', text: 'Zuletzt gesehen zuerst. Der Typ ist eine Vermutung aus dem, was ein Gerät selbst ankündigt.' }),
       el('section', { class: 'karten', 'aria-label': 'Gerätekarten' }, sicht.map(karte)));
+    if (fokus) kartenOrt.querySelector(fokus)?.focus(); // das Neuzeichnen darf den Fokus nicht ins Leere schicken
   }
 
   async function ladeKarten() {
@@ -356,8 +391,8 @@
     aktualisieren: false, // „Netz absuchen“ lädt die Karten ebenfalls neu
     async render(wurzel) {
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: letztes ? 'Netz noch mal absuchen' : 'Netz absuchen' });
-      const fortschritt = el('p', { class: 'fuss fortschritt', 'aria-live': 'polite' });
-      const ort = el('div', { class: 'ergebnis', 'aria-live': 'polite' });
+      const fortschritt = el('p', { class: 'fuss fortschritt' });
+      const ort = el('div', { class: 'ergebnis' });
 
       async function suche() {
         knopf.disabled = true;
@@ -368,14 +403,17 @@
           if (s) bereich = `${s.network}/${s.prefix}`;
         } catch { /* the sentence stays general, the search itself reports real problems */ }
         fortschritt.textContent = `Suche in ${bereich} …`;
+        ansage(`Suche in ${bereich} läuft.`);
         try {
           laufend ??= Netz.invoke('geraete_suchen', { cidr: null, gross: false }).finally(() => { laufend = null; });
           letztes = await laufend;
           ort.replaceChildren(...ergebnis(letztes).filter(Boolean));
+          ansage(`Suche fertig: ${ort.querySelector('.status')?.textContent}.`);
           await ladeKarten();
           if (fritz.erkannt && fritz.benutzer) await fritzLesen(); // der Zugang ist eingerichtet: die Liste des Routers dazu
         } catch (f) {
           const nein = abgelehnt(f);
+          ansage(nein ? 'Suche nicht erlaubt in diesem Netz.' : 'Suche fehlgeschlagen.');
           ort.replaceChildren(...[nein ? meldung(Netz.text(f), 'orange') : Netz.fehlerKarte(Netz.text(f), suche),
             nein && el('div', { class: 'aktion' }, el('button', {
               class: 'knopf', type: 'button', text: 'Zu „Gemerkte Netze“',
@@ -393,7 +431,7 @@
           el('p', { class: 'status' }, el('span', { text: 'Nur in Netzen, die du als „meins“ markiert hast.' }))),
         el('div', { class: 'aktion' }, knopf),
         el('p', { class: 'fuss aktion-hinweis', text: '„Netz absuchen“ tastet das Netz ab und legt neue Karten an.' }),
-        fortschritt, ort, kartenOrt,
+        fortschritt, ort, ansageOrt, kartenOrt,
         Object.assign(gruppe('So funktioniert die Suche', [
           zeile('Abgelehnter Port', 'zeigt ein Gerät', E.abgelehnt),
           zeile('Name (PTR)', 'Rückwärts-DNS', E.ptr),
