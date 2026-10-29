@@ -1,6 +1,11 @@
 /* Styles for the view „pruefung“ only. */
-[data-ansicht='pruefung'] .wert .alt { display: block; font-size: 12px; color: var(--fg2); }
-[data-ansicht='pruefung'] .klasse { display: inline-flex; align-items: center; gap: 7px; }
+[data-ansicht='pruefung'] .wert .alt { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 12px; color: var(--fg); }
+[data-ansicht='pruefung'] .wert.klasse { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 1; color: var(--fg); }
+[data-ansicht='pruefung'] .label.thema { flex: 1; font-weight: 500; }
+[data-ansicht='pruefung'] .urteil { display: flex; gap: 10px; align-items: baseline; margin-top: 12px; padding: 12px 14px; border: 1.5px solid var(--rot); border-radius: 10px; background: var(--gruppe); }
+[data-ansicht='pruefung'] .urteil .punkt { width: 10px; height: 10px; }
+[data-ansicht='pruefung'] .urteil strong { display: block; color: var(--rot); font-size: 17px; font-weight: 600; }
+[data-ansicht='pruefung'] .urteil p { margin-top: 2px; }
 [data-ansicht='pruefung'] .zeile .wert.text { text-align: left; flex-basis: 100%; }
 [data-ansicht='pruefung'] .knopf.haupt .kbd { color: inherit; opacity: 0.85; }
 [data-ansicht='pruefung'] .portal-hinweis { margin: 14px 0 22px; padding: 12px 14px; border: 1px solid var(--orange); border-radius: 10px; background: var(--gruppe); }
