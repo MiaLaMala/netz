@@ -39,6 +39,8 @@
   ].sort((a, b) => b.last_seen - a.last_seen);
   VORSCHAU.geraete_karten = async () => (m('geraete-keine') ? [] : KARTEN);
   VORSCHAU.geraet_setzen = async () => {};
+  // UPnP (issue #42): model and type of the TV, as `netzinfo upnp` stores them.
+  KARTEN.find((x) => x.ip === neu.ip).upnp = { udn: 'uuid:0000-example', server: null, geraetetyp: 'urn:schemas-upnp-org:device:MediaRenderer:1', hersteller: 'Beispiel Elektronik Co.', modell: 'Bildschirm 55', name: 'Wohnzimmer-TV', location_pfad: '/desc.xml' };
 
   // vorschau.html only knows the mark „geraete“; the other marks open the tab here. Search marks press „Suchen“.
   const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche'].map((x) => `geraete-${x}`);

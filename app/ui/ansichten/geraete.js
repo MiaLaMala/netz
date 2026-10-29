@@ -76,6 +76,7 @@
       k.dienste.length > 0 && el('ul', { class: 'karte-dienste', 'aria-label': 'Bonjour-Dienste' },
         k.dienste.map((d) => el('li', {}, el('span', { text: d.instanz || d.typ }), el('span', { class: 'marke', text: ` ${d.typ}${d.port ? `:${d.port}` : ''}` })))),
       ports && el('div', { class: 'fein', text: ports }),
+      k.upnp && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
       k.hinweise.length > 0 && el('ul', { class: 'karte-hinweise', 'aria-label': 'Hinweise' }, k.hinweise.map((h) => el('li', { text: h }))),
       el('div', { class: 'fein', text: `Zuerst gesehen ${zeit(k.first_seen)}, zuletzt gesehen ${zeit(k.last_seen)}, ${k.besuche} ${k.besuche === 1 ? 'Besuch' : 'Besuche'}` }),
       el('p', { class: 'erklaerung', text: k.erklaerung }),
