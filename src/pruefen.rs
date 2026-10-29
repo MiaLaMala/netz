@@ -415,6 +415,10 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         explain_on,
         "Meine öffentliche IP erfahre ich von 1.1.1.1 (TXT „whoami.cloudflare“, Klasse CH). Sie gehört dem Provider und wechselt oft, das ist normal.",
     );
+    explain(
+        explain_on,
+        "Ich lese die Nachbartabelle deines Rechners und merke mir, zu welchem Gerät die Adresse deines Routers gehört. Gehört sie später zu einem anderen Gerät, ist das harmlos, wenn du den Router getauscht hast. Sonst solltest du dem Netz hier nicht trauen. Ich sende dafür nichts.",
+    );
     show(&r.messung);
     let Some(old) = &r.vorher else {
         println!("Erste Messung in diesem Netz. Sie ist ab jetzt die Vergleichsbasis.");
