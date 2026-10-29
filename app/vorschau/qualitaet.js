@@ -26,13 +26,13 @@
   function bericht() {
     const r = reihen();
     const alle = r.flatMap((x) => x.punkte);
-    const ziele = r.map(({ ziel, punkte }) => {
+    const ziele = r.map(({ ziel, punkte }, k) => {
       const w = punkte.filter((p) => p.ms != null).map((p) => p.ms).sort((a, b) => a - b);
       const v = punkte.filter((p) => p.verlust).length;
       return {
         ziel, messungen: punkte.length, verloren: v, verlust_prozent: (v / punkte.length) * 100,
         median_ms: w[Math.floor(w.length / 2)], p95_ms: w[Math.floor(w.length * 0.95)], max_ms: w[w.length - 1],
-        laengster_aussetzer_s: 60,
+        laengster_aussetzer_s: 30 * (k + 2),
         schlechteste_stunde: { stunde: Math.floor(punkte[0].zeit / 3600) * 3600, verlust_prozent: Math.round((v / punkte.length) * 2200) / 10, durchschnitt_ms: w[Math.floor(w.length / 2)] + 2 },
       };
     });
@@ -281,4 +281,10 @@
       setTimeout(() => { document.querySelector('.egress-karte .knopf')?.click(); document.querySelector('.egress-karte')?.scrollIntoView(); }, 900);
     }
   });
+})();
+
+// Karte „Unter Last“ (#49). Misst auf Klick. Alle Zahlen erfunden.
+(() => {
+  VORSCHAU.last_vorab = async () => ({ hinweis: 'Misst Download, Upload und die Antwortzeit unter Last. Die Leitung ist dabei etwa 30 Sekunden voll ausgelastet.', hotspot: false, hotspot_frage: '', verlauf: [] });
+  VORSCHAU.last_messen = async () => ({ zeit: 1793050200, ergebnis: { down_bps: 480e6, up_bps: 48e6, ruhe_ms: 14, last_down_ms: 60, last_up_ms: 210, rpm: 420, dauer_s: 30 } });
 })();
