@@ -1,0 +1,4 @@
+# Fixtures with fixed line endings, so parser tests behave the same on every system.
+testdata/** text eol=lf
+testdata/**/*.der binary
+testdata/**/*.mmdb binary

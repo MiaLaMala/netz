@@ -216,7 +216,7 @@ testdata/       Aufgezeichnete Antworten für die Tests
 
 - Gut 25 000 Zeilen Rust in 47 Modulen, über 350 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
-- Die CI prüft jeden Pull Request mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
+- Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
 
 Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
