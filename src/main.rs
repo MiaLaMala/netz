@@ -35,6 +35,8 @@ Befehle:
   netzinfo bonjour           Dienste im Netz, die sich per Bonjour melden
   netzinfo diagnose [--json] Wo liegt das Problem? Schicht für Schicht eingrenzen
   netzinfo wlan [--json]     Funkverbindung, Signal und Sicherheit des WLANs
+  netzinfo wlan --verlauf [--minuten N]
+                             Signal, Roaming und Abbrüche über Minuten verfolgen
   netzinfo verbindungen      Aktive Verbindungen je Programm mit Zielname
 
 Optionen:

@@ -405,6 +405,11 @@ fn bekanntes_netz() -> Option<(std::path::PathBuf, String)> {
 }
 
 pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
+    if let Some((a, rest)) = args.split_first()
+        && a == "--verlauf"
+    {
+        return crate::wlanverlauf::run(rest, explain_on);
+    }
     let json = args == ["--json"];
     if !json && let Some(a) = args.first() {
         return Err(format!(
