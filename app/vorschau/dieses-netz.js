@@ -10,3 +10,22 @@
   VORSCHAU.ort_anfragen = async () => 'NichtGefragt';
   VORSCHAU.ort_einstellungen_oeffnen = async () => null;
 })();
+// Verschlüsseltes DNS (#88). Marken: dns-frisch (gespeicherte Messung von heute), dns-alt (drei Tage alt,
+// wird neu gemessen); ohne Marke wie bisher. Der Zähler der Messungen steht in body[data-messungen].
+(() => {
+  addEventListener('DOMContentLoaded', () => { document.body.dataset.messungen ??= '0'; });
+  let messungen = 0;
+  const messen = VORSCHAU.dns_verschluesselt;
+  VORSCHAU.dns_verschluesselt = async (a) => {
+    document.body.setAttribute('data-messungen', String(++messungen));
+    // Die Neumessung braucht in der Vorschau etwas Zeit, damit der Zwischenzustand sichtbar bleibt.
+    if (marken.includes('dns-alt-laeuft')) await new Promise(() => {});
+    return messen(a);
+  };
+  const gespeichert = { dot: 'Erreichbar', doh: 'Erreichbar', ddr: null };
+  VORSCHAU.dns_gespeichert = async () => (marken.includes('dns-frisch')
+    ? { messung: { ...gespeichert, zeit: t - 3600 * 5 }, frisch: true }
+    : marken.includes('dns-alt') || marken.includes('dns-alt-laeuft')
+      ? { messung: { ...gespeichert, zeit: t - 86400 * 3 }, frisch: false }
+      : null);
+})();

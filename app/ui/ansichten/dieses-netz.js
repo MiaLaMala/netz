@@ -210,21 +210,37 @@
         ...(dhcp ? [zeile('Domain', i.domain || 'keine', E.domain)] : []),
       ], dhcp ? null : 'In diesem Netz hat kein DHCP-Server geantwortet. Deshalb fehlen DHCP-Server, DNS vom DHCP und Domain.'));
 
-      // Verschlüsseltes DNS (#33): dauert einige Sekunden, die Ansicht wartet nicht darauf.
+      // Verschlüsseltes DNS (#33, #88): Bei einem gemerkten Netz zeigt die Karte zuerst die gespeicherte
+      // Messung und misst nur auf Knopfdruck oder wenn sie älter als ein Tag ist. Sonst misst sie beim Öffnen.
+      const w = { Erreichbar: 'erreichbar', Blockiert: 'gesperrt', Abgefangen: 'abgefangen' };
       const dnsGruppe = (zeilen, fuss) => gruppe('Verschlüsseltes DNS', zeilen, fuss);
+      const dnsZeilen = (m) => [
+        zeile('DNS über TLS (Port 853)', w[m.dot], E.dot[m.dot]),
+        zeile('DNS über HTTPS (Port 443)', w[m.doh], E.doh),
+        zeile('Resolver vom Netz (DDR)', m.ddr ? m.ddr.join('; ') : 'keiner angeboten', E.ddr),
+      ];
+      const gespeichert = d.netz ? await Netz.invoke('dns_gespeichert', { name: d.netz.name }).catch(() => null) : null;
       let dnsOrt = dnsGruppe([zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
-      wurzel.append(dnsOrt);
-      Netz.invoke('dns_verschluesselt').then((r) => {
-        const m = r.messung;
-        const w = { Erreichbar: 'erreichbar', Blockiert: 'gesperrt', Abgefangen: 'abgefangen' };
-        const neu = dnsGruppe([
-          zeile('DNS über TLS (Port 853)', w[m.dot], E.dot[m.dot]),
-          zeile('DNS über HTTPS (Port 443)', w[m.doh], E.doh),
-          zeile('Resolver vom Netz (DDR)', m.ddr ? m.ddr.join('; ') : 'keiner angeboten', E.ddr),
-        ], r.netz ? null : 'Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert.');
-        dnsOrt.replaceWith(neu);
-        dnsOrt = neu;
-      }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
+      const messen = () => {
+        if (gespeichert) {
+          const alt = dnsGruppe(dnsZeilen(gespeichert.messung), `Messung vom ${zeit(gespeichert.messung.zeit)}, wird neu gemessen …`);
+          dnsOrt.replaceWith(alt);
+          dnsOrt = alt;
+        }
+        Netz.invoke('dns_verschluesselt').then((r) => {
+          const neu = dnsGruppe(dnsZeilen(r.messung), r.netz ? `Gemessen am ${zeit(r.messung.zeit)}.` : 'Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert.');
+          dnsOrt.replaceWith(neu);
+          dnsOrt = neu;
+        }).catch((err) => dnsOrt.replaceWith(gruppe('Verschlüsseltes DNS', [], Netz.text(err))));
+      };
+      if (gespeichert?.frisch) {
+        dnsOrt = dnsGruppe(dnsZeilen(gespeichert.messung), `Gespeichert, gemessen am ${zeit(gespeichert.messung.zeit)}.`);
+        dnsOrt.append(el('div', { class: 'dns-neu' }, el('button', { class: 'knopf', type: 'button', text: 'Neu messen', onclick: (e) => { e.currentTarget.disabled = true; messen(); } })));
+        wurzel.append(dnsOrt);
+      } else {
+        wurzel.append(dnsOrt);
+        messen();
+      }
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       const funk = await Netz.invoke('wlan_lesen').catch(() => null);
       if (funk) {

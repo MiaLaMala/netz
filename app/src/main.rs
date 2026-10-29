@@ -158,6 +158,12 @@ fn netz_vergessen(name: String) -> Result<(), Fehler> {
     netze::vergessen(&name).map_err(Into::into)
 }
 
+/// Last stored DNS measurement of a remembered network, sends nothing, see issue #88.
+#[tauri::command(async)]
+fn dns_gespeichert(name: String) -> Result<Option<netzinfo::dnsverschl::Gespeichert>, String> {
+    netzinfo::dnsverschl::gespeichert(&name)
+}
+
 fn main() {
     let r = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -183,7 +189,8 @@ fn main() {
             geraet_setzen,
             ort_status,
             ort_anfragen,
-            ort_einstellungen_oeffnen
+            ort_einstellungen_oeffnen,
+            dns_gespeichert
         ])
         .run(tauri::generate_context!());
     if let Err(e) = r {
