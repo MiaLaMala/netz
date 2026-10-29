@@ -1,8 +1,23 @@
 /* Styles for the view „gemerkte-netze“ only. */
-[data-ansicht='gemerkte-netze'] .netz-zeile .umbenennen { width: 100%; height: 24px; padding: 0 8px; border: 0.5px solid var(--linie); border-radius: 5px; background: var(--bg); -webkit-user-select: text; user-select: text; }
-[data-ansicht='gemerkte-netze'] .netz-zeile .name-ort { min-height: 30px; display: flex; align-items: center; }
-[data-ansicht='gemerkte-netze'] .meins-zeile { flex-basis: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+[data-ansicht='gemerkte-netze'] .netz-zeile { padding: 12px 0; gap: 4px 0; }
+[data-ansicht='gemerkte-netze'] .kopf-zeile { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+[data-ansicht='gemerkte-netze'] .name-ort { flex: 1; min-width: 0; min-height: 30px; display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+[data-ansicht='gemerkte-netze'] .netz-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+[data-ansicht='gemerkte-netze'] .hier { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg2); }
+[data-ansicht='gemerkte-netze'] .meta { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0 16px; }
+[data-ansicht='gemerkte-netze'] .netz-zeile > .fein { flex-basis: 100%; }
+[data-ansicht='gemerkte-netze'] .netz-zeile .umbenennen { flex: 1; width: 100%; height: 24px; padding: 0 8px; border: 0.5px solid var(--linie); border-radius: 5px; background: var(--bg); -webkit-user-select: text; user-select: text; }
+[data-ansicht='gemerkte-netze'] .meins-zeile { flex-basis: 100%; margin-top: 4px; }
+[data-ansicht='gemerkte-netze'] .meins-zeile .erklaeren-schalter { padding-left: 0; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler { flex-basis: 100%; }
 [data-ansicht='gemerkte-netze'] .zeilenfehler .meldung { margin-top: 2px; font-size: 12px; }
+[data-ansicht='gemerkte-netze'] .zeilenfehler .rueckmeldung { margin-top: 2px; }
+[data-ansicht='gemerkte-netze'] .bestaetigung { margin-top: 2px; }
 [data-ansicht='gemerkte-netze'] .autostart { margin-bottom: 16px; }
 [data-ansicht='gemerkte-netze'] .autostart .fein { margin: 6px 4px 0; }
+[data-ansicht='gemerkte-netze'] .fuss { text-wrap: pretty; }
+/* The error sits right under the header (and the field), not at the bottom of the row. */
+[data-ansicht='gemerkte-netze'] .netz-zeile > * { order: 2; }
+[data-ansicht='gemerkte-netze'] .netz-zeile > .kopf-zeile { order: 0; }
+[data-ansicht='gemerkte-netze'] .netz-zeile > .zeilenfehler { order: 1; }
+[data-ansicht='gemerkte-netze'] .bearbeiten .kopf-zeile .knopf { display: none; }
