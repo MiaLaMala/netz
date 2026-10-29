@@ -384,10 +384,10 @@ impl Frager {
     /// Sends one question out of every interface; fails only if no interface could send.
     fn fragen(&self, name: &str, qtype: u16) -> Result<(), String> {
         let q = frage_bytes(name, qtype)?;
-        let (mut ok, mut letzter) = (false, String::new());
+        let (mut ok, mut letzter) = (false, "Netzwerkfehler");
         let mut zaehlen = |r: std::io::Result<()>| match r {
             Ok(()) => ok = true,
-            Err(e) => letzter = e.to_string(),
+            Err(e) => letzter = crate::router::io_satz(&e),
         };
         for i in &self.ifs {
             if let (Some(s), Some(a)) = (&self.v4, i.v4) {
@@ -409,7 +409,7 @@ impl Frager {
             return Ok(());
         }
         Err(format!(
-            "Die Bonjour-Anfrage ließ sich nicht senden ({letzter}). Prüfe, ob der Mac im WLAN oder LAN ist und die Rechte für das lokale Netzwerk gesetzt sind."
+            "Die Bonjour-Anfrage ließ sich nicht senden ({letzter}). Prüfe, ob dein Rechner im WLAN oder LAN ist und die Rechte für das lokale Netzwerk gesetzt sind."
         ))
     }
 }
@@ -588,6 +588,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         );
     }
     println!("Dienste: {}", dienste.len());
+    if dienste.is_empty() {
+        println!(
+            "Es hat sich niemand gemeldet. Viele Geräte schweigen; versuche es später noch einmal."
+        );
+    }
     for d in &dienste {
         let ips: Vec<String> = d
             .ipv4

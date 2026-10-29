@@ -13,10 +13,10 @@
   const E = {
     abgelehnt: 'Wenn du an einen Port klopfst und die Verbindung aktiv abgelehnt wird, hat ein laufendes Gerät geantwortet: Nur ein Gerät kann diese Ablehnung (ein RST-Paket) schicken. Auch ohne offenen Port beweist sie also, dass dort jemand ist.',
     ptr: 'PTR ist die Rückwärtsauflösung im DNS: von der IP zum Namen, abgefragt unter z. B. 20.178.168.192.in-addr.arpa. Viele Router tragen dort die Namen ihrer DHCP-Kunden ein, andere liefern nichts, dann bleibt der Name leer.',
-    mac: 'Die MAC-Adresse ist die Hardware-Nummer der Netzkarte und bleibt gleich, auch wenn der Router dem Gerät eine andere IP gibt. Der Mac kennt sie aus seiner Nachbartabelle (ARP): Er fragt „Wer hat diese IP?“ und merkt sich die Antwort. Darum erkenne ich ein Gerät wieder und zeige seine früheren IPs.',
+    mac: 'Die MAC-Adresse ist die Hardware-Nummer der Netzkarte und bleibt gleich, auch wenn der Router dem Gerät eine andere IP gibt. Dein Rechner kennt sie aus seiner Nachbartabelle (ARP): Er fragt „Wer hat diese IP?“ und merkt sich die Antwort. Darum erkenne ich ein Gerät wieder und zeige seine früheren IPs.',
     typ: 'Der Typ kommt aus Regeln: Bietet ein Gerät per Bonjour „Drucken“ an oder hat Port 631 offen, hält Netzinfo es für einen Drucker. Mehrere Hinweise zählen zusammen; bei Gleichstand bleibt es „Unbekannt“. Ein Gerät kann sich anders ausgeben, als es ist. Was du selbst einträgst, ändert kein neuer Lauf.',
     fritz: 'Diese Liste kommt vom Router selbst. Der Router weiß auch von Geräten, die auf Netzinfo nicht antworten. Netzinfo fragt die Fritz!Box über TR-064, ihren Fernzugriff im Heimnetz, und meldet sich dort mit HTTP Digest an: Das Passwort geht nicht im Klartext über das Netz, nur ein MD5-Wert aus Passwort und einer Zahl, die die Fritz!Box vorgibt. Gelesen wird nur die Geräteliste. Das Passwort liegt im macOS-Schlüsselbund, nie in einer Datei.',
-    fehlen: 'Ohne Root-Rechte kann der Mac weder pingen noch ARP lesen. Ein Gerät, das jedes Paket verwirft (Firewall im Tarnmodus, Handy im Standby), antwortet auf nichts und bleibt unsichtbar. „Verschwunden“ heißt deshalb nur: diesmal nicht gefunden.',
+    fehlen: 'Ohne Root-Rechte kann Netzinfo weder pingen noch ARP lesen. Ein Gerät, das jedes Paket verwirft (Firewall im Tarnmodus, Handy im Standby), antwortet auf nichts und bleibt unsichtbar. „Verschwunden“ heißt deshalb nur: diesmal nicht gefunden.',
   };
 
   let letztes = null; // last result, so a tab change does not lose it

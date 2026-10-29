@@ -362,7 +362,7 @@ pub fn suchen_mit(
     let meins = netze::current_is_meins();
     let info = crate::hier::collect()?;
     let fp = netze::fingerprint(&info)?;
-    let current = info.subnet.ok_or("Das aktuelle Subnetz ist unbekannt.")?;
+    let current = info.subnet.ok_or("Das Subnetz deines Netzes ist unbekannt. Verbinde dich mit einem Netz und versuche es noch einmal.")?;
     let path = netze::data_path()?.with_file_name("geraete.json");
     let link = nachbarn.then_some(info.interface.as_str());
     suchen_in(&path, &fp, meins, &current, cidr, gross, link)
@@ -522,7 +522,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     if nachbarn {
         e(
-            "Mit `--nachbarn` schicke ich zusätzlich an jede Adresse einen Ping ohne Root-Rechte. Die Antwort ist egal: Um das Paket zuzustellen, fragt dein Mac per ARP „Wer hat diese IP?“ und merkt sich die Antwort in seiner Nachbartabelle. Diese Tabelle lese ich danach nur noch aus, so kommt zu jedem Gerät die MAC-Adresse, auch zu Geräten ohne offenen Port.",
+            "Mit `--nachbarn` schicke ich zusätzlich an jede Adresse einen Ping ohne Root-Rechte. Die Antwort ist egal: Um das Paket zuzustellen, fragt dein Rechner per ARP „Wer hat diese IP?“ und merkt sich die Antwort in seiner Nachbartabelle. Diese Tabelle lese ich danach nur noch aus, so kommt zu jedem Gerät die MAC-Adresse, auch zu Geräten ohne offenen Port.",
         );
         e(
             "Die MAC-Adresse ist die Hardware-Nummer der Netzkarte. Sie bleibt gleich, auch wenn der Router dem Gerät morgen eine andere IP gibt. Darum führe ich Geräte über die MAC zusammen und merke mir die alten IPs.",
@@ -553,6 +553,9 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     for d in &r.geraete {
         let is_new = r.neu.iter().any(|n| n.ip == d.ip);
         show(d, if is_new { "neu" } else { "" });
+    }
+    if r.geraete.is_empty() {
+        println!("Keine Geräte gefunden. Geräte, die jedes Paket verwerfen, bleiben unsichtbar.");
     }
     if r.erster_lauf {
         println!("Erster Lauf in diesem Netz: alles ist der Ausgangsstand, nichts ist „neu“.");

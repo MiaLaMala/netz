@@ -202,7 +202,7 @@ fn sysctl_table(family: libc::c_int) -> Result<Vec<u8>, String> {
 // ponytail: Linux (netlink RTM_GETNEIGH) and Windows (GetIpNetTable2) are not built yet
 #[cfg(not(target_os = "macos"))]
 fn sysctl_table(_family: libc::c_int) -> Result<Vec<u8>, String> {
-    Err("Die Nachbartabelle kann ich bisher nur auf dem Mac lesen.".into())
+    Err("Die Nachbartabelle kann ich bisher nur unter macOS lesen.".into())
 }
 
 fn if_index(name: &str) -> Result<u32, String> {

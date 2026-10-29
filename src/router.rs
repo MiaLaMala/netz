@@ -121,6 +121,17 @@ fn parse_antwort(roh: &[u8]) -> Result<Antwort, String> {
     Ok(a)
 }
 
+/// Fehler des Betriebssystems auf Deutsch: `{e}` käme englisch („No route to host (os error 65)“).
+pub(crate) fn io_satz(e: &std::io::Error) -> &'static str {
+    match e.kind() {
+        ErrorKind::ConnectionRefused => "Verbindung abgelehnt",
+        ErrorKind::TimedOut | ErrorKind::WouldBlock => "keine Antwort",
+        ErrorKind::HostUnreachable | ErrorKind::NetworkUnreachable => "Router nicht erreichbar",
+        ErrorKind::PermissionDenied => "vom System verweigert",
+        _ => "Netzwerkfehler",
+    }
+}
+
 fn fehlersatz(port: u16, e: &std::io::Error) -> Status {
     let hilfe = "Prüfe die Freigabe „Lokales Netzwerk“ für Netzinfo.";
     match e.kind() {
@@ -129,7 +140,8 @@ fn fehlersatz(port: u16, e: &std::io::Error) -> Status {
             Status::Fehler(format!("Keine Antwort auf Port {port}. {hilfe}"))
         }
         _ => Status::Fehler(format!(
-            "Verbindung auf Port {port} nicht möglich ({e}). {hilfe}"
+            "Verbindung auf Port {port} nicht möglich ({}). {hilfe}",
+            io_satz(e)
         )),
     }
 }
@@ -365,6 +377,14 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::net::TcpListener;
+
+    #[test]
+    fn systemfehler_kommen_auf_deutsch() {
+        let e = std::io::Error::from_raw_os_error(libc::EHOSTUNREACH); // englisch: „No route to host“
+        assert_eq!(io_satz(&e), "Router nicht erreichbar");
+        let e = std::io::Error::from(ErrorKind::Other);
+        assert!(io_satz(&e).chars().all(|c| !c.is_ascii_digit()));
+    }
 
     const BOX: &[u8] = b"HTTP/1.1 200 OK\r\nServer: Beispiel-Router\r\nContent-Type: text/html\r\n\r\n<html><head>\n<TITLE>\n  Beispiel Box  </TITLE></head></html>";
     const UMLEITUNG: &[u8] = b"HTTP/1.1 301 Moved Permanently\r\nlocation: https://192.0.2.1/\r\nServer: lighttpd/1.4\r\n\r\n";

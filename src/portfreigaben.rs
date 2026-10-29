@@ -144,16 +144,18 @@ fn senden(ip: Ipv4Addr, port: u16, anfrage: &str) -> Result<String, String> {
         )
     };
     let addr = SocketAddr::new(IpAddr::V4(ip), port);
-    let mut s = TcpStream::connect_timeout(&addr, HTTP_ZEIT).map_err(|e| fehler(&e))?;
+    let mut s = TcpStream::connect_timeout(&addr, HTTP_ZEIT)
+        .map_err(|e| fehler(&crate::router::io_satz(&e)))?;
     s.set_read_timeout(Some(HTTP_ZEIT))
-        .map_err(|e| fehler(&e))?;
+        .map_err(|e| fehler(&crate::router::io_satz(&e)))?;
     s.set_write_timeout(Some(HTTP_ZEIT))
-        .map_err(|e| fehler(&e))?;
-    s.write_all(anfrage.as_bytes()).map_err(|e| fehler(&e))?;
+        .map_err(|e| fehler(&crate::router::io_satz(&e)))?;
+    s.write_all(anfrage.as_bytes())
+        .map_err(|e| fehler(&crate::router::io_satz(&e)))?;
     let mut buf = Vec::new();
     s.take(MAX_BYTES + 1)
         .read_to_end(&mut buf)
-        .map_err(|e| fehler(&e))?;
+        .map_err(|e| fehler(&crate::router::io_satz(&e)))?;
     if buf.len() as u64 > MAX_BYTES {
         return Err(fehler(&"Antwort größer als 64 KB"));
     }
@@ -208,7 +210,8 @@ fn liste_lesen(
 fn igd_suchen(gw: Ipv4Addr) -> Result<Option<(u16, String)>, String> {
     let net = |e: std::io::Error| {
         format!(
-            "Der SSDP-Socket ließ sich nicht öffnen oder senden ({e}). Prüfe die Netzverbindung und die Rechte für das lokale Netzwerk."
+            "Der Rundruf an den Router ließ sich nicht senden ({}). Prüfe die Netzverbindung und die Rechte für das lokale Netzwerk.",
+            crate::router::io_satz(&e)
         )
     };
     let u = UdpSocket::bind("0.0.0.0:0").map_err(net)?;
