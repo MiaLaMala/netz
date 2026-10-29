@@ -170,6 +170,7 @@ Anzahl Hosts:  62
 | `netzinfo wlan --verlauf` | Signal, Roaming und Abbrüche über Minuten |
 | `netzinfo wlan --umfeld` | Netze je Kanal und Band, mit Rat für einen leereren Kanal (nur Mac) |
 | `netzinfo last --start` | Antwortzeit unter Last (Bufferbloat), belastet die Leitung 30 s (nur Mac) |
+| `netzinfo engpass [--start]` | Leitung laut Router, WLAN und Mac nebeneinander, mit dem Engpass in einem Satz |
 | `netzinfo ports --raus --ziel <Server>` | Welche ausgehenden Ports lässt das Netz durch? |
 
 </details>

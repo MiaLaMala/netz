@@ -1,5 +1,5 @@
 //! `netzinfo portfreigaben`: ports the router opened to the internet via UPnP IGD, plus the
-//! class of its external address (issue #45). Read-only: only the three actions in `AKTIONEN`
+//! class of its external address (issue #45). Read-only: only the actions in `AKTIONEN`
 //! are ever sent. Answers are untrusted input, same guards as `upnp` (sender IP, private, 64 KB).
 
 use crate::netze;
@@ -19,11 +19,14 @@ const MAX_BYTES: u64 = 64 * 1024;
 const MAX_EINTRAEGE: u32 = 200;
 const SUCHE: &str = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n";
 /// The only SOAP actions this module may send. Nothing that changes the router.
-const AKTIONEN: [&str; 3] = [
+const AKTIONEN: [&str; 4] = [
     "GetExternalIPAddress",
     "GetStatusInfo",
     "GetGenericPortMappingEntry",
+    "GetCommonLinkProperties",
 ];
+/// For `engpass`: the link rate lives in this service, not in the connection services.
+const LINK_DIENSTE: [&str; 1] = ["urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1"];
 /// Service types we accept, in order of preference. The one used is always one of these
 /// constants, never text from the router.
 const DIENSTE: [&str; 3] = [
@@ -231,13 +234,17 @@ fn igd_suchen(gw: Ipv4Addr) -> Result<Option<(u16, String)>, String> {
 }
 
 /// Port and path of the preferred WAN connection service's `controlURL`.
-fn dienst_finden(xml: &str, gw: Ipv4Addr) -> Option<(&'static str, u16, String)> {
+fn dienst_finden(
+    xml: &str,
+    gw: Ipv4Addr,
+    diensten: &[&'static str],
+) -> Option<(&'static str, u16, String)> {
     let dienste: Vec<(String, String)> = xml
         .split("<service>")
         .skip(1)
         .filter_map(|s| Some((tag(s, "serviceType")?, tag(s, "controlURL")?)))
         .collect();
-    DIENSTE.iter().find_map(|d| {
+    diensten.iter().find_map(|d| {
         let (_, url) = dienste.iter().find(|(t, _)| t == d)?;
         let (port, pfad) = if url.starts_with("http://") {
             location_pruefen(url, gw).ok()?
@@ -254,7 +261,7 @@ pub fn messen(gw: Ipv4Addr, jetzt: u64) -> Result<Option<Messung>, String> {
         return Ok(None);
     };
     let xml = http_holen(gw, port, &pfad)?;
-    let Some((dienst, cport, cpfad)) = dienst_finden(&xml, gw) else {
+    let Some((dienst, cport, cpfad)) = dienst_finden(&xml, gw, &DIENSTE) else {
         return Ok(None);
     };
     let aufruf = |aktion: &str, arg: &str| {
@@ -293,6 +300,25 @@ pub fn messen(gw: Ipv4Addr, jetzt: u64) -> Result<Option<Messung>, String> {
         freigaben,
         listenfehler,
     }))
+}
+
+/// Raw `GetCommonLinkProperties` answer of the gateway, no login. `Ok(None)`: no UPnP answer
+/// or no such service. Read-only, same guards as `messen`. For `engpass`.
+pub fn link_xml(gw: Ipv4Addr) -> Result<Option<String>, String> {
+    let Some((port, pfad)) = igd_suchen(gw)? else {
+        return Ok(None);
+    };
+    let xml = http_holen(gw, port, &pfad)?;
+    let Some((dienst, cport, cpfad)) = dienst_finden(&xml, gw, &LINK_DIENSTE) else {
+        return Ok(None);
+    };
+    let a = anfrage(gw, cport, &cpfad, dienst, "GetCommonLinkProperties", "")?;
+    match antwort_lesen(&senden(gw, cport, &a)?)? {
+        Ok(x) => Ok(Some(x)),
+        Err(c) => Err(format!(
+            "Der Router lehnt „GetCommonLinkProperties“ ab (Fehler {c}). UPnP ist dort vermutlich eingeschränkt."
+        )),
+    }
 }
 
 /// Carries `zuerst_gesehen` over from the last visit and rates the list. Without an earlier
@@ -616,10 +642,15 @@ mod tests {
     fn finds_service_and_rates_new_and_risky_entries() {
         let xml = "<root><device><serviceList><service><serviceType>urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1</serviceType><controlURL>/x</controlURL></service><service><serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType><controlURL>ctl/IPConn</controlURL></service></serviceList></device></root>";
         assert_eq!(
-            dienst_finden(xml, GW),
+            dienst_finden(xml, GW, &DIENSTE),
             Some((DIENSTE[1], 80, "/ctl/IPConn".into()))
         );
-        assert_eq!(dienst_finden("<root></root>", GW), None);
+        assert_eq!(dienst_finden("<root></root>", GW, &DIENSTE), None);
+        // engpass: the same description, the link-rate service
+        assert_eq!(
+            dienst_finden(xml, GW, &LINK_DIENSTE),
+            Some((LINK_DIENSTE[0], 80, "/x".into()))
+        );
 
         let alt = Gespeichert {
             portfreigaben: vec![freigabe(8080, true)],

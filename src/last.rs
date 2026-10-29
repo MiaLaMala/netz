@@ -253,6 +253,12 @@ pub fn messen_und_speichern(trotz_hotspot: bool) -> Result<Lauf, String> {
     Ok(lauf)
 }
 
+/// Der jüngste gespeicherte Lauf des aktuellen Netzes, ohne zu messen. Für `engpass`.
+pub fn letzter() -> Option<Lauf> {
+    let (p, k) = ziel()?;
+    netze::load_json::<Store>(&p).ok()?.remove(&k)?.pop()
+}
+
 /// Abschnitt „Unter Last“ für `netzinfo bericht`.
 pub fn abschnitt(netzname: &str) -> Option<String> {
     let pfad = netze::data_path().ok()?;

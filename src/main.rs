@@ -91,6 +91,10 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
                 "Ping-Kurve mit Jitter, Verlust und Eignung für Anrufe und Spiele",
             ),
             (
+                "engpass [--start]",
+                "Leitung, WLAN und Mac nebeneinander: wo bremst es? (--start misst am Mac)",
+            ),
+            (
                 "last --start",
                 "Antwortzeit unter Last (Bufferbloat), 30 s volle Leitung (nur Mac)",
             ),
@@ -370,6 +374,7 @@ fn main() -> ExitCode {
         "router" => router::run(rest, explain_on),
         "portfreigaben" => portfreigaben::run(rest, explain_on),
         "last" => last::run(rest, explain_on),
+        "engpass" => netzinfo::engpass::run(rest, explain_on),
         "hilfe" | "-h" | "--help" => {
             print!(
                 "{}",
@@ -484,6 +489,7 @@ mod tests {
             "messen" => vec![messen::OPTIONEN],
             "bericht" => vec![messen::OPTIONEN_BERICHT],
             "last" => vec![last::OPTIONEN],
+            "engpass" => vec![netzinfo::engpass::OPTIONEN],
             "geraete" => vec![geraete::OPTIONEN],
             "fritzbox" => vec![netzinfo::fritzbox::OPTIONEN],
             "pfad" => vec![pfad::OPTIONEN],
