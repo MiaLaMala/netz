@@ -49,17 +49,23 @@
   // Seltene Werte hinter ein Aufklappen (`details` ist mit der Tastatur bedienbar).
   const mehr = (titel, zeilen) => el('details', { class: 'mehr' }, el('summary', { text: titel }), el('dl', {}, zeilen));
 
-  function kopf(d) {
+  // Schwellen für Signal (dBm): ab -70 gut, ab -80 mittel.
+  const staerkeVon = (rssi) => (rssi == null ? null : rssi >= -70 ? 'gut' : rssi >= -80 ? 'mittel' : 'schwach');
+
+  function kopf(d, funk) {
     const { netz } = d;
     const zeile2 = (farbe, wort, rest) => el('p', { class: 'status' },
       el('span', { class: `punkt ${farbe}` }), el('span', { class: 'status-wort', text: wort }),
       rest && el('span', { class: 'status-rest', text: rest }));
+    // Zweite Zeile: das Funksignal auf einen Blick (die Zahlen stehen in der WLAN-Gruppe).
+    const st = funk && staerkeVon(funk.rssi_dbm);
+    const signal = st && zeile2({ gut: 'gruen', mittel: 'orange', schwach: 'rot' }[st], `WLAN-Signal ${st}`);
     if (netz) {
       return el('div', { class: 'kopf' }, el('h2', { text: netz.name }),
-        zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`));
+        zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`), signal);
     }
     return el('div', { class: 'kopf' }, el('h2', { text: 'Unbekanntes Netz' }),
-      d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar') : zeile2('grau', 'Noch nicht gemerkt'));
+      d.erkennung_fehler ? zeile2('grau', 'Nicht wiedererkennbar') : zeile2('grau', 'Noch nicht gemerkt'), signal);
   }
 
   // Inline-Formular statt Dialog: Name, „meins“, Merken.
@@ -112,7 +118,7 @@
   };
   const wlanKarte = (w) => {
     const sicher = w.sicherheit ? SICHER[w.sicherheit] : null;
-    const staerke = w.rssi_dbm == null ? null : w.rssi_dbm >= -70 ? 'gut' : w.rssi_dbm >= -80 ? 'mittel' : 'schwach';
+    const staerke = staerkeVon(w.rssi_dbm);
     const signal = bewertet(zeile('Signal', staerke && `${w.rssi_dbm} dBm, ${staerke}`,
       w.rssi_dbm == null ? null : `Das Signal liegt bei minus ${-w.rssi_dbm} dBm. Je näher an null, desto besser, ab minus 70 wird es merklich schlechter.`),
     { gut: 'gut', mittel: 'mittel', schwach: 'schlecht' }[staerke]);
@@ -171,9 +177,8 @@
       el('h3', { id: 'g-ort', text: 'Standortfreigabe' }),
       el('div', { class: 'liste' },
         el('div', { class: 'zeile' }, el('p', { class: 'ort-status', text: nachrichten[status] || nachrichten.NichtGefragt })),
-        el('details', { class: 'zeile' }, el('summary', { text: 'Warum fragt Netzinfo nach dem Standort?' }), el('p', { class: 'hilfe', text: ORT_WARUM }))),
-      fehler,
-      knopf && el('div', { class: 'knoepfe' }, knopf));
+        el('details', { class: 'zeile' }, el('summary', { text: 'Warum fragt Netzinfo nach dem Standort?' }), el('p', { class: 'hilfe', text: ORT_WARUM })),
+        knopf && el('div', { class: 'zeile aktionszeile' }, knopf, fehler)));
   }
 
   function offenKnopf() {
@@ -203,11 +208,11 @@
       ]);
       if (b.pac_url) {
         const hosts = el('div', { 'aria-live': 'polite' });
-        neu.append(el('div', { class: 'aktion' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', onclick: (e) => {
+        neu.querySelector('dl').append(el('div', { class: 'zeile aktionszeile' }, el('button', { class: 'knopf', type: 'button', 'data-pac': '', text: 'PAC-Datei ansehen', onclick: (e) => {
           e.currentTarget.disabled = true;
           Netz.invoke('proxy_pac_ansehen').then((h) => hosts.replaceChildren(el('p', { class: 'fuss', text: h.length ? `Hostnamen in der PAC-Datei: ${h.join(', ')}` : 'In der PAC-Datei stehen keine Proxy-Hostnamen.' })))
             .catch((err) => hosts.replaceChildren(meldung(Netz.text(err), 'orange')));
-        } })), hosts);
+        } }), hosts));
       }
       dienste.after(neu);
     }).catch(() => platz.replaceWith(zeile('Proxy', 'nicht lesbar', erkl)));
@@ -233,15 +238,19 @@
     titel: 'Dieses Netz',
     icon: Netz.icons.wlan,
     async render(wurzel) {
-      const d = await Netz.invoke('dieses_netz');
+      const [d, funk] = await Promise.all([Netz.invoke('dieses_netz'), Netz.invoke('wlan_lesen').catch(() => null)]);
       const i = d.info;
       const s = i.subnet;
       const vpn = i.interface.startsWith('utun');
       const magic = i.system_dns.includes('100.100.100.100');
 
-      wurzel.append(kopf(d));
+      wurzel.append(kopf(d, funk));
       if (d.hinweis) wurzel.append(meldung(d.hinweis, 'orange'));
-      if (!d.netz && !d.erkennung_fehler) wurzel.append(el('div', { class: 'aktion' }, offenKnopf()));
+      if (!d.netz && !d.erkennung_fehler) {
+        wurzel.append(el('div', { class: 'neues-netz' },
+          Netz.leerZustand('', 'Merk dir das Netz, dann erkennt Netzinfo es beim nächsten Mal wieder.', 'erster-start'),
+          el('div', { class: 'aktion' }, offenKnopf())));
+      }
       if (d.erkennung_fehler) wurzel.append(el('p', { class: 'fuss', text: d.erkennung_fehler }));
 
       const adresse = gruppe('Adresse', [
@@ -288,6 +297,7 @@
       let dnsOrt = gruppe('Verschlüsseltes DNS', [zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
       const zeigeDns = (zeilen) => {
         const neu = gruppe('Verschlüsseltes DNS', zeilen);
+        neu.classList.add('frisch');
         dnsOrt.replaceWith(neu);
         dnsOrt = neu;
       };
@@ -305,7 +315,6 @@
         messen(gespeichert);
       }
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
-      const funk = await Netz.invoke('wlan_lesen').catch(() => null);
       if (funk) {
         const ort = ortKarte(await Netz.invoke('ort_status').catch(() => 'Erlaubt'));
         if (ort) wurzel.append(ort);
