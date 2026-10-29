@@ -17,6 +17,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # Die Ausgabe zeigt Netzdaten des Runners und wird verworfen, nur der Exit-Code zählt.
+      - run: cargo run -q -p netzinfo -- hier > /dev/null
 
   # Die App braucht unter Linux WebKitGTK; die Pakete stehen in v2.tauri.app/start/prerequisites.
   app-linux:

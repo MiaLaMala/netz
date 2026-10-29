@@ -4,7 +4,7 @@ use crate::explain;
 use crate::subnetz::{self, Subnet};
 use std::net::Ipv4Addr;
 
-/// What we know about the current network. Fields are None when macOS has no answer.
+/// What we know about the current network. Fields are None when the system has no answer.
 #[derive(Debug, Default, PartialEq, serde::Serialize)]
 pub struct NetInfo {
     pub interface: String,
@@ -15,7 +15,7 @@ pub struct NetInfo {
     pub dhcp_server: Option<Ipv4Addr>,
     /// DNS servers handed out by DHCP.
     pub dhcp_dns: Vec<Ipv4Addr>,
-    /// DNS servers the system really asks first (from scutil --dns), IPv4 and IPv6.
+    /// DNS servers the system really asks first (scutil --dns on macOS, resolv.conf on Linux), IPv4 and IPv6.
     pub system_dns: Vec<String>,
     pub domain: Option<String>,
 }

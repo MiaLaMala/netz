@@ -220,6 +220,8 @@ testdata/       Aufgezeichnete Antworten für die Tests
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
+- Unter Linux liest Netzinfo Default-Route, Adresse und DHCP ohne Root (`/proc/net/route`, `getifaddrs`, systemd-networkd oder NetworkManager), danach laufen `hier`, `dns`, `pruefen`, `merken`, `messen`, `diagnose`, `mtu`, `pfad`, `bonjour`, `upnp`, `router` und `wlan` (mit `iw`). `geraete` läuft ohne `--nachbarn`; auch `proxy` und das Prüfen der Proxy-Einstellungen gibt es dort nicht.
+- Nur auf dem Mac gehen `offen`, `verbindungen`, `woher`, `traffic`, `last`, `wlan --umfeld`, `geraete --nachbarn`, `proxy` und die Standortfreigabe, weil sie libproc, CoreWLAN, `nettop`, `networkQuality` oder `scutil` brauchen. Sie melden das mit einem klaren Satz. Die Linux-Fassung ist bisher nur in der CI und im Release-Probelauf gelaufen, nicht von Hand auf einem Server oder Raspberry Pi.
 
 Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
 
