@@ -10,16 +10,51 @@ pub fn nur(args: &[String], erlaubt: &[&str], befehl: &str) -> Result<(), String
     else {
         return Ok(());
     };
+    // `--erklaer` und `--help` nimmt `main` vorher heraus, sie stehen nie in `erlaubt`.
+    let tipp = match aehnlich(falsch, &[erlaubt, &["--erklaer", "--help"]].concat()) {
+        Some(o) => format!(" Meintest du `{o}`?"),
+        None => String::new(),
+    };
     Err(match erlaubt {
-        [] => format!("Unbekannte Option „{falsch}“. `netzinfo {befehl}` kennt keine Optionen."),
-        [eine] => {
-            format!("Unbekannte Option „{falsch}“ für `netzinfo {befehl}`. Erlaubt ist: {eine}.")
+        [] => {
+            format!("Unbekannte Option „{falsch}“.{tipp} `netzinfo {befehl}` kennt keine Optionen.")
         }
+        [eine] => format!(
+            "Unbekannte Option „{falsch}“ für `netzinfo {befehl}`.{tipp} Erlaubt ist: {eine}."
+        ),
         _ => format!(
-            "Unbekannte Option „{falsch}“ für `netzinfo {befehl}`. Erlaubt sind: {}.",
+            "Unbekannte Option „{falsch}“ für `netzinfo {befehl}`.{tipp} Erlaubt sind: {}.",
             erlaubt.join(", ")
         ),
     })
+}
+
+/// Die Option aus `kandidaten`, die `eingabe` am nächsten kommt (Abstand höchstens 2 und kleiner
+/// als die Länge der Eingabe), sonst `None`.
+pub fn aehnlich<'a>(eingabe: &str, kandidaten: &[&'a str]) -> Option<&'a str> {
+    let n = eingabe.chars().count();
+    kandidaten
+        .iter()
+        .map(|k| (levenshtein(eingabe, k), *k))
+        .filter(|(d, _)| *d <= 2 && *d < n)
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, k)| k)
+}
+
+/// Editierabstand zweier Wörter (für „Meintest du“).
+pub fn levenshtein(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut diag = row[0];
+        row[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let alt = row[j + 1];
+            row[j + 1] = (diag + usize::from(ca != *cb)).min(row[j] + 1).min(alt + 1);
+            diag = alt;
+        }
+    }
+    row[b.len()]
 }
 
 /// „-x“ und „--x“ sind Optionen, „-5“ und „-“ nicht.
@@ -53,6 +88,16 @@ mod tests {
                 .unwrap_err()
                 .contains("Erlaubt ist: --json.")
         );
+    }
+
+    #[test]
+    fn tippfehler_in_option_bekommt_meintest_du() {
+        let e = nur(&a(&["--nachbar"]), &["--nachbarn", "--karten"], "geraete").unwrap_err();
+        assert!(e.contains("Meintest du `--nachbarn`?"), "{e}");
+        let e = nur(&a(&["--hlep"]), &["--json"], "zeit").unwrap_err();
+        assert!(e.contains("Meintest du `--help`?"), "{e}");
+        let e = nur(&a(&["--erklar"]), &[], "hier").unwrap_err();
+        assert!(e.contains("Meintest du `--erklaer`?"), "{e}");
     }
 
     #[test]

@@ -179,18 +179,209 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
     ),
 ];
 
+/// Hilfe bricht bei 80 Zeichen um: das ist die Standardbreite des Terminals auf dem Mac.
+const BREITE: usize = 80;
+
+/// Linke Spalte der Gesamthilfe höchstens so breit; längere Aufrufe stehen über ihrem Text.
+const SPALTE_MAX: usize = 30;
+
+/// Die ersten Schritte, ganz oben in der Hilfe.
 const BEISPIELE: &[(&str, &str)] = &[
     ("hier", "Wo bin ich gerade?"),
     ("merken Zuhause --meins", "Dieses Netz als „meins“ merken"),
-    (
-        "pruefen",
-        "Hat sich seit dem letzten Besuch etwas geändert?",
-    ),
+    ("pruefen", "Was ist seit dem letzten Besuch anders?"),
     (
         "dns example.org --erklaer",
         "DNS vergleichen, jeder Schritt erklärt",
     ),
 ];
+
+/// Je Befehl: (Name, Beispielaufruf, was er ins Netz sendet). Steht in `netzinfo <Befehl> --help`.
+const DETAILS: &[(&str, &str, &str)] = &[
+    (
+        "hier",
+        "hier",
+        "Liest nur Einstellungen dieses Rechners, sendet nichts.",
+    ),
+    (
+        "subnetz",
+        "subnetz 192.0.2.77/26 --erklaer",
+        "Rechnet nur, sendet nichts.",
+    ),
+    (
+        "dns",
+        "dns example.org --typ MX",
+        "Fragt DNS-Server: deinen, 1.1.1.1 und Quad9 (--tempo auch 8.8.8.8, 9.9.9.9).",
+    ),
+    (
+        "sni",
+        "sni",
+        "Verbindet sich mit einem Testserver, erst mit neutralem Namen, dann mit Beispielnamen.",
+    ),
+    (
+        "tls",
+        "tls github.com",
+        "Baut eine HTTPS-Verbindung zum Host auf, ohne Anmeldung.",
+    ),
+    (
+        "portal",
+        "portal",
+        "Ruft drei Prüfadressen von Apple, Google und Mozilla per HTTP ab.",
+    ),
+    (
+        "proxy",
+        "proxy",
+        "Liest nur Einstellungen, sendet nichts. Die PAC-Datei lädt nur --ansehen.",
+    ),
+    (
+        "ipv6",
+        "ipv6",
+        "Löst Namen auf und verbindet sich fünfmal je Protokoll mit Port 443, ohne Daten.",
+    ),
+    (
+        "zeit",
+        "zeit",
+        "Fragt öffentliche Zeitserver (NTP) und liest das Datum einer HTTPS-Antwort. Stellt die Uhr nie.",
+    ),
+    (
+        "router",
+        "router",
+        "Eine HTTP-Anfrage und ein TLS-Handshake an den Router, ohne Anmeldung. Nur in „meins“-Netzen.",
+    ),
+    (
+        "portfreigaben",
+        "portfreigaben",
+        "Fragt den Router per UPnP, nur lesend.",
+    ),
+    (
+        "merken",
+        "merken Zuhause --meins",
+        "Sendet nichts, speichert nur auf diesem Rechner.",
+    ),
+    (
+        "netze",
+        "netze",
+        "Sendet nichts, liest nur die gemerkten Netze.",
+    ),
+    (
+        "vergessen",
+        "vergessen Zuhause",
+        "Sendet nichts, löscht nur den Eintrag auf diesem Rechner.",
+    ),
+    (
+        "pruefen",
+        "pruefen",
+        "Misst das Netz neu (DNS, Zertifikate, Router, Weg ins Internet) und vergleicht mit dem Gemerkten.",
+    ),
+    (
+        "messen",
+        "messen --minuten 5",
+        "Schickt Pings (ICMP) und speichert die Werte je Netz.",
+    ),
+    (
+        "bericht",
+        "bericht Zuhause --markdown bericht.md",
+        "Sendet nichts, liest nur gespeicherte Messungen.",
+    ),
+    (
+        "live",
+        "live 1.1.1.1 --sekunden 30",
+        "Schickt Pings (ICMP) an die Ziele, die du angibst.",
+    ),
+    (
+        "engpass",
+        "engpass",
+        "Fragt den Router lesend (TR-064 oder UPnP). --start belastet die Leitung etwa 30 Sekunden.",
+    ),
+    (
+        "last",
+        "last --start",
+        "Belastet die Leitung 30 Sekunden voll (Apples networkQuality), nur mit --start.",
+    ),
+    (
+        "pfad",
+        "pfad example.org",
+        "Schickt Pings mit steigender Lebensdauer (TTL) an das Ziel.",
+    ),
+    (
+        "mtu",
+        "mtu example.org",
+        "Schickt Pings wachsender Größe an das Ziel.",
+    ),
+    (
+        "diagnose",
+        "diagnose",
+        "Schickt Pings an Router, Anbieter und zwei Ziele im Internet.",
+    ),
+    (
+        "wlan",
+        "wlan --verlauf --minuten 5",
+        "Liest nur das Funkmodul dieses Rechners (--umfeld scannt per Funk), sendet nichts ins Netz.",
+    ),
+    (
+        "geraete",
+        "geraete --karten",
+        "Fragt Geräte im eigenen Netz (Bonjour, UPnP, DNS). Nur private Adressen, nur in „meins“-Netzen.",
+    ),
+    (
+        "fritzbox",
+        "fritzbox",
+        "Fragt die Fritz!Box lesend (TR-064). Nur der Router, nur in „meins“-Netzen.",
+    ),
+    (
+        "ports",
+        "ports 192.0.2.20",
+        "Verbindet sich mit Ports des Geräts, nur eigene Geräte. --raus geht nur zu deinem --ziel.",
+    ),
+    (
+        "bonjour",
+        "bonjour --txt",
+        "Fragt per Multicast (mDNS) im eigenen Netz.",
+    ),
+    (
+        "upnp",
+        "upnp",
+        "Fragt per Multicast (SSDP) im eigenen Netz und lädt die Beschreibung vom Gerät selbst.",
+    ),
+    (
+        "offen",
+        "offen --json",
+        "Liest nur diesen Rechner, sendet nichts. --aussen fragt zusätzlich von außen.",
+    ),
+    (
+        "verbindungen",
+        "verbindungen --programm Safari",
+        "Liest nur diesen Rechner, sendet nichts.",
+    ),
+    (
+        "woher",
+        "woher 8080",
+        "Liest nur diesen Rechner, sendet nichts.",
+    ),
+    (
+        "traffic",
+        "traffic --sekunden 10",
+        "Liest nur Zähler dieses Rechners, sendet nichts.",
+    ),
+];
+
+/// Bricht `text` bei `BREITE` Zeichen um (zählt Zeichen, nicht Bytes). Ohne Zeilenumbruch am Ende.
+fn umbrechen(text: &str, erste: &str, folge: &str) -> String {
+    let (mut aus, mut zeile, mut leer) = (String::new(), erste.to_string(), true);
+    for wort in text.split_whitespace() {
+        if !leer && zeile.chars().count() + 1 + wort.chars().count() > BREITE {
+            aus += &zeile;
+            aus.push('\n');
+            (zeile, leer) = (folge.to_string(), true);
+        }
+        if !leer {
+            zeile.push(' ');
+        }
+        zeile += wort;
+        leer = false;
+    }
+    aus + &zeile
+}
 
 fn help() -> String {
     let breite = GRUPPEN
@@ -198,11 +389,20 @@ fn help() -> String {
         .flat_map(|(_, z)| z.iter())
         .map(|(a, _)| a.chars().count())
         .max()
-        .unwrap_or(0);
+        .unwrap_or(0)
+        .min(SPALTE_MAX);
     let mut s = String::from(
         "Netzinfo: kennt jedes Netz, in dem dein Mac war, und meldet, was anders ist.\n\n\
-         Aufruf: netzinfo <Befehl> [Optionen]\n",
+         Aufruf: netzinfo <Befehl> [Optionen]\n\nFang mit `netzinfo hier` an:\n",
     );
+    let w = BEISPIELE
+        .iter()
+        .map(|(a, _)| a.chars().count())
+        .max()
+        .unwrap_or(0);
+    for (a, t) in BEISPIELE {
+        s += &spalten("  netzinfo ", a, w, t);
+    }
     for (titel, zeilen) in GRUPPEN {
         s += &format!("\n{titel}:\n");
         for (aufruf, text) in *zeilen {
@@ -218,7 +418,7 @@ fn help() -> String {
         ("-V, --version", "Version anzeigen"),
         (
             "-h, --help",
-            "Diese Hilfe; `netzinfo <Befehl> --help` zeigt nur die Zeilen dieses Befehls",
+            "Diese Hilfe; `netzinfo <Befehl> --help` zeigt nur den Befehl",
         ),
     ] {
         s += &spalten("  ", o, breite, t);
@@ -231,40 +431,47 @@ fn help() -> String {
     ] {
         s += &spalten("  ", c, 1, t);
     }
-    s += "\nBeispiele:\n";
-    let w = BEISPIELE
-        .iter()
-        .map(|(a, _)| a.chars().count())
-        .max()
-        .unwrap_or(0);
-    for (a, t) in BEISPIELE {
-        s += &spalten("  netzinfo ", a, w, t);
-    }
     s
 }
 
 /// Eine Tabellenzeile `vor`, linke Spalte auf `breite` Zeichen, rechte Spalte umgebrochen und
-/// unter sich eingerückt. Endet mit Zeilenumbruch.
+/// unter sich eingerückt. Ist `links` breiter, steht der Text eingerückt darunter. Endet mit
+/// Zeilenumbruch.
 fn spalten(vor: &str, links: &str, breite: usize, text: &str) -> String {
+    if links.chars().count() > breite {
+        return gestapelt(vor, links, text);
+    }
     let erste = format!("{vor}{links:<breite$}  ");
     let folge = " ".repeat(erste.chars().count());
-    netzinfo::umbruch(text, &erste, &folge) + "\n"
+    umbrechen(text, &erste, &folge) + "\n"
 }
 
-/// Hilfe für einen Befehl: seine Zeilen aus `GRUPPEN`, sonst `None`.
+/// `links` allein in einer Zeile, `text` darunter, vier Zeichen weiter eingerückt.
+fn gestapelt(vor: &str, links: &str, text: &str) -> String {
+    format!("{vor}{links}\n{}\n", umbrechen(text, "      ", "      "))
+}
+
+/// Hilfe für einen Befehl: seine Zeilen aus `GRUPPEN`, dazu Beispiel und Netzwirkung, sonst `None`.
 fn befehlshilfe(name: &str) -> Option<String> {
     let zeilen: Vec<_> = GRUPPEN
         .iter()
         .flat_map(|(_, z)| z.iter())
         .filter(|(a, _)| a.split_whitespace().next() == Some(name))
         .collect();
-    let breite = zeilen.iter().map(|(a, _)| a.chars().count()).max()?;
+    if zeilen.is_empty() {
+        return None;
+    }
     let mut s = String::from("Aufruf:\n");
     for (a, t) in zeilen {
-        s += &spalten("  netzinfo ", a, breite, t);
+        s += &gestapelt("  netzinfo ", a, t);
+    }
+    if let Some((_, beispiel, netz)) = DETAILS.iter().find(|(b, _, _)| *b == name) {
+        s += &format!("\nBeispiel:\n  netzinfo {beispiel}\n\nIm Netz:\n");
+        s += &umbrechen(netz, "  ", "  ");
+        s += "\n";
     }
     s += "\n";
-    s += &netzinfo::umbruch(
+    s += &umbrechen(
         "`--erklaer` erklärt bei jedem Schritt, was im Netz passiert. `netzinfo --help` zeigt alle Befehle.",
         "",
         "",
@@ -286,27 +493,17 @@ fn befehle() -> Vec<&'static str> {
     v
 }
 
-fn levenshtein(a: &str, b: &str) -> usize {
-    let b: Vec<char> = b.chars().collect();
-    let mut row: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.chars().enumerate() {
-        let mut diag = row[0];
-        row[0] = i + 1;
-        for (j, cb) in b.iter().enumerate() {
-            let alt = row[j + 1];
-            row[j + 1] = (diag + usize::from(ca != *cb)).min(row[j] + 1).min(alt + 1);
-            diag = alt;
-        }
-    }
-    row[b.len()]
-}
-
 /// Nächster Befehl, wenn der Abstand klein ist (höchstens 2 und kleiner als die Eingabelänge).
 fn aehnlich(eingabe: &str) -> Option<&'static str> {
     let n = eingabe.chars().count();
     befehle()
         .into_iter()
-        .map(|b| (levenshtein(&eingabe.to_lowercase(), b), b))
+        .map(|b| {
+            (
+                netzinfo::optionen::levenshtein(&eingabe.to_lowercase(), b),
+                b,
+            )
+        })
         .filter(|(d, _)| *d <= 2 && *d < n)
         .min_by_key(|(d, _)| *d)
         .map(|(_, b)| b)
@@ -403,12 +600,17 @@ fn main() -> ExitCode {
             Ok(())
         }
         "-V" | "--version" => {
-            println!("netzinfo {}", env!("CARGO_PKG_VERSION"));
+            println!("netzinfo {} ({})", env!("CARGO_PKG_VERSION"), ziel());
             Ok(())
         }
         other if other.starts_with('-') => {
+            let tipp =
+                match netzinfo::optionen::aehnlich(other, &["--erklaer", "--version", "--help"]) {
+                    Some(o) => format!("Meintest du `{o}`? "),
+                    None => String::new(),
+                };
             eprintln!(
-                "Unbekannte Option „{other}“. `netzinfo --help` zeigt alle Befehle und Optionen."
+                "Unbekannte Option „{other}“. {tipp}`netzinfo --help` zeigt alle Befehle und Optionen."
             );
             return ExitCode::from(2);
         }
@@ -432,6 +634,17 @@ fn main() -> ExitCode {
             ExitCode::from(if bedienfehler { 2 } else { 1 })
         }
     }
+}
+
+/// Das Ziel dieses Baus, so wie die Release-Dateien heißen (`aarch64-apple-darwin`).
+fn ziel() -> String {
+    let os = match std::env::consts::OS {
+        "macos" => "apple-darwin".to_string(),
+        "linux" if cfg!(target_env = "musl") => "unknown-linux-musl".to_string(),
+        "linux" => "unknown-linux-gnu".to_string(),
+        andere => andere.to_string(),
+    };
+    format!("{}-{os}", std::env::consts::ARCH)
 }
 
 /// Removes `flag` from `args` and reports whether it was there.
@@ -460,7 +673,7 @@ mod tests {
         assert_eq!(aehnlich("wlann"), Some("wlan"));
         assert_eq!(aehnlich("xyzzy"), None);
         assert_eq!(aehnlich("h"), None);
-        assert_eq!(levenshtein("kitten", "sitting"), 3);
+        assert_eq!(netzinfo::optionen::levenshtein("kitten", "sitting"), 3);
     }
 
     #[test]
@@ -562,6 +775,38 @@ mod tests {
         for z in alle.iter().flat_map(|h| h.lines()) {
             assert!(z.chars().count() <= netzinfo::ZEILE_MAX, "{z}");
         }
+    }
+
+    #[test]
+    fn jeder_befehl_hat_beispiel_und_netzangabe() {
+        for b in befehle() {
+            let d = DETAILS.iter().find(|(n, _, _)| *n == b);
+            let (_, beispiel, netz) = d.unwrap_or_else(|| panic!("{b} ohne DETAILS"));
+            assert_eq!(beispiel.split_whitespace().next(), Some(b), "{beispiel}");
+            assert!(!netz.is_empty());
+        }
+        assert_eq!(DETAILS.len(), befehle().len(), "DETAILS mit totem Befehl");
+    }
+
+    #[test]
+    fn hilfe_passt_in_80_spalten() {
+        let mut alle = vec![help()];
+        alle.extend(befehle().into_iter().filter_map(befehlshilfe));
+        for z in alle.iter().flat_map(|h| h.lines()) {
+            assert!(z.chars().count() <= BREITE, "{z}");
+        }
+        let h = help();
+        let einstieg = h.find("Fang mit `netzinfo hier` an").unwrap();
+        assert!(einstieg < h.find("Dieses Netz:").unwrap());
+    }
+
+    #[test]
+    fn ziel_nennt_architektur_und_system() {
+        let z = ziel();
+        assert!(
+            z.starts_with(std::env::consts::ARCH) && z.matches('-').count() >= 2,
+            "{z}"
+        );
     }
 
     #[test]
