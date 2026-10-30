@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Version in tauri.conf.json und beiden Cargo.toml muss zusammenpassen, bei Tag-Lauf auch zum Tag.
+      # Version in tauri.conf.json und beiden Cargo.toml muss zusammenpassen, bei Tag-Lauf auch zum Tag. Dazu der Text aus CHANGELOG.md.
       - name: Version prüfen
         run: |
           v=$(jq -r .version app/tauri.conf.json)
@@ -69,6 +69,11 @@ jobs:
             test "v$v" = "$GITHUB_REF_NAME" || { echo "::error::Tag $GITHUB_REF_NAME passt nicht zu Version $v"; exit 1; }
           fi
           echo "TAG=v$v" >> "$GITHUB_ENV"
+
+          # Text des Entwurfs: der Abschnitt "## [<Version>]" aus CHANGELOG.md, ohne Überschrift. Fehlt er oder ist leer, bricht der Lauf ab.
+          awk -v kopf="## [$v]" 'index($0, kopf) == 1 { drin = 1; next } drin && /^## / { exit } drin' CHANGELOG.md > "$RUNNER_TEMP/notizen.md"
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/notizen.md" || { echo "::error::CHANGELOG.md hat keinen Abschnitt '## [$v]' mit Inhalt"; exit 1; }
+          echo "NOTIZEN=$RUNNER_TEMP/notizen.md" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -106,7 +111,7 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" out/* --draft --title "Netzinfo $TAG" --generate-notes --verify-tag
+        run: gh release create "$TAG" out/* --draft --title "Netzinfo $TAG" --notes-file "$NOTIZEN" --verify-tag
 
       # Probelauf per workflow_dispatch: dieselben Dateien als Artefakt am Lauf, kein Release.
       - name: Artefakt hochladen (Probelauf)
