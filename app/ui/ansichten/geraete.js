@@ -7,8 +7,34 @@
     22: 'SSH', 53: 'DNS', 80: 'Web', 443: 'Web (TLS)', 445: 'Dateifreigabe (SMB)', 548: 'Dateifreigabe (AFP)',
     631: 'Drucker (IPP)', 7000: 'AirPlay', 8009: 'Cast', 9100: 'Drucker (RAW)', 62078: 'iPhone-Sync',
   };
-  // IPv4 as one number, so 192.168.178.9 sorts before 192.168.178.10.
-  const ipZahl = (ip) => ip.split('.').reduce((s, o) => s * 256 + Number(o), 0);
+  // Sort key per address: IPv4 numeric (192.0.2.9 before 192.0.2.10), then IPv6 group by group.
+  const v6 = (ip) => {
+    const [a, b] = ip.split('::');
+    const teil = (t) => (t ? t.split(':') : []);
+    const l = teil(a);
+    const r = b === undefined ? [] : teil(b);
+    return [...l, ...Array(Math.max(0, 8 - l.length - r.length)).fill('0'), ...r].map((g) => parseInt(g, 16) || 0);
+  };
+  const ipSchluessel = (ip) => {
+    const s = String(ip ?? '').split('%')[0];
+    return s.includes(':') ? [6, ...v6(s)] : [4, ...s.split('.').map((o) => Number(o) || 0)];
+  };
+  const ipVergleich = (a, b) => {
+    const x = ipSchluessel(a);
+    const y = ipSchluessel(b);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] ?? 0) - (y[i] ?? 0); if (d) return d; }
+    return 0;
+  };
+  // Lookups with names from outside (type, port, state): „constructor“ must not find Object.prototype.
+  const nach = (tabelle, schluessel) => (Object.hasOwn(tabelle, schluessel) ? tabelle[schluessel] : undefined);
+  // The shell cannot cancel a command, but a view must not wait forever: after the limit the button is free again.
+  Netz.geraeteLimit = { suche: 180000, router: 30000, speichern: 20000 };
+  const mitLimit = (versprechen, ms) => {
+    let uhr;
+    const ende = new Promise((_, nein) => { uhr = setTimeout(() => nein('Das dauert ungewöhnlich lange. Prüfe die Verbindung zum Netz und versuche es noch einmal.'), ms); });
+    return Promise.race([versprechen, ende]).finally(() => clearTimeout(uhr));
+  };
+  const SEITE = 60; // cards drawn at once; a /24 has up to 254
 
   const E = {
     abgelehnt: 'Wenn du an einen Port klopfst und die Verbindung aktiv abgelehnt wird, hat ein laufendes Gerät geantwortet: Nur ein Gerät kann diese Ablehnung (ein RST-Paket) schicken. Auch ohne offenen Port beweist sie also, dass dort jemand ist.',
@@ -37,8 +63,11 @@
 
   // Card = one stored device (Rust: geraetekarte::Karte). All texts about the device come from the core.
   const TYPEN = ['Router', 'Drucker', 'Medien', 'Smart Home', 'Computer', 'Handy', 'Unbekannt'];
+  // A type the view does not know (new core, foreign data) counts and shows as „Unbekannt“, never as a raw word.
+  const sorte = (k) => (TYPEN.includes(k.typ) ? k.typ : 'Unbekannt');
   let filter = null; // null = all types
   let karten = [];
+  let anzahl = SEITE; // how many cards are drawn
   let markiert = new Map(); // ip -> 'neu' | 'weg', from the last search
   const ZUFALL = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M2 11.5h2.5c1 0 1.8-1 2.5-2.2M9 6.2c.7-1 1.5-1.7 2.5-1.7H14M12.5 3 14 4.5 12.5 6M12.5 10 14 11.5 12.5 13"/></svg>';
 
@@ -56,21 +85,27 @@
   function bearbeiten(k, zu) {
     const nid = neueId('name');
     const tid = neueId('typ');
-    const name = el('input', { id: nid, type: 'text', value: k.von_mia?.name ?? '', maxlength: '60', placeholder: k.anzeigename, autocomplete: 'off' });
+    const name = el('input', { id: nid, type: 'text', value: k.von_mia?.name ?? '', maxlength: '60', placeholder: k.anzeigename || k.ip, autocomplete: 'off' });
     const typ = el('select', { id: tid }, el('option', { value: '', text: 'Typ automatisch' }),
       TYPEN.slice(0, -1).map((t) => el('option', { value: t, text: t, selected: k.von_mia?.typ === t })));
     const fehler = el('div', { id: neueId('fehler') });
     const speichern = el('button', { class: 'knopf haupt', type: 'submit', text: 'Speichern' });
     return el('form', {
-      class: 'karte-formular', 'aria-label': `Name und Typ ändern: ${k.anzeigename}`,
+      class: 'karte-formular', 'aria-label': `Name und Typ ändern: ${k.anzeigename || k.ip}`,
       onsubmit: async (e) => {
         e.preventDefault();
         speichern.disabled = true;
         ohneFehler([name, typ]);
         try {
-          await Netz.invoke('geraet_setzen', { schluessel: k.mac || k.ip, name: name.value, typ: typ.value });
-          karten = await Netz.invoke('geraete_karten');
-          zeichne(`[data-schluessel="${k.mac || k.ip}"]`);
+          await mitLimit(Netz.invoke('geraet_setzen', { schluessel: k.mac || k.ip, name: name.value.trim(), typ: typ.value }), Netz.geraeteLimit.speichern);
+          try {
+            karten = await Netz.invoke('geraete_karten');
+          } catch (f) { // saved, only the list did not reload: say so instead of „not saved“
+            speichern.disabled = false;
+            kartenOrt.replaceChildren(Netz.fehlerKarte(`Gespeichert, aber die Liste lässt sich nicht neu laden. ${Netz.text(f)}`, ladeKarten));
+            return;
+          }
+          zeichne(`[data-schluessel="${CSS.escape(k.mac || k.ip)}"]`);
         } catch (f) {
           fehler.replaceChildren(meldung(Netz.text(f), 'rot'));
           amFeld([name, typ], fehler);
@@ -92,12 +127,12 @@
   function angebote(k) {
     const nachPort = new Map((k.ports ?? []).map((p) => [p, []]));
     const ohnePort = [];
-    for (const d of k.dienste) {
+    for (const d of k.dienste ?? []) {
       const name = d.instanz || d.typ;
       if (!d.port) ohnePort.push(name);
       else nachPort.set(d.port, [...(nachPort.get(d.port) ?? []), name]);
     }
-    return [...nachPort].sort((x, y) => x[0] - y[0]).map(([port, namen]) => [String(port), DIENSTE[port] ?? 'unbekannter Dienst', [...new Set(namen)].join(', ')])
+    return [...nachPort].sort((x, y) => x[0] - y[0]).map(([port, namen]) => [String(port), nach(DIENSTE, port) ?? 'unbekannter Dienst', [...new Set(namen)].join(', ')])
       .concat(ohnePort.map((n) => ['', n, '']));
   }
 
@@ -106,16 +141,16 @@
       : `Seit ${zeit(k.first_seen)}, zuletzt ${zeit(k.last_seen)}, ${k.besuche} Besuche`;
   }
 
-  function karte(k) {
+  function karte(k, nr) {
     const tag = markiert.get(k.ip);
     const wort = tag === 'neu' ? ['gruen', 'neu'] : tag === 'weg' ? ['orange', 'nicht gefunden'] : null;
     const formular = el('div', { class: 'karte-bearbeiten' });
-    const hinweise = k.hinweise.filter((h) => !doppelt(k, h));
+    const hinweise = (k.hinweise ?? []).filter((h) => !doppelt(k, h));
     const liste = angebote(k);
     // One grid: the symbol column runs through the whole card, so all text shares one left edge.
     const aendern = el('button', {
       class: 'knopf leise', type: 'button', text: 'Name und Typ ändern', 'data-schluessel': k.mac || k.ip,
-      'aria-label': `Name und Typ ändern: ${k.anzeigename}`,
+      'aria-label': `Name und Typ ändern: ${k.anzeigename || k.ip}`,
       onclick: (e) => {
         const knopf = e.currentTarget;
         knopf.hidden = true;
@@ -124,26 +159,26 @@
       },
     });
     const kid = neueId('karte');
-    return el('div', { class: k.gateway ? 'karte karte-breit' : 'karte', role: 'group', 'aria-labelledby': kid },
-      el('span', { class: 'karte-symbol', html: SYMBOLE[k.typ] ?? SYMBOLE.Unbekannt, 'aria-hidden': 'true' }),
+    return el('div', { class: k.gateway ? 'karte karte-breit' : 'karte', role: 'group', 'aria-labelledby': kid, tabindex: '-1', 'data-nr': String(nr) },
+      el('span', { class: 'karte-symbol', html: SYMBOLE[sorte(k)], 'aria-hidden': 'true' }),
       el('div', { class: 'karte-kopf' },
         el('div', { class: 'text' },
-          el('h3', { class: 'netz-name', id: kid, text: k.anzeigename }),
+          el('h3', { class: 'netz-name', id: kid, text: k.anzeigename || k.ip || 'Gerät ohne Namen' }),
           el('div', { class: 'fein' },
             el('span', { text: k.hersteller || 'Hersteller unbekannt' }),
             k.namequelle && el('span', { text: `Name: ${k.namequelle}` }),
             k.mac_zufaellig && el('span', { class: 'zufall' }, el('span', { html: ZUFALL }), el('span', { text: 'Zufällige Adresse' })))),
         el('div', { class: 'karte-rechts' },
-          el('span', { class: 'karte-typ', text: k.typ }),
+          el('span', { class: 'karte-typ', text: sorte(k) }),
           wort && el('span', { class: 'status geraet-status' }, el('span', { class: `punkt ${wort[0]}` }), el('span', { text: wort[1] })))),
       el('div', { class: 'fein num', text: [k.ip, k.mac && `MAC ${k.mac}`].filter(Boolean).join(' · ') }),
-      k.upnp && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
+      k.upnp && [k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].some(Boolean) && el('div', { class: 'fein', text: `UPnP: ${[k.upnp.modell, k.upnp.geraetetyp?.split(':')[3]].filter(Boolean).join(' · ')}` }),
       k.router && el('div', { class: 'fein', text: `${k.router.nur_router ? 'Nur vom Router bekannt' : 'Router'}: ${[k.router.verbindung !== 'unbekannt' && k.router.verbindung, k.router.aktiv ? 'aktiv' : 'nicht verbunden'].filter(Boolean).join(', ')}` }),
       el('div', { class: 'fein', text: zeiten(k) }),
       liste.length > 0 && el('ul', { class: 'karte-ports', role: 'list', 'aria-label': 'Offene Ports und Dienste' },
         liste.map(([port, name, wer]) => el('li', {}, el('span', { class: 'num', text: port }), el('span', {}, name, wer && el('span', { class: 'marke', text: ` · ${wer}` }))))),
       hinweise.length > 0 && el('ul', { class: 'karte-hinweise', role: 'list', 'aria-label': 'Hinweise' }, hinweise.map((h) => el('li', { text: h }))),
-      el('p', { class: 'erklaerung', text: k.erklaerung }),
+      k.erklaerung && el('p', { class: 'erklaerung', text: k.erklaerung }),
       k.gateway ? el('div', { class: 'karte-aktionen' }, routerKnoepfe()) : null,
       k.gateway && routerOrt,
       el('div', { class: 'karte-aktionen' }, aendern),
@@ -202,7 +237,7 @@
     const lauf = (knopf, ort, ruf, zeige, fertig) => async () => {
       knopf.disabled = true;
       try {
-        const r = await ruf();
+        const r = await mitLimit(ruf(), Netz.geraeteLimit.router);
         zeige(r);
         ansage(fertig(r));
       } catch (f) {
@@ -236,6 +271,7 @@
     if (!fritz.erkannt || !fritz.geladen) { fritzOrt.replaceChildren(); return; }
     const teile = [el('h4', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
     const e = fritz.ergebnis;
+    const bekannt = nach(FRITZ_ZUSTAND, e?.zustand);
     const zuEinstellungen = (text) => el('button', { class: 'knopf fritz-einrichten', type: 'button', text, onclick: () => Netz.fritzEintragen() });
     if (!fritz.benutzer) {
       teile.push(el('div', { class: 'fein', text: 'Die Fritz!Box kennt jedes Gerät im Heimnetz, auch die, die auf keinen Scan antworten. Dafür braucht Netzinfo einen eigenen Zugang. Den trägst du in den Einstellungen ein.' }),
@@ -247,10 +283,13 @@
       if (fritz.laeuft) teile.push(el('div', { class: 'fein', text: 'Lese die Liste …' }));
       else if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), fritz.fehler?.art === 'nicht_meins' ? 'orange' : 'rot'));
       else if (e?.zustand === 'ok') {
-        teile.push(status('gruen', `${e.gefunden} ${e.gefunden === 1 ? 'Gerät' : 'Geräte'} vom Router gelesen`),
+        const gefunden = e.gefunden ?? 0;
+        teile.push(status('gruen', `${gefunden} ${gefunden === 1 ? 'Gerät' : 'Geräte'} vom Router gelesen`),
           el('div', { class: 'fein', text: e.neu ? `${e.neu} ${e.neu === 1 ? 'davon war' : 'davon waren'} neu in deiner Liste.` : 'Alle waren schon in deiner Liste.' }));
-      } else if (e && FRITZ_ZUSTAND[e.zustand]) {
-        teile.push(status(...FRITZ_ZUSTAND[e.zustand]), el('div', { class: 'fein', text: e.satz }));
+      } else if (e && bekannt) {
+        teile.push(status(...bekannt), el('div', { class: 'fein', text: e.satz }));
+      } else if (e) { // a state this view does not know: say so instead of showing nothing
+        teile.push(status('orange', 'Antwort nicht verstanden'), el('div', { class: 'fein', text: e.satz || 'Die Fritz!Box hat etwas geantwortet, das Netzinfo nicht kennt. Versuche es noch einmal.' }));
       }
     }
     teile.push(el('p', { class: 'erklaerung', text: E.fritz }));
@@ -259,10 +298,11 @@
   }
 
   async function fritzLesen() {
+    if (fritz.laeuft) return; // a second click or the end of a search must not start a second read
     Object.assign(fritz, { laeuft: true, fehler: null });
     fritzZeichne();
     try {
-      fritz.ergebnis = await Netz.invoke('fritzbox_lesen');
+      fritz.ergebnis = await mitLimit(Netz.invoke('fritzbox_lesen'), Netz.geraeteLimit.router);
       if (fritz.ergebnis.zustand === 'ok') karten = await Netz.invoke('geraete_karten');
     } catch (f) {
       Object.assign(fritz, { ergebnis: null, fehler: f });
@@ -271,12 +311,12 @@
     zeichne();
     fritzZeichne('.fritz-lesen');
     const e = fritz.ergebnis;
-    ansage(fritz.fehler ? 'Geräteliste der Fritz!Box nicht gelesen.' : e?.zustand === 'ok' ? `Geräteliste der Fritz!Box gelesen: ${e.gefunden} ${e.gefunden === 1 ? 'Gerät' : 'Geräte'}, ${e.neu} neu.` : `Geräteliste der Fritz!Box nicht gelesen: ${FRITZ_ZUSTAND[e?.zustand]?.[1] ?? 'unbekannter Fehler'}.`);
+    ansage(fritz.fehler ? 'Geräteliste der Fritz!Box nicht gelesen.' : e?.zustand === 'ok' ? `Geräteliste der Fritz!Box gelesen: ${e.gefunden} ${e.gefunden === 1 ? 'Gerät' : 'Geräte'}, ${e.neu} neu.` : `Geräteliste der Fritz!Box nicht gelesen: ${nach(FRITZ_ZUSTAND, e?.zustand)?.[1] ?? 'Antwort nicht verstanden'}.`);
   }
 
   async function fritzLaden() {
     try {
-      fritz.benutzer = await Netz.invoke('fritzbox_zugang');
+      fritz.benutzer = await mitLimit(Netz.invoke('fritzbox_zugang'), Netz.geraeteLimit.router);
     } catch (f) {
       fritz.fehler = f;
     }
@@ -286,22 +326,30 @@
 
   const kartenOrt = el('div', { class: 'karten-ort' });
   function zeichne(fokus) {
-    const vorhanden = new Set(karten.map((k) => k.typ));
+    const vorhanden = new Set(karten.map(sorte));
     if (filter && !vorhanden.has(filter)) filter = null;
-    const sicht = karten.filter((k) => !filter || k.typ === filter);
+    // Newest first; devices seen in the same scan keep a stable order by address.
+    const sicht = karten.filter((k) => !filter || sorte(k) === filter)
+      .sort((a, b) => (b.last_seen ?? 0) - (a.last_seen ?? 0) || ipVergleich(a.ip, b.ip));
     const chip = (t) => el('button', {
-      class: 'chip', type: 'button', 'aria-pressed': String(filter === t), onclick: () => { filter = t; zeichne(`.chip[data-filter="${t ?? ''}"]`); ansage(`${t ?? 'Alle'}: ${karten.filter((k) => !t || k.typ === t).length} Geräte angezeigt.`); }, 'data-filter': t ?? '',
-      text: t === null ? `Alle ${karten.length}` : `${t} ${karten.filter((k) => k.typ === t).length}`,
+      class: 'chip', type: 'button', 'aria-pressed': String(filter === t), onclick: () => { filter = t; anzahl = SEITE; zeichne(`.chip[data-filter="${t ?? ''}"]`); ansage(`${t ?? 'Alle'}: ${karten.filter((k) => !t || sorte(k) === t).length} Geräte angezeigt.`); }, 'data-filter': t ?? '',
+      text: t === null ? `Alle ${karten.length}` : `${t} ${karten.filter((k) => sorte(k) === t).length}`,
     });
     if (!karten.length) {
       kartenOrt.replaceChildren(leerZustand(Netz.icons.geraete, 'Noch keine Geräte gemerkt. „Netz absuchen“ legt für jedes gefundene Gerät eine Karte an.', 'geraete'));
       return;
     }
-    kartenOrt.replaceChildren(
+    kartenOrt.replaceChildren(...[
       el('div', { class: 'filter', role: 'group', 'aria-label': 'Nach Typ filtern' },
         [null, ...TYPEN.filter((t) => vorhanden.has(t))].map(chip)),
       el('p', { class: 'fuss', text: 'Zuletzt gesehen zuerst. Der Typ ist eine Vermutung aus dem, was ein Gerät selbst ankündigt.' }),
-      el('section', { class: 'karten', 'aria-label': 'Gerätekarten' }, sicht.map(karte)));
+      el('section', { class: 'karten', 'aria-label': 'Gerätekarten' }, sicht.slice(0, anzahl).map((k, nr) => karte(k, nr))),
+      sicht.length <= anzahl ? null : el('div', { class: 'karten-mehr' },
+        el('p', { class: 'fuss', text: `${anzahl} von ${sicht.length} Geräten angezeigt.` }),
+        el('button', {
+          class: 'knopf', type: 'button', text: `Weitere ${Math.min(SEITE, sicht.length - anzahl)} anzeigen`,
+          onclick: () => { const erste = anzahl; anzahl += SEITE; zeichne(`.karte[data-nr="${erste}"]`); ansage(`${Math.min(anzahl, sicht.length)} von ${sicht.length} Geräten angezeigt.`); },
+        }))].filter(Boolean));
     if (fokus) kartenOrt.querySelector(fokus)?.focus(); // das Neuzeichnen darf den Fokus nicht ins Leere schicken
   }
 
@@ -332,6 +380,7 @@
     icon: Netz.icons.geraete,
     aktualisieren: false, // „Netz absuchen“ lädt die Karten ebenfalls neu
     async render(wurzel) {
+      anzahl = SEITE;
       fritz.geladen = false; // der Zugang kann in den Einstellungen geändert worden sein
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: letztes ? 'Netz noch mal absuchen' : 'Netz absuchen' });
       const fortschritt = el('p', { class: 'fuss fortschritt' });
@@ -342,14 +391,24 @@
         ort.replaceChildren();
         let bereich = 'deinem Netz';
         try {
-          const s = (await Netz.invoke('dieses_netz')).info.subnet;
+          const s = (await mitLimit(Netz.invoke('dieses_netz'), Netz.geraeteLimit.router)).info.subnet;
           if (s) bereich = `${s.network}/${s.prefix}`;
+          // The app searches the whole own subnet and has no „--gross“; the core refuses above /22 (src/geraete.rs).
+          if (s && s.prefix < 22) {
+            ort.replaceChildren(meldung(`Dein Netz ${bereich} ist sehr groß (über 1000 Adressen). Die App sucht nur in Netzen bis /22, damit sie das Netz nicht belastet. Auf der Kommandozeile geht \`netzinfo geraete --gross\`.`, 'orange'));
+            ansage('Suche nicht gestartet: Das Netz ist zu groß.');
+            knopf.disabled = false;
+            knopf.focus();
+            return;
+          }
         } catch { /* the sentence stays general, the search itself reports real problems */ }
         fortschritt.textContent = `Suche in ${bereich} …`;
         ansage(`Suche in ${bereich} läuft.`);
         try {
-          laufend ??= Netz.invoke('geraete_suchen', { cidr: null, gross: false }).finally(() => { laufend = null; });
+          // ponytail: a hung search is only given up on in the view (the shell cannot cancel), a late result is dropped.
+          laufend ??= mitLimit(Netz.invoke('geraete_suchen', { cidr: null, gross: false }), Netz.geraeteLimit.suche).finally(() => { laufend = null; });
           letztes = await laufend;
+          if (!knopf.isConnected) return; // the view was left: the next visit shows `letztes`, no second read of the router
           ort.replaceChildren(...ergebnis(letztes).filter(Boolean));
           ansage(`Suche fertig: ${ort.querySelector('.status')?.textContent}.`);
           await ladeKarten();
