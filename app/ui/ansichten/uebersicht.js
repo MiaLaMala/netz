@@ -14,14 +14,14 @@
     'Öffentliche IP': 'die öffentliche IP hat gewechselt',
     WLAN: 'das WLAN ist anders',
   };
-  const satzteil = (t) => SATZ[t] ?? (t.startsWith('Zertifikat von ') ? `das ${t} ist anders` : 'etwas ist anders');
+  const satzteil = (t) => SATZ[t] ?? (String(t).startsWith('Zertifikat von ') ? `das ${t} ist anders` : 'etwas ist anders');
 
   // Die Lage in einem Satz: { farbe, satz, mehr, fuss, fehler, portal }.
   function lage(d, vpn) {
     const p = Netz.pruefung;
     const { z } = p;
     const erg = z.erg;
-    const nm = d.netz?.name;
+    const nm = d.netz?.name || 'dieses Netz'; // ein Name aus nichts als Leerstellen oder ohne Namen bleibt lesbar
     if (d.erkennung_fehler) {
       return { farbe: 'grau', satz: vpn ? 'Du bist über ein VPN verbunden, das Netz dahinter lässt sich nicht wiedererkennen.' : 'Dieses Netz lässt sich nicht wiedererkennen.', fuss: d.erkennung_fehler };
     }
@@ -48,8 +48,11 @@
       const h = b.find((x) => x[0] === 'rot') ?? b[0];
       return { farbe: h[0], satz: `${nm}: ${h[2]}`, mehr: [...b.filter((x) => x !== h).map(([f, w, t]) => status(f, `${w}. ${t}`)), ...wartet] }; // dieselbe Liste b, sonst bliebe h doppelt
     }
-    if (misst) return { farbe: 'grau', satz: `Bisher ist bei ${nm} nichts anders als am ${zeit(erg.vorher.time)}.`, mehr: wartet };
-    return { farbe: 'gruen', satz: `Das ist ${nm}, wie beim letzten Besuch am ${zeit(erg.vorher.time)}.`, mehr: [z.sni?.unklar && status('grau', 'Der Webfilter ließ sich nicht beurteilen.')] };
+    const seit = Number.isFinite(erg.vorher?.time) ? `am ${zeit(erg.vorher.time)}` : 'beim letzten Besuch';
+    if (misst) return { farbe: 'grau', satz: `Bisher ist bei ${nm} nichts anders als ${seit}.`, mehr: wartet };
+    // Eine Prüfung, die selbst fehlschlug, ist kein „alles gut“.
+    if (p.luecken()) return { farbe: 'grau', satz: `Bei ${nm} ist nichts anders als ${seit}, aber ${p.luecken()}.` };
+    return { farbe: 'gruen', satz: `Das ist ${nm}, wie ${Number.isFinite(erg.vorher?.time) ? `beim letzten Besuch am ${zeit(erg.vorher.time)}` : 'beim letzten Besuch'}.`, mehr: [z.sni?.unklar && status('grau', 'Der Webfilter ließ sich nicht beurteilen.')] };
   }
 
   // Die fünf Werte: Netz, Adresse, Router, DNS, Signal. Das Wort „gut“ steht im Wert, die Farbe verstärkt es nur.
@@ -57,15 +60,16 @@
     const i = d.info;
     const E = Netz.dieses.E;
     const st = funk && Netz.dieses.staerkeVon(funk.rssi_dbm);
-    const dns = i.system_dns.length > 1 ? `${i.system_dns[0]} und ${i.system_dns.length - 1} ${i.system_dns.length === 2 ? 'weiterer' : 'weitere'}` : i.system_dns[0];
+    const sd = Netz.dieses.liste(i.system_dns);
+    const dns = sd.length > 1 ? `${sd[0]} und ${sd.length - 1} ${sd.length === 2 ? 'weiterer' : 'weitere'}` : sd[0];
     const signal = zeile('Signal', funk ? (st ? `${funk.rssi_dbm} dBm, ${st}` : null) : vpn ? 'VPN-Tunnel' : 'Kabel',
       funk ? 'Das Signal liegt bei einer Zahl unter null. Je näher an null, desto besser, ab minus 70 dBm wird es merklich schlechter.' : 'Ohne Funk gibt es kein Signal, das Kabel ist die Verbindung.');
     if (st) signal.querySelector('.wert').classList.add({ gut: 'gut', mittel: 'mittel', schwach: 'schlecht' }[st]);
     return gruppe('Auf einen Blick', [
-      zeile('Netz', funk?.ssid ?? d.netz?.name ?? (funk ? 'WLAN' : vpn ? 'VPN-Tunnel' : 'Kabel'), 'Der Name des WLANs, sonst der Name, unter dem du das Netz gemerkt hast.'),
-      zeile('Adresse', i.ip, E.ip(i.dhcp_server != null)),
-      zeile('Router', i.router, E.router),
-      zeile('DNS', dns, E.systemDns(i.system_dns.includes('100.100.100.100'))),
+      zeile('Netz', (Netz.dieses.ssidOk(funk?.ssid) ? funk.ssid : null) ?? (d.netz?.name || null) ?? (funk ? 'WLAN' : vpn ? 'VPN-Tunnel' : 'Kabel'), 'Der Name des WLANs, sonst der Name, unter dem du das Netz gemerkt hast.'),
+      zeile('Adresse', i.ip ?? 'keine IPv4-Adresse', E.ip(i.dhcp_server != null)),
+      zeile('Router', i.router ?? 'kein IPv4-Router', E.router),
+      zeile('DNS', dns, E.systemDns(sd.includes('100.100.100.100'))),
       signal,
     ]);
   }
@@ -82,7 +86,12 @@
       let d;
       let funk;
       try {
-        [d, funk] = await Promise.all([Netz.invoke('dieses_netz'), Netz.invoke('wlan_lesen').catch(() => null)]);
+        const { mitFrist } = Netz.dieses;
+        [d, funk] = await Promise.all([
+          mitFrist(Netz.invoke('dieses_netz'), 30000, 'Das Netz hat nicht geantwortet. Prüf, ob du mit WLAN oder Kabel verbunden bist, und versuch es noch mal.'),
+          mitFrist(Netz.invoke('wlan_lesen'), 20000).catch(() => null)]);
+        if (!d?.info) throw 'Der Mac hat keine Netzdaten geliefert. Verbinde ihn mit WLAN oder Kabel und versuch es noch mal.';
+        d.info = { ...d.info, interface: d.info.interface ?? '' };
       } catch (e) {
         wurzel.append(el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: 'Übersicht' })), Netz.fehlerKarte(Netz.text(e)));
         return;
@@ -90,8 +99,9 @@
       const p = Netz.pruefung;
       const { z } = p;
       const vpn = d.info.interface.startsWith('utun');
+      p.frischen();
       // Ein Ergebnis eines anderen Netzes zählt nicht.
-      if (d.netz && z.erg && z.erg.netz !== d.netz.name) { z.erg = z.fehler = z.sni = z.portal = null; }
+      if (d.netz && z.erg && z.erg.netz && z.erg.netz !== d.netz.name) { z.erg = z.fehler = z.sni = z.portal = null; }
 
       const ansage = el('p', { class: 'nur-vorlesen', role: 'status', 'aria-live': 'polite' });
       const kopf = el('div', { class: 'kopf' });
@@ -111,7 +121,7 @@
           d.hinweis && meldung(d.hinweis, 'orange'),
           l.portal && el('p', { class: 'fuss', text: 'Solange du dich nicht angemeldet hast, sind die übrigen Ergebnisse unzuverlässig.' }),
           l.portal && el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', 'aria-label': `Im Browser öffnen, Anmeldeseite${l.portal.ziel_host ? ` von ${l.portal.ziel_host}` : ''}`,
-            onclick: (ev) => Netz.invoke('portal_im_browser_oeffnen').catch((f) => ev.target.after(meldung(Netz.text(f)))) }),
+            onclick: p.browserOeffnen }),
           l.fuss && el('p', { class: 'fuss', text: l.fuss }),
           l.fehler && Netz.fehlerKarte(l.fehler, p.lauf),
           l.mehr,

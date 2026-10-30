@@ -1,4 +1,7 @@
 // Beispielbereiche statt privater Adressen (gilt für alle Ansichten gleich): Router 192.0.2.1, Mac 192.0.2.20, VPN 198.51.100.7.
+// Randfall-Marken (Runde 4): nur-ipv6 (kein IPv4, kein IPv4-Router), lang (Netzname mit 60 Zeichen, SSID mit 32 Byte samt Emoji, lange DNS-Namen und
+// Zonen-ID), ssid-leer, ssid-rot (macOS liefert „<redacted>“), leer (Listen null, Felder leer), ipv6-haengt und proxy-haengt (Befehl antwortet nie),
+// ruhezustand (Antwort der Prüfung ist Stunden alt, wenn man in die Übersicht zurückkehrt; body[data-pruefungen] zählt die Messungen).
 // Die Grunddaten stehen in vorschau.html (Gerüst), hier werden sie nur umgeschrieben.
 (() => {
   const grund = VORSCHAU.dieses_netz;
@@ -86,3 +89,30 @@ if (marken.includes('pruefung-alarm')) {
     return { ...d, info: { ...d.info, dhcp_server: '192.0.2.77', dhcp_dns: ['198.51.100.53'], system_dns: ['198.51.100.53', '2001:db8::53'] } };
   };
 }
+
+// Randfälle (Runde 4): die Namen und Felder, an denen eine Ansicht bricht.
+(() => {
+  const NETZNAME = 'Wohnheim-Mitte-Haus-3-Etage-2-Zimmer-17-Gaeste-Besucher'; // 55 Zeichen ohne Leerstelle
+  const SSID = 'Seeblick Gäste 🏨🌊📶 WLAN'; // 33 Byte in UTF-8
+  const aendere = (f) => { const vor = VORSCHAU.dieses_netz; VORSCHAU.dieses_netz = async () => f(await vor()); };
+  if (marken.includes('nur-ipv6')) aendere((d) => ({ ...d, info: { ...d.info, ip: null, subnet: null, router: null, dhcp_server: null, dhcp_dns: [], domain: null, system_dns: ['2001:db8::53'] } }));
+  if (marken.includes('lang')) {
+    aendere((d) => ({ ...d, netz: d.netz && { ...d.netz, name: NETZNAME },
+      info: { ...d.info, system_dns: ['fe80::1%en0', 'resolver-mit-sehr-langem-namen-fuer-den-test.dns.example', '2001:db8::53'] } }));
+    const wlan = VORSCHAU.wlan_lesen;
+    VORSCHAU.wlan_lesen = async () => { const w = await wlan(); return w && { ...w, ssid: SSID, bssid: '00:00:5e:00:53:01' }; };
+  }
+  for (const [marke, ssid] of [['ssid-leer', ''], ['ssid-rot', '<redacted>']]) {
+    if (!marken.includes(marke)) continue;
+    const wlan = VORSCHAU.wlan_lesen;
+    VORSCHAU.wlan_lesen = async () => { const w = await wlan(); return w && { ...w, ssid, bssid: ssid }; };
+  }
+  if (marken.includes('leer')) {
+    aendere((d) => ({ ...d, netz: d.netz && { ...d.netz, name: '' }, info: { ...d.info, interface: null, dhcp_dns: null, system_dns: null, domain: '' } }));
+    const wlan = VORSCHAU.wlan_lesen;
+    VORSCHAU.wlan_lesen = async () => { const w = await wlan(); return w && { ...w, rssi_dbm: null, sicherheit: null, standard: '' }; };
+    VORSCHAU.dns_gespeichert = async () => ({ messung: { dot: null, doh: null, ddr: null, zeit: null }, frisch: true });
+  }
+  if (marken.includes('ipv6-haengt')) VORSCHAU.ipv6_router = () => new Promise(() => {});
+  if (marken.includes('proxy-haengt')) VORSCHAU.proxy_lesen = () => new Promise(() => {});
+})();

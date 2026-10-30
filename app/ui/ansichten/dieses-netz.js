@@ -46,6 +46,13 @@
     if (klasse) z.querySelector('.wert').classList.add(klasse);
     return z;
   };
+  // Hängt ein Befehl (Netz weg, Dienst tot), endet das Warten nach `ms` mit einem Satz statt nie. Der Befehl läuft weiter,
+  // seine späte Antwort zählt nicht mehr.
+  const mitFrist = (p, ms, satz = 'Keine Antwort. Prüf, ob du im Netz bist, und versuch es noch mal.') => {
+    let t;
+    return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(satz), ms); })]).finally(() => clearTimeout(t));
+  };
+  const liste = (x) => (Array.isArray(x) ? x : []);
   // Nach dem Neuzeichnen steht der Fokus an der neuen Überschrift (sonst im Nichts am Seitenanfang).
   const zumKopf = () => document.querySelector("[data-ansicht='dieses-netz'] h2, [data-ansicht='uebersicht'] h2")?.focus();
   // Seltene Werte hinter ein Aufklappen (`details` ist mit der Tastatur bedienbar).
@@ -63,7 +70,7 @@
     const st = funk && staerkeVon(funk.rssi_dbm);
     const signal = st && zeile2({ gut: 'gruen', mittel: 'orange', schwach: 'rot' }[st], `WLAN-Signal ${st}`);
     if (netz) {
-      return el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: netz.name }),
+      return el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: netz.name || 'Netz ohne Namen' }),
         zeile2('gruen', netz.meins ? 'Bekanntes Netz, meins' : 'Bekanntes Netz', `zuletzt hier ${zeit(netz.last_seen)}`), signal);
     }
     return el('div', { class: 'kopf' }, el('h2', { tabindex: '-1', text: 'Unbekanntes Netz' }),
@@ -123,6 +130,8 @@
     Wep: 'WEP gilt seit Jahren als geknackt, es schützt kaum. Stelle den Router auf WPA2 oder WPA3 um.',
     Wpa: 'WPA (die erste Version) ist veraltet. Stelle den Router auf WPA2 oder WPA3 um.',
   };
+  // Leer oder von macOS geschwärzt („<redacted>“) heißt: kein Name, nicht ein Name aus Leerzeichen.
+  const ssidOk = (s) => typeof s === 'string' && s.trim() !== '' && !/^<?redacted>?$/i.test(s.trim());
   const wlanKarte = (w, eingebettet) => {
     const sicher = w.sicherheit ? SICHER[w.sicherheit] : null;
     const staerke = staerkeVon(w.rssi_dbm);
@@ -132,13 +141,13 @@
     const sz = bewertet(zeile('Sicherheit', sicher, SICHER_SATZ[w.sicherheit] || (sicher && w.sicherheit !== 'Unbekannt' ? 'Die Verschlüsselung ist zeitgemäß.' : 'Die Art der Verschlüsselung ließ sich nicht auslesen.')),
       ['Offen', 'Wep', 'Wpa'].includes(w.sicherheit) && 'schlecht');
     const g = gruppe('WLAN', [
-      ...(w.ssid && !eingebettet ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
+      ...(ssidOk(w.ssid) && !eingebettet ? [zeile('Name (SSID)', w.ssid, 'Der Name, unter dem das WLAN sich meldet. Zwei verschiedene Netze können denselben Namen tragen, der Name allein beweist also nichts.')] : []),
       ...(eingebettet ? [] : [signal]),
       sz,
       zeile('Senderate', w.rate_mbit == null ? null : `${Math.round(w.rate_mbit)} MBit/s`, 'Die Senderate ist das, was Mac und Router gerade aushandeln, nicht die echte Geschwindigkeit. Echt kommt meist die Hälfte oder weniger an.'),
     ]);
     g.append(mehr('Band, Kanal, Rauschen und mehr', [
-      ...(w.ssid ? [zeile('Kennung (BSSID)', w.bssid, 'Die Hardware-Adresse des Funkgeräts, mit dem du verbunden bist. Gespeichert wird davon nur ein Hash, nie die Adresse selbst.')] : []),
+      ...(ssidOk(w.ssid) ? [zeile('Kennung (BSSID)', w.bssid, 'Die Hardware-Adresse des Funkgeräts, mit dem du verbunden bist. Gespeichert wird davon nur ein Hash, nie die Adresse selbst.')] : []),
       zeile('Standard', w.standard, 'Der Standard (Wi-Fi 4, 5, 6) bestimmt, wie schnell die Funkstrecke höchstens sein kann. Neuere Standards sind schneller und gehen besser mit vielen Geräten um.'),
       zeile('Band', w.band, '2,4 GHz reicht weiter durch Wände, 5 und 6 GHz sind schneller, brauchen aber Nähe zum Router.'),
       zeile('Kanal', w.kanal, 'Auf dem Kanal funkt dein WLAN. Teilen sich viele Nachbarnetze denselben Kanal, stören sie sich gegenseitig.'),
@@ -168,9 +177,11 @@
         knopfEl.disabled = true;
         knopfEl.textContent = 'Warte auf deine Antwort …';
         try {
-          await Netz.invoke('ort_anfragen');
+          await mitFrist(Netz.invoke('ort_anfragen'), 15000);
           // Die Antwort kommt erst nach dem Klick im Systemdialog: kurz warten und neu lesen.
-          for (let i = 0; i < 60 && (await Netz.invoke('ort_status')) === 'NichtGefragt'; i++) await new Promise((r) => setTimeout(r, 1000));
+          // Verlässt du die Ansicht, endet die Schleife mit ihr (der Knopf ist dann nicht mehr im Dokument).
+          for (let i = 0; i < 60 && knopfEl.isConnected && (await mitFrist(Netz.invoke('ort_status'), 15000)) === 'NichtGefragt'; i++) await new Promise((r) => setTimeout(r, 1000));
+          if (!knopfEl.isConnected) return;
           await Netz.neuLaden();
           zumKopf();
         } catch (err) {
@@ -207,7 +218,7 @@
     const erkl = 'Ein Proxy ist ein Zwischenrechner, über den dein Mac Webseiten laden soll. Der Betreiber könnte deine Webanfragen sehen. In einem Heimnetz gibt es normalerweise keinen, ein neuer Eintrag ist ein Grund zum Nachsehen.';
     const platz = zeile('Proxy', 'wird geprüft …', erkl);
     liste.append(platz);
-    Netz.invoke('proxy_lesen').then((b) => {
+    mitFrist(Netz.invoke('proxy_lesen'), 20000).then((b) => {
       if (!b.manuell && !b.pac_url && !b.wpad_dhcp && !b.wpad_dns) return platz.replaceWith(zeile('Proxy', 'keiner', erkl));
       platz.remove();
       const neu = gruppe('Proxy', [
@@ -230,7 +241,7 @@
 
   // IPv6-Router (#68): eine Zeile unter dem Router; bei einem Fehler oder ohne App-Befehl bleibt sie weg.
   async function ipv6Zeile(dienste) {
-    const r = await Netz.invoke('ipv6_router').catch(() => null);
+    const r = await mitFrist(Netz.invoke('ipv6_router'), 20000).catch(() => null); // ohne Antwort bleibt die Zeile weg, die Ansicht wartet nicht
     if (!r) return;
     const fremd = r.anzahl === 1 && r.passt_zu_gateway === false;
     const wert = r.anzahl === 0 ? 'keiner' : r.anzahl > 1 ? `${r.anzahl} Geräte` : fremd ? 'ein anderes Gerät' : r.passt_zu_gateway ? 'dein Router' : 'ein Gerät';
@@ -244,7 +255,7 @@
   }
 
   // Für die Übersicht: das Merken-Formular und die Schwellen sind dieselben.
-  Netz.dieses = { offenKnopf, staerkeVon, E };
+  Netz.dieses = { offenKnopf, staerkeVon, E, mitFrist, liste, ssidOk };
 
   Netz.registriere({
     id: 'dieses-netz',
@@ -252,8 +263,13 @@
     titel: 'Dieses Netz',
     icon: Netz.icons.wlan,
     async render(wurzel) {
-      const [d, funk] = await Promise.all([Netz.invoke('dieses_netz'), Netz.invoke('wlan_lesen').catch(() => null)]);
-      const i = d.info;
+      const [d, funk] = await Promise.all([
+        mitFrist(Netz.invoke('dieses_netz'), 30000, 'Das Netz hat nicht geantwortet. Prüf, ob du mit WLAN oder Kabel verbunden bist, und versuch es noch mal.'),
+        mitFrist(Netz.invoke('wlan_lesen'), 20000).catch(() => null)]);
+      if (!d?.info) throw 'Der Mac hat keine Netzdaten geliefert. Verbinde ihn mit WLAN oder Kabel und versuch es noch mal.';
+      // Fehlende Listen und Texte sind „keine“, nie ein Absturz der Ansicht.
+      const i = { ...d.info, interface: d.info.interface ?? '', dhcp_dns: liste(d.info.dhcp_dns), system_dns: liste(d.info.system_dns) };
+      d.info = i;
       const s = i.subnet;
       const vpn = i.interface.startsWith('utun');
       // Eingebettet (Übersicht): Kopf, Hinweis und „Merken“ stehen oben. Was die Prüfung unter „Details“ schon zeigt
@@ -311,7 +327,7 @@
       ];
       const stand = (satz, knopf) => el('div', { class: 'zeile stand' }, el('dt', { class: 'label', text: satz }), knopf && el('dd', { class: 'wert' }, knopf));
       const neuKnopf = (vorher) => el('button', { class: 'knopf', type: 'button', text: 'Neu messen', 'aria-label': 'Verschlüsseltes DNS neu messen', onclick: () => messen(vorher) });
-      const gespeichert = d.netz ? await Netz.invoke('dns_gespeichert', { name: d.netz.name }).catch(() => null) : null;
+      const gespeichert = d.netz ? await mitFrist(Netz.invoke('dns_gespeichert', { name: d.netz.name }), 10000).catch(() => null) : null;
       let dnsOrt = gruppe('Verschlüsseltes DNS', [zeile('DNS über TLS und HTTPS', 'wird geprüft …', E.verschl)]);
       // Das Ergebnis meldet VoiceOver einmal (höflich), nicht bei jedem Neuzeichnen der Gruppe.
       const ansage = el('p', { class: 'nur-vorlesen', 'aria-live': 'polite' });
@@ -324,14 +340,18 @@
         if (sage) ansage.textContent = sage;
         if (fokusDrin) { const h = neu.querySelector('h3'); h.tabIndex = -1; (neu.querySelector('button') || h).focus(); }
       };
+      // Nur die jüngste Messung zeichnet: „Neu messen“ zweimal schnell oder eine späte ältere Antwort überschreibt die neuere nicht.
+      let lauf = 0;
       const messen = (vorher) => {
+        const mein = ++lauf;
         if (vorher) zeigeDns([...dnsZeilen(vorher.messung), stand(`Messung vom ${zeit(vorher.messung.zeit)}, wird neu gemessen …`)]);
-        Netz.invoke('dns_verschluesselt').then((r) => zeigeDns([...dnsZeilen(r.messung), stand(
+        const aktuell = (f) => (x) => (mein === lauf ? f(x) : undefined);
+        mitFrist(Netz.invoke('dns_verschluesselt'), 60000, 'Keine Antwort nach einer Minute.').then(aktuell((r) => zeigeDns([...dnsZeilen(r.messung), stand(
           `Gemessen am ${zeit(r.messung.zeit)}${r.netz ? '' : '. Dieses Netz ist nicht gemerkt, das Ergebnis wird nicht gespeichert'}.`,
           neuKnopf({ messung: r.messung }))],
-        `Verschlüsseltes DNS gemessen: DNS über TLS ${w[r.messung.dot]}, DNS über HTTPS ${w[r.messung.doh]}.`))
-          .catch((err) => zeigeDns([...(vorher ? dnsZeilen(vorher.messung) : []), stand(`Messung fehlgeschlagen. ${Netz.text(err)}`, neuKnopf(vorher))],
-            'Messung des verschlüsselten DNS fehlgeschlagen.'));
+        `Verschlüsseltes DNS gemessen: DNS über TLS ${w[r.messung.dot]}, DNS über HTTPS ${w[r.messung.doh]}.`)))
+          .catch(aktuell((err) => zeigeDns([...(vorher ? dnsZeilen(vorher.messung) : []), stand(`Messung fehlgeschlagen. ${Netz.text(err)}`, neuKnopf(vorher))],
+            'Messung des verschlüsselten DNS fehlgeschlagen.')));
       };
       wurzel.append(dnsOrt, ansage);
       if (gespeichert?.frisch) {
@@ -341,11 +361,12 @@
       }
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       if (funk) {
-        const ort = ortKarte(await Netz.invoke('ort_status').catch(() => 'Erlaubt'));
+        const ort = ortKarte(await mitFrist(Netz.invoke('ort_status'), 10000).catch(() => 'Erlaubt'));
         if (ort) wurzel.append(ort);
         wurzel.append(wlanKarte(funk, eingebettet));
       }
-      await v6;
+      // Der IPv6-Router setzt seine Zeile nach, wenn er antwortet; die Ansicht wartet nicht auf ihn.
+      v6.catch(() => {});
     },
   });
 })();

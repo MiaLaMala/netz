@@ -2,6 +2,9 @@
 // Marks (die Übersicht nutzt dieselben, nur nicht das bloße `pruefung`): pruefung (auffällig), pruefung-ok, pruefung-nm, pruefung-alarm, pruefung-erst,
 // pruefung-unbekannt, pruefung-fehler, pruefung-laeuft, portal (Hinweis „Anmeldung nötig“),
 // pruefung-misst (Webfilter misst noch), sni-filter, sni-fremd, sni-unklar (Karte „Webfilter am Servernamen“, sonst: kein Name gestört).
+// Randfälle (Runde 4): pruefung-leer (Felder null, leer oder unbekannt, Klasse unbekannt), pruefung-kaputt (Antwort ohne Messung),
+// portal-fehler, sni-fehler, alle-fehler (die Karten antworten mit einem Fehler), lang (Zertifikatsname mit 60 Zeichen, Netzname wie in dieses-netz.js),
+// ruhezustand (siehe dieses-netz.js).
 (() => {
   const vorher = {
     time: 1793050200 - 86400 * 3,
@@ -14,6 +17,11 @@
     public_ip: '203.0.113.44',
   };
   const jetzt = { ...vorher, time: 1793050200 };
+  // Die Zeit der Vorschau: eine Minute nach der Messung; mit `ruhezustand` nach drei Sekunden sechs Stunden später (Mac kam aus dem Ruhezustand).
+  const start = Date.now();
+  Object.defineProperty(window, 'NETZ_JETZT', { get: () => 1793050200000 + 60000 + (marken.includes('ruhezustand') && Date.now() - start > 3000 ? 6 * 3600 * 1000 : 0) });
+  addEventListener('DOMContentLoaded', () => { document.body.dataset.pruefungen ??= '0'; });
+  if (marken.includes('ruhezustand')) addEventListener('load', () => setTimeout(async () => { await Netz.zeige('tempo'); Netz.zeige('uebersicht'); }, 3500));
   const gleich = (z) => ({ klasse: 'Harmlos', text: `Der Weg zu ${z} führt über dieselben Stationen wie bei deinem letzten Besuch.` });
   const ruhig = [gleich('1.1.1.1'), gleich('9.9.9.9')]; // what `pruefen` sends in the calm state (#66)
   const basis = { netz: 'WG', messung: jetzt, vorher, unterschiede: ruhig, erster_besuch: false, nicht_messbar: 0 };
@@ -54,15 +62,33 @@
     },
   };
 
+  const LANG = 'Wohnheim-Mitte-Haus-3-Etage-2-Zimmer-17-Gaeste-Besucher';
+  const lang = marken.includes('lang');
+  let zahl = 0;
   VORSCHAU.pruefen = async () => {
+    document.body.setAttribute('data-pruefungen', String(++zahl));
+    if (marken.includes('pruefung-kaputt')) return { netz: 'WG', unterschiede: [] };
+    if (marken.includes('pruefung-leer')) {
+      return { netz: null, messung: { time: jetzt.time, router: null, dhcp_server: null, dhcp_dns: null, blocked_local: null, blocked_public: null, hijack: null, tls: null, public_ip: '' },
+        vorher: { time: null, dhcp_dns: null, tls: null }, erster_besuch: false, nicht_messbar: null,
+        unterschiede: [{ klasse: 'Seltsam', text: 'Etwas ist anders.' }, null, { klasse: 'Harmlos' }, { klasse: 'Auffaellig', text: 'Das Netz nennt andere DNS-Server als beim letzten Besuch.' }] };
+    }
+    return fallRoh();
+  };
+  const fallRoh = async () => {
     if (marken.includes('pruefung-laeuft')) return new Promise(() => {});
     if (marken.includes('pruefung-unbekannt')) throw { art: 'nicht_gemerkt', text: 'Dieses Netz ist nicht gemerkt, ich habe nichts zum Vergleichen. Speichere es mit `netzinfo merken <Name>` und prüfe dann noch mal.' };
     if (marken.includes('pruefung-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Rechner mit WLAN oder Kabel und versuche es noch mal.';
     const key = ['ok', 'nm', 'erst', 'alarm'].find((k) => marken.includes(`pruefung-${k}`));
-    return fall[key ?? 'auffaellig'];
+    const e = fall[key ?? 'auffaellig'];
+    if (!lang) return e;
+    const name = 'sehr-langer-zertifikatsname-fuer-den-test-der-umbrueche.example';
+    const tls = (x) => ({ ...x, tls: [{ ...x.tls[0], host: name }, x.tls[1]] });
+    return { ...e, netz: LANG, messung: tls(e.messung), vorher: e.vorher && tls(e.vorher) };
   };
 
   VORSCHAU.sni_pruefen = async () => {
+    if (marken.includes('sni-fehler') || marken.includes('alle-fehler')) throw 'Der Test ist fehlgeschlagen.';
     if (marken.includes('pruefung-misst')) return new Promise(() => {});
     const ok = [['bbc.com', 'ok'], ['youtube.com', 'ok'], ['telegram.org', 'ok']];
     if (marken.includes('sni-unklar')) return { kontrolle: 'zeitueberschreitung', namen: [], gestoert: [], unklar: true };
@@ -71,7 +97,7 @@
     return { kontrolle: 'ok', namen: ok, gestoert: [], unklar: false };
   };
 
-  VORSCHAU.portal_pruefen = async () => ({
+  VORSCHAU.portal_pruefen = async () => marken.includes('portal-fehler') || marken.includes('alle-fehler') ? Promise.reject('Der Test ist fehlgeschlagen.') : ({
     status: marken.includes('portal') ? 'PortalVermutet' : 'Frei',
     ziel_host: marken.includes('portal') ? 'login.gast.example' : null,
     quellen: [], dns_verdaechtig: null,

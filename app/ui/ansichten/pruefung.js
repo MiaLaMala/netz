@@ -23,6 +23,21 @@
   };
 
   let aktErg = null;
+  const liste = (x) => (Array.isArray(x) ? x : []);
+  // Ein Ergebnis mit fehlenden Feldern (null, keine Liste, unbekannte Klasse) darf die Ansicht nicht leeren:
+  // einmal hier glätten statt an jeder Stelle prüfen. Ohne frühere Messung ist es der erste Besuch.
+  const glatt = (e) => {
+    if (!e?.messung) throw 'Die Prüfung hat keine Messung geliefert. Versuch es noch mal.';
+    const m = (x) => x && { ...x, tls: liste(x.tls), dhcp_dns: liste(x.dhcp_dns) };
+    return {
+      ...e, messung: m(e.messung), vorher: m(e.vorher), erster_besuch: !!e.erster_besuch || !e.vorher,
+      unterschiede: liste(e.unterschiede).filter((u) => typeof u?.text === 'string').map((u) => (KLASSE[u.klasse] ? u : { ...u, klasse: 'Auffaellig' })),
+    };
+  };
+  // Am Vorbesuch hängt ein Satzteil „ am 26.10.2026, 21:30“, ohne Zeit bleibt er weg.
+  const am = (erg) => (Number.isFinite(erg.vorher?.time) ? ` am ${zeit(erg.vorher.time)}` : '');
+  // Seit einer Viertelstunde gilt eine Messung als alt (Mac aus dem Ruhezustand, Netz gewechselt). `NETZ_JETZT` setzt nur die Vorschau.
+  const veraltet = (erg) => (window.NETZ_JETZT ?? Date.now()) / 1000 - erg.messung.time > 900;
   const KLASSE_RANG = { Harmlos: 0, Auffaellig: 1, Alarm: 2 };
   const ja = (v) => (v == null ? null : v ? 'ja' : 'nein');
   const tlsWort = (x, host) => ({ Normal: 'normal', Aufgebrochen: 'aufgebrochen' })[x.tls.find((t) => t.host === host)?.verdict] ?? null;
@@ -42,19 +57,23 @@
     [/öffentliche IP/, () => 'Öffentliche IP'],
     [/WLAN|Wi-Fi/, () => 'WLAN'],
   ];
-  const thema = (t) => { for (const [re, f] of THEMA) { const m = t.match(re); if (m) return f(m); } return 'Netz'; };
+  const thema = (t) => { for (const [re, f] of THEMA) { const m = String(t).match(re); if (m) return f(m); } return 'Netz'; };
 
   // The answer outlives the view: `pruefen` stores the new baseline, so showing the tab
   // again must not measure again.
-  const z = { laeuft: false, offen: {}, erg: null, fehler: null, art: null, portal: null, sni: null };
+  // `fehlt`: Prüfungen, die selbst fehlgeschlagen sind (nicht „nichts gefunden“), mit ihrem Namen.
+  const z = { laeuft: false, offen: {}, erg: null, fehler: null, art: null, portal: null, sni: null, fehlt: [] };
   let ui = null;
   // Die Übersicht liest dieselben Daten und meldet sich hier an: `f('zeichne' | 'start' | 'fertig')`, `false` zurück meldet ab.
   let lauscher = [];
-  const melde = (was) => { lauscher = lauscher.filter((f) => f(was) !== false); };
+  // Ein Lauscher, der wirft, darf weder die anderen noch den Messlauf mitnehmen.
+  const melde = (was) => { lauscher = lauscher.filter((f) => { try { return f(was) !== false; } catch (e) { console.error(e); return true; } }); };
+  // Satz für Prüfungen, die selbst fehlschlugen: ohne ihn stünde „alles im Rahmen“ auf einer Lücke.
+  const luecken = () => z.fehlt.length ? `${z.fehlt.join(' und ')} ließ${z.fehlt.length > 1 ? 'en' : ''} sich nicht prüfen` : null;
 
   // One row: current value right, the old one below it when it differs.
   const reihe = (label, m, o, wert, erkl) => {
-    const neu = wert(m);
+    const neu = wert(m) === '' ? null : wert(m); // ein leerer Wert ist „nicht messbar“, keine leere Zeile
     const alt = o ? wert(o) : null;
     // The changed row wears the severity of its sentence above.
     const t = /DHCP/.test(label) ? 'DHCP-Server' : /^DNS/.test(label) ? 'DNS' : /^Erfundene/.test(label) ? 'Umleitung'
@@ -88,7 +107,7 @@
   // The head sums up the whole page: comparison with the last visit plus both cards. Green only when all say nothing.
   function urteil(erg) {
     const worst = diffs(erg)[0]?.klasse;
-    const seit = `Seit dem letzten Besuch am ${zeit(erg.vorher.time)}`;
+    const seit = `Seit dem letzten Besuch${am(erg)}`;
     const karten = kartenBefunde();
     const misst = z.offen.sni || z.offen.portal;
     const was = [z.offen.sni && 'Webfilter', z.offen.portal && 'Anmeldeseite'].filter(Boolean).join(' und ');
@@ -101,6 +120,7 @@
       return [urteilKarte(haupt[0], haupt[1], haupt[2]), ...kartenBefunde(haupt), wartet];
     }
     if (misst) return [status('grau', `${seit} ist nichts anders. ${was} ${z.offen.sni && z.offen.portal ? 'werden' : 'wird'} noch gemessen.`)];
+    if (luecken()) return [urteilKarte('grau', 'Unvollständig', `${seit} ist nichts anders, aber ${luecken()}.`)];
     const unklar = z.sni?.unklar && status('grau', 'Der Webfilter ließ sich nicht beurteilen.');
     return [urteilKarte('gruen', 'Nichts Auffälliges', `${seit} ist alles im Rahmen.`), unklar];
   }
@@ -173,15 +193,25 @@
     const farbe = (st) => (st === 'ok' ? 'gruen' : st === 'fremdes_zertifikat' ? 'rot' : 'orange');
     return gruppe('Webfilter am Servernamen', [
       zeile('Ergebnis', s.gestoert.length ? `gestört für ${s.gestoert.join(', ')}` : 'kein Name gestört', s.gestoert.length ? 'orange' : 'gruen', E.sni),
-      ...s.namen.map(([n, st]) => zeile(n, SNI_WORT[st], farbe(st))),
+      ...s.namen.map(([n, st]) => zeile(n, SNI_WORT[st] ?? 'unbekannt', farbe(st))),
     ]);
+  };
+
+  const FRIST = 120000;
+  const mitFrist = (...a) => Netz.dieses.mitFrist(...a); // erst beim Aufruf: dieses-netz.js lädt vor dieser Datei
+
+  // Ein Fehlschlag steht einmal unter dem Knopf, nicht bei jedem Klick noch einmal.
+  const browserOeffnen = (ev) => {
+    const k = ev.currentTarget;
+    if (k.nextElementSibling?.matches('.meldung')) k.nextElementSibling.remove();
+    Netz.invoke('portal_im_browser_oeffnen').catch((f) => k.after(meldung(Netz.text(f))));
   };
 
   // Shown above everything else when the login-page check (`netzinfo portal`) suspects a captive portal.
   const portalHinweis = () => z.portal?.status === 'PortalVermutet' && el('section', { class: 'portal-hinweis', 'aria-labelledby': 'portal-titel' },
     el('h2', { id: 'portal-titel', text: 'Anmeldung nötig' }), // h2: it stands above the network name, a h3 would skip a level
     el('p', { text: `Dieses Netz leitet vermutlich auf eine Anmeldeseite um${z.portal.ziel_host ? ` (${z.portal.ziel_host})` : ''}. Solange du dich nicht angemeldet hast, sind die übrigen Ergebnisse unzuverlässig.` }),
-    el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', 'aria-label': `Im Browser öffnen${z.portal.ziel_host ? `, Anmeldeseite von ${z.portal.ziel_host}` : ', Anmeldeseite'}`, onclick: (ev) => Netz.invoke('portal_im_browser_oeffnen').catch((f) => ev.target.after(meldung(Netz.text(f)))) }),
+    el('button', { class: 'knopf haupt', type: 'button', text: 'Im Browser öffnen', 'aria-label': `Im Browser öffnen${z.portal.ziel_host ? `, Anmeldeseite von ${z.portal.ziel_host}` : ', Anmeldeseite'}`, onclick: browserOeffnen }),
     el('p', { class: 'erklaerung', text: E.portal }));
 
   function zeichne() {
@@ -206,7 +236,7 @@
     const fuell = (ort, ...k) => ort.replaceChildren(...k.flat().filter((x) => x != null && x !== false));
     fuell(kopf,
       portalHinweis(),
-      el('h2', { tabindex: '-1', text: erg ? erg.netz : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
+      el('h2', { tabindex: '-1', text: erg ? erg.netz || 'Netz' : unbekannt ? 'Unbekanntes Netz' : 'Prüfung' }),
       z.offen.vergleich ? status('grau', 'Prüfung läuft …')
         : erg ? (erg.erster_besuch ? [status('grau', 'Erste Messung, ab jetzt die Vergleichsbasis'), ...kartenBefunde()] : urteil(erg))
         : null);
@@ -244,27 +274,37 @@
     z.fehler = null;
     z.art = null;
     z.sni = z.portal = null;
+    z.fehlt = [];
     z.offen = { vergleich: true, sni: true, portal: true };
-    zeichne();
-    melde('start');
-    sage('Prüfung läuft');
-    // All three run alongside; each one redraws the head when it is in, so the head never says „fine“ before a card has spoken.
-    const fertig = (name, f) => (w) => { z.offen[name] = false; f(w); zeichne(); };
-    const portal = Netz.invoke('portal_pruefen').catch(() => null).then(fertig('portal', (w) => { z.portal = w; })); // a failed check just shows no hint
-    const sni = Netz.invoke('sni_pruefen').catch(() => null).then(fertig('sni', (w) => { z.sni = w; })); // same: no card
+    // Was auch passiert (Frist, kaputte Antwort, Fehler beim Zeichnen): der Knopf wird am Ende wieder frei.
     try {
-      z.erg = await Netz.invoke('pruefen');
+      zeichne();
+      melde('start');
+      sage('Prüfung läuft');
+      // All three run alongside; each one redraws the head when it is in, so the head never says „fine“ before a card has spoken.
+      const fertig = (name, f) => (w) => { z.offen[name] = false; f(w); zeichne(); };
+      // Eine fehlgeschlagene Karte zeigt keinen Befund, steht aber in `fehlt`, damit der Kopf nicht „alles gut“ sagt.
+      const karte = (befehl, name, f) => mitFrist(Netz.invoke(befehl), FRIST).catch(() => { z.fehlt.push(name); return null; }).then(fertig(befehl === 'sni_pruefen' ? 'sni' : 'portal', f));
+      const portal = karte('portal_pruefen', 'die Anmeldeseite', (w) => { z.portal = w; });
+      const sni = karte('sni_pruefen', 'der Webfilter', (w) => { z.sni = w && { ...w, namen: liste(w.namen).filter(Array.isArray), gestoert: liste(w.gestoert) }; });
+      try {
+        z.erg = glatt(await mitFrist(Netz.invoke('pruefen'), FRIST, 'Die Prüfung hat nach zwei Minuten nicht geantwortet. Prüf, ob du Netz hast, und versuch es noch mal.'));
+      } catch (e) {
+        z.erg = null;
+        z.fehler = Netz.text(e);
+        z.art = e?.art;
+      }
+      z.offen.vergleich = false;
+      zeichne();
+      await Promise.all([sni, portal]);
     } catch (e) {
-      z.erg = null;
-      z.fehler = Netz.text(e);
-      z.art = e?.art;
+      console.error(e);
+      z.fehler ??= Netz.text(e);
+    } finally {
+      z.laeuft = false;
+      z.offen = {};
     }
-    z.offen.vergleich = false;
-    zeichne();
-    await Promise.all([sni, portal]);
-    z.laeuft = false;
-    zeichne();
-    if (!ui?.eingebettet) sage(urteilSatz());
+    try { zeichne(); if (!ui?.eingebettet) sage(urteilSatz()); } catch (e) { console.error(e); }
     melde('fertig');
   }
 
@@ -278,9 +318,12 @@
     }
   }, true);
 
+  // Eine Antwort von vor Stunden (Mac aus dem Ruhezustand, Netz inzwischen gewechselt) darf nicht als „jetzt“ gelten: weg damit, die Ansicht misst neu.
+  const frischen = () => { if (!z.laeuft && z.erg && veraltet(z.erg)) z.erg = z.sni = z.portal = z.fehler = null; };
+
   // Für die Übersicht: derselbe Zustand, dieselben Bausteine, kein zweiter Messlauf.
   Netz.pruefung = {
-    z, lauf, diffs, unterschiede, thema, befunde, kartenBefunde, E, lausche: (f) => lauscher.push(f),
+    z, lauf, diffs, unterschiede, thema, befunde, kartenBefunde, E, lausche: (f) => lauscher.push(f), am, frischen, luecken, browserOeffnen,
     portalHinweis: () => z.portal?.status === 'PortalVermutet' ? z.portal : null,
   };
 
@@ -308,6 +351,7 @@
       ui = { wurzel, kopf, rest, knopf, ansage };
       wurzel.append(ansage, kopf, el('div', { class: 'aktion' }, knopf), rest);
       zeichne();
+      frischen();
       if (nochmal || (!z.erg && !z.fehler)) lauf();
     },
   });
