@@ -407,6 +407,7 @@ pub fn setzen(
             alle.join(", ")
         ));
     }
+    let _sperre = crate::sperre(path)?;
     let mut store: Store = netze::load_json(path)?;
     let d = store
         .get_mut(key)

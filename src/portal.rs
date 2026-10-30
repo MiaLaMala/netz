@@ -459,3 +459,15 @@ mod tests {
         assert_eq!(classify(&raw, APPLE).1, Urteil::Abweichung);
     }
 }
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn parse_haelt_kaputte_antworten_aus() {
+        let echt = b"HTTP/1.1 302 Found\r\nLocation: http://x.example/\r\n\r\nbody";
+        assert!(super::parse(echt).is_some());
+        for p in crate::kaputte_pakete(echt) {
+            let _ = super::parse(&p);
+        }
+    }
+}

@@ -16,7 +16,9 @@ pub struct Subnet {
 }
 
 pub fn mask_from_prefix(prefix: u8) -> u32 {
-    u32::MAX.checked_shl(32 - u32::from(prefix)).unwrap_or(0)
+    u32::MAX
+        .checked_shl(32 - u32::from(prefix.min(32)))
+        .unwrap_or(0)
 }
 
 /// Dotted mask to prefix length; rejects masks with holes like 255.0.255.0.
@@ -204,5 +206,14 @@ mod tests {
             binary(ip("192.168.178.20")),
             "11000000.10101000.10110010.00010100"
         );
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn maske_haelt_prefix_ueber_32_aus() {
+        assert_eq!(super::mask_from_prefix(40), u32::MAX);
+        assert_eq!(super::mask_from_prefix(0), 0);
     }
 }

@@ -175,8 +175,10 @@ fn http_body(raw: &[u8]) -> Option<Vec<u8>> {
         if n == 0 {
             return Some(body);
         }
-        body.extend_from_slice(rest.get(z + 2..z + 2 + n)?);
-        rest = rest.get(z + 2 + n + 2..)?;
+        // n kommt aus der Antwort: z + 2 + n darf nicht überlaufen
+        let ende = z.checked_add(2)?.checked_add(n)?;
+        body.extend_from_slice(rest.get(z + 2..ende)?);
+        rest = rest.get(ende.checked_add(2)?..)?;
     }
 }
 
@@ -236,6 +238,7 @@ fn speichern(
     key: &str,
     neu: &DnsVerschluesselung,
 ) -> Result<Option<DnsVerschluesselung>, String> {
+    let _sperre = crate::sperre(path)?;
     let mut store: Store = netze::load_json(path)?;
     let alt = store.insert(key.to_string(), neu.clone());
     netze::save(path, &store)?;
@@ -676,5 +679,23 @@ mod tests {
         // Uhr zurückgestellt: nicht „aus der Zukunft“ als alt werten.
         assert!(g(10).frisch);
         let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn http_body_haelt_kaputte_antworten_aus() {
+        // eine Chunk-Größe nahe usize::MAX darf nicht überlaufen
+        let a = format!(
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\nab",
+            usize::MAX
+        );
+        assert_eq!(super::http_body(a.as_bytes()), None);
+        let echt = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nab\r\n0\r\n\r\n";
+        assert_eq!(super::http_body(echt), Some(b"ab".to_vec()));
+        for p in crate::kaputte_pakete(echt) {
+            let _ = super::http_body(&p);
+        }
     }
 }

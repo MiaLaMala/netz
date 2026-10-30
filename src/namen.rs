@@ -337,3 +337,18 @@ mod tests {
         assert_eq!(l, vec![n("neu", 2)]);
     }
 }
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn nbstat_haelt_kaputte_pakete_aus() {
+        let mut echt = vec![0u8; 12];
+        echt[..2].copy_from_slice(&super::NB_ID.to_be_bytes());
+        echt[2] = 0x84;
+        echt.extend([0xC0, 12, 0, 0x21, 0, 1, 0, 0, 0, 0, 0, 19, 1]);
+        echt.extend(b"MEINRECHNER    \0\x04\0");
+        for p in crate::kaputte_pakete(&echt) {
+            let _ = super::nbstat_parsen(&p);
+        }
+    }
+}

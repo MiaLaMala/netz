@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::path::Path;
-use std::process::Command;
 use std::time::{Duration, Instant};
 
 /// Dual-stack services; the user may add one more name on the command line.
@@ -218,12 +217,10 @@ fn lokal() -> Lokal {
         s.connect(SocketAddr::new(PROBE_V6.into(), 53)).ok()?;
         s.local_addr().ok()
     });
-    let router = Command::new("netstat")
-        .args(["-rn", "-f", "inet6"])
-        .output()
+    // Fehler und Zeitüberschreitung bleiben None: "Ankündigung unbekannt", nicht "keine"
+    let router = crate::befehl("netstat", &["-rn", "-f", "inet6"], crate::BEFEHL_GRENZE)
         .ok()
-        .filter(|o| o.status.success())
-        .map(|o| parse_router(&String::from_utf8_lossy(&o.stdout)));
+        .map(|o| parse_router(&o));
     Lokal {
         globale_adresse: matches!(quelle, Some(SocketAddr::V6(a)) if ist_global(a.ip())),
         standardroute: quelle.is_some(),

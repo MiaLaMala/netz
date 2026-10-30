@@ -16,6 +16,8 @@ const PORTS: &[u16] = &[22, 23, 53, 80, 443, 445, 548, 631, 7000, 8009, 9100, 62
 const TIMEOUT: Duration = Duration::from_millis(300);
 /// Prefixes shorter than this (more than 1022 hosts) need `--gross`.
 const MAX_PLAIN_HOSTS_PREFIX: u8 = 22;
+/// Auch mit `--gross` nichts darüber: ein /8 hieße 16 Millionen Adressen im Speicher.
+const MAX_GROSS_PREFIX: u8 = 16;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Device {
@@ -135,6 +137,12 @@ fn gate(
         return Err(format!(
             "{}/{} liegt nicht ganz in deinem Netz {}/{}. Ich probiere nur Adressen im eigenen Subnetz durch (oder 127.0.0.1).",
             target.network, target.prefix, current.network, current.prefix
+        ));
+    }
+    if target.prefix < MAX_GROSS_PREFIX {
+        return Err(format!(
+            "/{} sind {} Adressen, das sucht Netzinfo auch mit `--gross` nicht. Wähle ein Stück ab /{MAX_GROSS_PREFIX}, z. B. {}/24.",
+            target.prefix, target.hosts, target.network
         ));
     }
     if target.prefix < MAX_PLAIN_HOSTS_PREFIX && !gross {
@@ -452,6 +460,8 @@ fn suchen_in(
         }
     }
 
+    // Wache, App und Kommandozeile schreiben dieselbe Datei: lesen bis speichern unter Sperre
+    let _sperre = crate::sperre(path)?;
     let mut store: Store = netze::load_json(path)?;
     let list = store.entry(fp.key()).or_default();
     let erster_lauf = list.is_empty();
@@ -869,5 +879,15 @@ mod tests {
             ip("192.168.178.255"),
         );
         assert!(new.is_empty() && known[0].first_seen == 5);
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn gross_hat_eine_obergrenze() {
+        let net = crate::subnetz::calc("10.0.0.1".parse().unwrap(), 8).unwrap();
+        let e = super::gate(true, &net, None, true).unwrap_err();
+        assert!(e.contains("auch mit `--gross` nicht"));
     }
 }

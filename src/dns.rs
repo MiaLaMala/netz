@@ -777,3 +777,14 @@ mod tests {
         assert!(verdict(&same, &[&down, &down], A).starts_with("Vergleich nicht möglich"));
     }
 }
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn parse_response_haelt_kaputte_pakete_aus() {
+        let q = super::build_query(0x1234, "github.com", super::A, super::IN).unwrap();
+        for p in crate::kaputte_pakete(&q) {
+            let _ = super::parse_response(&p, 0x1234, "github.com", super::A, super::IN);
+        }
+    }
+}

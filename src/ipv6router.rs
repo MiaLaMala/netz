@@ -44,7 +44,10 @@ fn dauer(text: &str) -> u64 {
     for c in text.chars() {
         let faktor = match c {
             '0'..='9' => {
-                zahl = zahl * 10 + u64::from(c as u8 - b'0');
+                // sehr lange Zahlen (kaputte Antwort) bleiben groß statt zu überlaufen
+                zahl = zahl
+                    .saturating_mul(10)
+                    .saturating_add(u64::from(c as u8 - b'0'));
                 continue;
             }
             'd' => 86400,
@@ -53,7 +56,7 @@ fn dauer(text: &str) -> u64 {
             's' => 1,
             _ => return 0,
         };
-        summe += zahl * faktor;
+        summe = summe.saturating_add(zahl.saturating_mul(faktor));
         zahl = 0;
     }
     summe
@@ -121,19 +124,13 @@ fn parse_nachbarn_linux(out: &str) -> Vec<(Ipv6Addr, [u8; 6])> {
 }
 
 fn aufruf(programm: &str, args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new(programm)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            format!(
-                "`{programm}` ließ sich nicht starten ({}). Ist es installiert?",
-                crate::io_satz(&e)
-            )
-        })?;
-    if !out.status.success() {
-        return Err(format!("`{programm}` meldete einen Fehler."));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    crate::befehl(programm, args, crate::BEFEHL_GRENZE).map_err(|e| match e.kind() {
+        std::io::ErrorKind::Other => format!("`{programm}` meldete einen Fehler."),
+        _ => format!(
+            "`{programm}` ließ sich nicht ausführen ({}). Ist es installiert?",
+            crate::io_satz(&e)
+        ),
+    })
 }
 
 fn router_lesen() -> Result<Vec<Router>, String> {
@@ -430,5 +427,15 @@ mod tests {
             assert!(!json.contains(roh), "{roh} steht im Store");
         }
         assert!(json.contains("\"router_anzahl\":2"));
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn dauer_laeuft_bei_riesenzahlen_nicht_ueber() {
+        assert_eq!(super::dauer("2m13s"), 133);
+        assert_eq!(super::dauer("99999999999999999999999d"), u64::MAX);
+        assert_eq!(super::dauer("Never"), super::UNBEGRENZT);
     }
 }

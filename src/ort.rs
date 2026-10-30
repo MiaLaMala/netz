@@ -132,6 +132,7 @@ pub fn bssid_hash(salz: &str, bssid: [u8; 6]) -> String {
 
 /// Salz dieser Installation. Fehlt die Datei, wird eins zufällig erzeugt und gespeichert.
 pub fn salz(pfad: &Path) -> Result<String, String> {
+    let _sperre = crate::sperre(pfad)?;
     let s: String = netze::load_json(pfad)?;
     if !s.is_empty() {
         return Ok(s);

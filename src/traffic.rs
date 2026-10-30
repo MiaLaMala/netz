@@ -88,8 +88,10 @@ fn differenz(ausgabe: &str, sekunden: u64) -> Result<Vec<Verbrauch>, String> {
 
 #[cfg(target_os = "macos")]
 fn nettop(sekunden: u64) -> Result<String, String> {
-    let out = std::process::Command::new("/usr/bin/nettop")
-        .args([
+    let grenze = std::time::Duration::from_secs(sekunden.saturating_mul(2).saturating_add(10));
+    crate::befehl(
+        "/usr/bin/nettop",
+        &[
             "-P",
             "-L",
             "2",
@@ -98,13 +100,16 @@ fn nettop(sekunden: u64) -> Result<String, String> {
             &sekunden.to_string(),
             "-J",
             "bytes_in,bytes_out",
-        ])
-        .output()
-        .map_err(|e| format!("nettop ließ sich nicht starten ({}). Es gehört zu macOS, prüfe, ob /usr/bin/nettop existiert.", crate::io_satz(&e)))?;
-    if !out.status.success() {
-        return Err("nettop meldete einen Fehler. Versuche es noch einmal.".into());
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        ],
+        grenze,
+    )
+    .map_err(|e| match e.kind() {
+        std::io::ErrorKind::Other => "nettop meldete einen Fehler. Versuche es noch einmal.".into(),
+        _ => format!(
+            "nettop lieferte nichts ({}). Es gehört zu macOS, prüfe, ob /usr/bin/nettop existiert.",
+            crate::io_satz(&e)
+        ),
+    })
 }
 
 #[cfg(not(target_os = "macos"))]

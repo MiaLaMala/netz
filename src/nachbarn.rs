@@ -398,3 +398,23 @@ mod tests {
         assert_eq!((sum & 0xffff) + (sum >> 16), 0xffff);
     }
 }
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn parse_haelt_kaputte_puffer_aus() {
+        let mut echt = vec![0u8; 140];
+        echt[0] = 140; // rtm_msglen
+        echt[12] = 3; // RTA_DST | RTA_GATEWAY
+        echt[92] = 16;
+        echt[93] = 2;
+        echt[96] = 192;
+        echt[108] = 20;
+        echt[109] = 18;
+        echt[113] = 0;
+        echt[114] = 6;
+        for p in crate::kaputte_pakete(&echt) {
+            let _ = super::parse(&p);
+        }
+    }
+}

@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
-#[cfg(target_os = "macos")]
-use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub enum Reichweite {
@@ -234,15 +232,19 @@ pub(crate) fn sockets() -> Result<Vec<Socket>, String> {
 
 #[cfg(target_os = "macos")]
 fn sockets_lsof() -> Result<Vec<Socket>, String> {
-    let out = Command::new("/usr/sbin/lsof")
-        .args(["-nP", "-iTCP", "-iUDP", "-F", "pcLfPtnT"])
-        .output()
-        .map_err(|_| {
-            "Die Socket-Liste ließ sich nicht lesen, auch `lsof` startet nicht. Es liegt unter macOS in /usr/sbin/lsof, prüfe, ob es fehlt."
-                .to_string()
-        })?;
+    let (_, out, _) = crate::befehl_status(
+        "/usr/sbin/lsof",
+        &["-nP", "-iTCP", "-iUDP", "-F", "pcLfPtnT"],
+        std::time::Duration::from_secs(20),
+    )
+    .map_err(|e| {
+        format!(
+            "Die Socket-Liste ließ sich nicht lesen, auch `lsof` lief nicht ({}). Es liegt unter macOS in /usr/sbin/lsof.",
+            crate::io_satz(&e)
+        )
+    })?;
     // lsof exits 1 when it finds nothing, so only the text counts.
-    Ok(parse_sockets(&String::from_utf8_lossy(&out.stdout)))
+    Ok(parse_sockets(&out))
 }
 
 /// `socket_fdinfo` as `proc_pidfdinfo(PROC_PIDFDSOCKETINFO)` fills it, and the offsets we read
@@ -618,14 +620,16 @@ fn apple_signiert(pid: u32) -> Option<bool> {
         return None;
     }
     let pfad = String::from_utf8_lossy(&buf[..n as usize]).into_owned();
-    let o = Command::new("/usr/bin/codesign")
-        .args(["--verify", "-R=anchor apple", &pfad])
-        .output()
-        .ok()?;
-    if o.status.success() {
+    // Nur der Status zählt; eine Zeitüberschreitung ist "unbekannt", kein Befund.
+    let (status, _, t) = crate::befehl_status(
+        "/usr/bin/codesign",
+        &["--verify", "-R=anchor apple", &pfad],
+        crate::BEFEHL_GRENZE,
+    )
+    .ok()?;
+    if status.success() {
         return Some(true);
     }
-    let t = String::from_utf8_lossy(&o.stderr);
     (t.contains("not signed at all") || t.contains("failed to satisfy")).then_some(false)
 }
 
@@ -919,5 +923,15 @@ mod tests {
         l[1].reichweite = Reichweite::Lokal;
         abgleichen(&mut l, &[80, 81]);
         assert_eq!((l[0].von_aussen, l[1].von_aussen), (true, false));
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn fdinfo_haelt_kaputte_puffer_aus() {
+        for p in crate::kaputte_pakete(&vec![7u8; super::FDINFO_LEN]) {
+            let _ = super::parse_fdinfo(&p);
+        }
     }
 }
