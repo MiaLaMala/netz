@@ -154,14 +154,15 @@ fn pfade(pids: &[u32]) -> BTreeMap<u32, String> {
         return BTreeMap::new();
     }
     let liste: Vec<String> = pids.iter().map(u32::to_string).collect();
-    let Ok(out) = std::process::Command::new("ps")
-        .args(["-o", "pid=,comm=", "-p", &liste.join(",")])
-        .output()
-    else {
+    // ps ohne Pfade ist nur weniger Anzeige (die Namen kommen aus der Socket-Liste), kein Fehler
+    let Ok((_, out, _)) = crate::befehl_status(
+        "ps",
+        &["-o", "pid=,comm=", "-p", &liste.join(",")],
+        crate::BEFEHL_GRENZE,
+    ) else {
         return BTreeMap::new();
     };
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
+    out.lines()
         .filter_map(|l| {
             let (pid, pfad) = l.trim().split_once(' ')?;
             Some((pid.parse().ok()?, pfad.trim().to_string()))

@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::path::Path;
-use std::process::Command;
 
 /// Was das System und das Netz an Proxy-Angaben liefern.
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]
@@ -113,11 +112,13 @@ pub fn messen() -> Result<ProxyBefund, String> {
     if !unterstuetzt() {
         return Err(NUR_MAC.into());
     }
-    let out = Command::new("scutil")
-        .arg("--proxy")
-        .output()
-        .map_err(|_| format!("`scutil` ließ sich nicht starten. {NUR_MAC}"))?;
-    let mut b = parse_scutil(&String::from_utf8_lossy(&out.stdout));
+    let out = crate::befehl("scutil", &["--proxy"], crate::BEFEHL_GRENZE).map_err(|e| {
+        format!(
+            "`scutil` lieferte nichts ({}). {NUR_MAC}",
+            crate::io_satz(&e)
+        )
+    })?;
+    let mut b = parse_scutil(&out);
     if let Ok(info) = hier::collect() {
         b.wpad_dhcp = crate::plattform::wpad_dhcp(&info.interface);
         b.wpad_dns = wpad_per_dns(&info);

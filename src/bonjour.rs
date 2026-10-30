@@ -653,6 +653,22 @@ fn speichern(dienste: &[Dienst]) -> Result<Vec<Dienst>, String> {
 }
 
 #[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn parse_haelt_kaputte_pakete_aus() {
+        // Panik = Testfehler; ob Ok oder Err ist egal
+        let mut echt = vec![0u8, 0, 0x84, 0, 0, 0, 0, 1, 0, 0, 0, 0];
+        echt.extend([
+            5, b'h', b'a', b'l', b'l', b'o', 0, 0, 1, 0x80, 1, 0, 0, 0, 120, 0, 4, 192, 0, 2, 7,
+        ]);
+        assert!(super::parse(&echt).is_ok());
+        for p in crate::kaputte_pakete(&echt) {
+            let _ = super::parse(&p);
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

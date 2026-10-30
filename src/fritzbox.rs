@@ -634,6 +634,7 @@ fn abrufen_in(
         Err((zustand, satz)) => return Ok(ende(zustand, &satz)),
     };
     let gefunden = hosts.len();
+    let _sperre = crate::sperre(pfad)?;
     let mut alle: std::collections::BTreeMap<String, Vec<Device>> = netze::load_json(pfad)?;
     let neu = einmischen(alle.entry(key.into()).or_default(), hosts, jetzt);
     netze::save(pfad, &alle)?;

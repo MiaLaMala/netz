@@ -253,8 +253,8 @@ pub fn parse_wpa_status(text: &str) -> Option<Sicherheit> {
 
 #[cfg(target_os = "linux")]
 fn befehl(prog: &str, args: &[&str]) -> std::io::Result<String> {
-    let o = std::process::Command::new(prog).args(args).output()?;
-    Ok(String::from_utf8_lossy(&o.stdout).into_owned())
+    // iw/wpa_cli melden Fehler über den Status; die Auswertung prüft den Text selbst
+    crate::befehl_status(prog, args, crate::BEFEHL_GRENZE).map(|(_, o, _)| o)
 }
 
 #[cfg(target_os = "linux")]
@@ -423,6 +423,10 @@ pub fn funk_pruefen(store_path: &Path, key: &str, meins: bool) -> Vec<(Klasse, S
     let Ok(Some(f)) = lesen() else {
         return Vec::new();
     };
+    // Ohne Sperre oder Datei gibt es keinen Befund (Funkdaten sind Zugabe); geschrieben wird nie ungesperrt.
+    let Ok(_sperre) = crate::sperre(store_path) else {
+        return Vec::new();
+    };
     let Ok(mut store) = netze::load_json::<Store>(store_path) else {
         return Vec::new();
     };
@@ -439,6 +443,8 @@ pub fn funk_pruefen(store_path: &Path, key: &str, meins: bool) -> Vec<(Klasse, S
             &mut store, key, meins, ssid, b, &salz, now,
         ));
     }
+    // Speichern schlägt nur bei vollem Datenträger oder fehlenden Rechten fehl; der Befund dieses
+    // Laufs stimmt trotzdem, nur der Verlauf für den nächsten fehlt.
     let _ = netze::save(store_path, &store);
     out
 }
@@ -499,6 +505,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         return Ok(());
     };
     let finding = bekanntes_netz().and_then(|(path, key)| {
+        let _sperre = crate::sperre(&path).ok()?;
         let mut store: Store = netze::load_json(&path).ok()?;
         let r = aufzeichnen_in(&mut store, &key, &f, netze::now());
         netze::save(&path, &store).ok()?;

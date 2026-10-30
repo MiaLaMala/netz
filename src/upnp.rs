@@ -317,7 +317,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    const ANTWORT: &[u8] = b"HTTP/1.1 200 OK\r\nCACHE-CONTROL: max-age=1800\r\nLocation: http://192.0.2.7:49152/desc.xml\r\nSERVER: Linux/5.4 UPnP/1.0 Beispiel/1.0\r\nST: upnp:rootdevice\r\nUSN: uuid:0000-example::upnp:rootdevice\r\n\r\n";
+    pub(super) const ANTWORT: &[u8] = b"HTTP/1.1 200 OK\r\nCACHE-CONTROL: max-age=1800\r\nLocation: http://192.0.2.7:49152/desc.xml\r\nSERVER: Linux/5.4 UPnP/1.0 Beispiel/1.0\r\nST: upnp:rootdevice\r\nUSN: uuid:0000-example::upnp:rootdevice\r\n\r\n";
     const XML: &str = "<?xml version=\"1.0\"?><root xmlns=\"urn:schemas-upnp-org:device-1-0\"><device><deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType><friendlyName>Wohnzimmer &amp; Co</friendlyName><manufacturer>Beispiel GmbH</manufacturer><modelName>Box 1</modelName><serialNumber>SERIAL123</serialNumber><deviceList><device><friendlyName>Innen</friendlyName></device></deviceList></device></root>";
     fn ip(s: &str) -> Ipv4Addr {
         s.parse().unwrap()
@@ -394,5 +394,15 @@ mod tests {
         let t = BTreeMap::from([(ip("192.0.2.7"), u.clone()), (ip("192.0.2.8"), u.clone())]);
         assert_eq!(zuordnen(&mut g, &t), 1);
         assert_eq!(g[0].upnp, Some(u));
+    }
+}
+
+#[cfg(test)]
+mod kaputt_tests {
+    #[test]
+    fn antwort_haelt_kaputte_pakete_aus() {
+        for p in crate::kaputte_pakete(super::tests::ANTWORT) {
+            let _ = super::parse_antwort(&p);
+        }
     }
 }
