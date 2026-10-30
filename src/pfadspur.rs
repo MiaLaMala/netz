@@ -159,6 +159,7 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
             .filter_map(|(z, j)| Some(eintrag(z, &j.join().ok()?.ok()?.hops, jetzt)))
             .collect()
     });
+    let _sperre = netze::sperre(&store_path(daten));
     let Ok(mut store) = netze::load_json::<Store>(&store_path(daten)) else {
         return Vec::new();
     };
@@ -172,6 +173,7 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
         liste.retain(|x| x.ziel != e.ziel);
         liste.extend(hist);
     }
+    // Ein Speicherfehler lässt die Befunde stehen; nur der Verlauf für den nächsten Besuch fehlt.
     let _ = netze::save(&store_path(daten), &store);
     befunde
 }

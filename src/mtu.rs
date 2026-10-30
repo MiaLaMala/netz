@@ -436,6 +436,7 @@ pub fn mtu_daten(ziel: &str) -> Result<MtuErgebnis, String> {
     let (netz, vorher) = match bekannt {
         Some((key, name)) => {
             let pfad = store_path(&daten);
+            let _sperre = netze::sperre(&pfad);
             let mut store: Store = netze::load_json(&pfad)?;
             let m = Messung {
                 ziel: ip.to_string(),

@@ -308,6 +308,7 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
         return vec![(Klasse::Harmlos, e.satz)];
     };
     let pfad = daten.with_file_name("zeit.json");
+    let _sperre = netze::sperre(&pfad);
     if let Ok(mut speicher) = netze::load_json::<BTreeMap<String, Gespeichert>>(&pfad) {
         let oeff: Vec<f64> = e
             .befunde

@@ -217,6 +217,7 @@ struct Lauf {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)] // Dateien älterer Versionen haben nicht alle Felder.
 struct NetDiag {
     /// TTL and address of the remembered first public hop.
     hop: Option<(u8, Ipv4Addr)>,
@@ -288,6 +289,7 @@ fn speichern(
     lauf: Option<Lauf>,
     eintrag: Eintrag,
 ) -> Result<(), String> {
+    let _sperre = netze::sperre(path);
     let mut store: Store = netze::load_json(path)?;
     let d = store.entry(key.to_string()).or_default();
     d.hop = hop;

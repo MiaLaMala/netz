@@ -35,6 +35,7 @@ impl Bestaetigung {
 
 /// Mess-Ergebnis; `None`, was networkQuality nicht geliefert hat.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)] // Dateien älterer Versionen haben nicht alle Felder.
 pub struct LastErgebnis {
     /// Bit pro Sekunde.
     pub down_bps: Option<f64>,
@@ -123,6 +124,7 @@ fn starten(programm: &str, args: &[&str], frist: Duration) -> Result<String, Str
     let lesen = |mut p: Box<dyn Read + Send>| {
         std::thread::spawn(move || {
             let mut s = String::new();
+            // Bricht das Lesen ab, bleibt der bisherige Text; der Exit-Status entscheidet.
             let _ = p.read_to_string(&mut s);
             s
         })
@@ -137,6 +139,7 @@ fn starten(programm: &str, args: &[&str], frist: Duration) -> Result<String, Str
             Ok(Some(s)) => break s,
             Ok(None) if start.elapsed() < frist => std::thread::sleep(Duration::from_millis(50)),
             Ok(None) => {
+                // Das Programm kann gerade selbst geendet sein; beides ist dann egal.
                 let _ = kind.kill();
                 let _ = kind.wait();
                 return Err(format!(
@@ -246,6 +249,7 @@ pub fn messen_und_speichern(trotz_hotspot: bool) -> Result<Lauf, String> {
         zeit: netze::now(),
     };
     if let Some((pfad, key)) = ziel() {
+        let _sperre = netze::sperre(&pfad);
         let mut store: Store = netze::load_json(&pfad)?;
         ablegen(&mut store, &key, lauf.ergebnis.clone(), lauf.zeit);
         netze::save(&pfad, &store)?;
@@ -369,6 +373,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     let e = messen(&ok)?;
     ausgeben(&e, explain_on);
     if let Some((pfad, key)) = ziel() {
+        let _sperre = netze::sperre(&pfad);
         let mut store: Store = netze::load_json(&pfad)?;
         ablegen(&mut store, &key, e, netze::now());
         netze::save(&pfad, &store)?;
@@ -468,5 +473,16 @@ mod tests {
         }
         let v = &st["k"];
         assert_eq!((v.len(), v[0].zeit, v[19].zeit), (20, 5, 24));
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+
+    #[test]
+    fn alter_lauf_ohne_felder_laedt() {
+        let l: Lauf = serde_json::from_str(r#"{"zeit":1,"ergebnis":{"down_bps":1.0}}"#).unwrap();
+        assert_eq!(l.ergebnis.dauer_s, 0.0);
     }
 }

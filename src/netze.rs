@@ -211,8 +211,15 @@ pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> 
     }
     let json = serde_json::to_string_pretty(list)
         .map_err(|e| format!("Die gemerkten Netze ließen sich nicht umwandeln ({e})."))?;
+    // Eigener Name je Aufruf: App, Wache und Kommandozeile schreiben gleichzeitig, eine
+    // gemeinsame Zwischendatei würde sich gegenseitig überschreiben oder wegnehmen.
+    static ZAEHLER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let mut name = path.as_os_str().to_owned();
-    name.push(".tmp");
+    name.push(format!(
+        ".tmp{}-{}",
+        std::process::id(),
+        ZAEHLER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     let tmp = PathBuf::from(name);
     let write = || -> std::io::Result<()> {
         let mut o = std::fs::OpenOptions::new();
@@ -228,6 +235,49 @@ pub fn save<T: Serialize + ?Sized>(path: &Path, list: &T) -> Result<(), String> 
         let _ = std::fs::remove_file(&tmp);
         err(e)
     })
+}
+
+/// Hält die Sperre einer Speicherdatei, bis sie fällt.
+pub struct Sperre(#[allow(dead_code)] Option<std::fs::File>);
+
+/// Sperre für „lesen, ändern, schreiben“ einer Speicherdatei: Wer sie vor `load_json` nimmt und
+/// bis nach `save` hält, überschreibt keine Änderung eines anderen Prozesses (App, Wache,
+/// Kommandozeile). Wartet höchstens 5 s und macht dann ohne Sperre weiter: ein hängender
+/// Prozess darf das Speichern nicht dauerhaft blockieren. Ohne Sperrdatei (kein Schreibrecht)
+/// ebenso; das eigentliche Speichern meldet dann den Satz dazu.
+// ponytail: flock auf Unix, auf anderen Systemen keine Sperre.
+pub fn sperre(path: &Path) -> Sperre {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        let mut name = path.as_os_str().to_owned();
+        name.push(".lock");
+        if let Some(dir) = Path::new(&name).parent() {
+            // Fehler zeigt `save` mit einem Satz.
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let Ok(f) = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&name)
+        else {
+            return Sperre(None);
+        };
+        for _ in 0..100 {
+            // SAFETY: gültiger, eigener Dateideskriptor.
+            if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        Sperre(Some(f))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Sperre(None)
+    }
 }
 
 pub fn find(list: &[Netz], fp: &Fingerprint) -> Option<usize> {
@@ -344,8 +394,17 @@ fn erkennen(info: NetInfo, path: Result<PathBuf, String>) -> Aktuell {
             return a;
         }
     };
-    let (path, mut list) = match path.and_then(|p| Ok((p.clone(), load(&p)?))) {
-        Ok(x) => x,
+    let path = match path {
+        Ok(p) => p,
+        Err(e) => {
+            a.hinweis = Some(e);
+            return a;
+        }
+    };
+    // Sperre bis nach `save`: ein gleichzeitiges `merken` darf nicht verloren gehen.
+    let _sperre = sperre(&path);
+    let mut list = match load(&path) {
+        Ok(l) => l,
         Err(e) => {
             a.hinweis = Some(e);
             return a;
@@ -394,6 +453,7 @@ fn aendern<T>(
     path: &Path,
     f: impl FnOnce(&mut Vec<Netz>) -> Result<T, String>,
 ) -> Result<T, String> {
+    let _sperre = sperre(path);
     let mut list = load(path)?;
     let out = f(&mut list)?;
     save(path, &list)?;
@@ -854,6 +914,68 @@ mod tests {
             subnet: "192.0.2.0/24".into(),
             domain: None,
             bssid_hash: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    fn tmp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("netzinfo-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d.join("x.json")
+    }
+
+    /// App, Wache und Kommandozeile ändern dieselbe Datei gleichzeitig: kein Eintrag geht verloren.
+    #[test]
+    fn gleichzeitiges_aendern_verliert_nichts() {
+        let pfad = tmp("parallel");
+        std::thread::scope(|s| {
+            for i in 0..8 {
+                let pfad = &pfad;
+                s.spawn(move || {
+                    for j in 0..5 {
+                        let _sperre = sperre(pfad);
+                        let mut m: BTreeMap<String, u32> = load_json(pfad).unwrap();
+                        m.insert(format!("{i}-{j}"), 1);
+                        save(pfad, &m).unwrap();
+                    }
+                });
+            }
+        });
+        let m: BTreeMap<String, u32> = load_json(&pfad).unwrap();
+        assert_eq!(m.len(), 40);
+        let reste = std::fs::read_dir(pfad.parent().unwrap())
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(".tmp")
+            })
+            .count();
+        assert_eq!(reste, 0, "Zwischendateien bleiben liegen");
+    }
+
+    /// Ohne Schreibrecht für den Ordner kommt ein Satz, kein Absturz.
+    #[cfg(unix)]
+    #[test]
+    fn nicht_schreibbarer_ordner_gibt_einen_satz() {
+        use std::os::unix::fs::PermissionsExt;
+        let pfad = tmp("lesend");
+        let ordner = pfad.parent().unwrap();
+        std::fs::set_permissions(ordner, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let r = save(&pfad, &BTreeMap::<String, u32>::new());
+        let _sperre = sperre(&pfad); // darf nicht abstürzen oder hängen
+        std::fs::set_permissions(ordner, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // Als root ginge das Schreiben trotzdem; dann gibt es nichts zu prüfen.
+        if let Err(e) = r {
+            assert!(e.contains("ließ sich nicht speichern"), "{e}");
         }
     }
 }

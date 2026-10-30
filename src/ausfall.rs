@@ -71,11 +71,13 @@ pub struct Eintrag {
     pub dauer_s: u64,
     pub schicht: Ort,
     /// Kurze Antworten mitten im Ausfall (weniger als 3 in Folge).
+    #[serde(default)]
     pub aussetzer: u32,
 }
 
 /// Zustand zwischen zwei Stichproben, auch zwischen zwei Aufrufen der App.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 struct Lauf {
     zuletzt: u64,
     /// Verluste in Folge vor einem Ausfall: Zeit der ersten und Zahl.
@@ -96,6 +98,7 @@ struct Aus {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)] // Dateien älterer Versionen haben nicht alle Felder.
 pub struct Daten {
     pub liste: Vec<Eintrag>,
     /// Zeiten kurzer Verlust-Folgen (1 oder 2), die kein Ausfall wurden. Nur Zählung für die Leiste.
@@ -131,7 +134,7 @@ impl Daten {
                 self.liste.push(Eintrag {
                     beginn: a.beginn,
                     ende,
-                    dauer_s: ende - a.beginn,
+                    dauer_s: ende.saturating_sub(a.beginn),
                     schicht: a.ort,
                     aussetzer: a.aussetzer,
                 });
@@ -157,7 +160,7 @@ impl Daten {
                     self.liste.push(Eintrag {
                         beginn,
                         ende,
-                        dauer_s: ende - beginn,
+                        dauer_s: ende.saturating_sub(beginn),
                         schicht: a.ort,
                         aussetzer: a.aussetzer,
                     });
@@ -202,6 +205,7 @@ pub(crate) fn verarbeiten(
     s: &Sample,
     gegenprobe: &dyn Fn() -> bool,
 ) -> Result<(), String> {
+    let _sperre = netze::sperre(pfad);
     let mut store: Store = netze::load_json(pfad)?;
     store
         .entry(key.to_string())
@@ -443,5 +447,42 @@ mod tests {
     fn wochenanfang_ist_montag() {
         // Do 29.10.2026 gehört zur Woche ab Mo 26.10.2026
         assert!(netze::format_utc(woche_ab(1_793_000_000)).starts_with("Mo 26.10.2026, 00:00"));
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+    use crate::messen::LOSS;
+
+    /// Springt die Uhr zurück, steht `ende` vor `beginn`: Dauer 0 statt Überlauf (Panik).
+    #[test]
+    fn uhr_springt_zurueck_ohne_panik() {
+        let mut d: Daten = serde_json::from_str(
+            r#"{"lauf":{"zuletzt":100,"aus":{"beginn":500,"ort":"nur_dns","gut":0,
+            "aussetzer":0,"letzter_verlust":400,"gut_ab":0}}}"#,
+        )
+        .unwrap();
+        d.aufnehmen(
+            &Sample {
+                t: 1000,
+                v: [LOSS, 1, 1],
+            },
+            &|| false,
+        );
+        assert_eq!(d.liste.len(), 1);
+        assert_eq!(d.liste[0].dauer_s, 0);
+    }
+
+    /// Eine Datei aus einer älteren Version (Felder fehlen) lädt weiter.
+    #[test]
+    fn alte_datei_ohne_felder_laedt() {
+        let d: Daten = serde_json::from_str("{}").unwrap();
+        assert!(d.liste.is_empty());
+        let d: Daten = serde_json::from_str(
+            r#"{"liste":[{"beginn":1,"ende":9,"dauer_s":8,"schicht":"unklar"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(d.liste[0].aussetzer, 0);
     }
 }

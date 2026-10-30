@@ -365,7 +365,14 @@ pub fn pruefen() -> Result<PruefErgebnis, String> {
     // Every rule above may append findings; the verdict is the first entry, so sort once here.
     erg.unterschiede
         .sort_by_key(|u| std::cmp::Reverse(u.klasse));
-    netze::save(&store_path, &store)?;
+    // Die Prüfung dauert; App, Wache und Kommandozeile haben inzwischen andere Netze ergänzt.
+    // Darum die Datei jetzt neu lesen und nur den Eintrag dieses Netzes einsetzen.
+    let _sperre = netze::sperre(&store_path);
+    let mut frisch: Store = netze::load_json(&store_path)?;
+    if let Some(e) = store.remove(&fp.key()) {
+        frisch.insert(fp.key(), e);
+    }
+    netze::save(&store_path, &frisch)?;
     Ok(erg)
 }
 

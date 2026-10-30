@@ -218,6 +218,7 @@ fn ablegen(ziel: &str, k: &Kennzahlen) -> Result<(), String> {
     let Some((pfad, key)) = speicher() else {
         return Ok(()); // unbekanntes Netz: nichts speichern
     };
+    let _sperre = netze::sperre(&pfad);
     let mut store: Store = netze::load_json(&pfad)?;
     let liste = store
         .entry(key)
@@ -309,6 +310,41 @@ pub fn sonde(ziel: &str, neu: bool) -> Result<Ansicht, String> {
 }
 
 // ---- Kommandozeile -----------------------------------------------------------------------
+
+static UNTERBROCHEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(unix)]
+extern "C" fn merke_strg_c(_: libc::c_int) {
+    UNTERBROCHEN.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Strg-C beendet langläufige Befehle (`live`, `messen`, `wlan --verlauf`) nach der laufenden
+/// Runde mit ihrer Zusammenfassung, statt mitten im Schreiben abzubrechen.
+pub fn strg_c_abfangen() {
+    #[cfg(unix)]
+    // SAFETY: der Handler setzt nur ein atomares Flag (signalfest).
+    unsafe {
+        libc::signal(
+            libc::SIGINT,
+            merke_strg_c as extern "C" fn(libc::c_int) as libc::sighandler_t,
+        );
+    }
+}
+
+pub fn unterbrochen() -> bool {
+    UNTERBROCHEN.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Wie `thread::sleep`, endet aber früh nach Strg-C.
+pub fn schlafen(dauer: Duration) {
+    let ende = Instant::now() + dauer;
+    while !unterbrochen() {
+        let Some(rest) = ende.checked_duration_since(Instant::now()) else {
+            return;
+        };
+        std::thread::sleep(rest.min(Duration::from_millis(100)));
+    }
+}
 
 const BLOECKE: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
@@ -418,6 +454,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     if !(1..=4).contains(&ziele.len()) {
         return Err("Gib ein bis vier Ziele an: `netzinfo live 1.1.1.1 9.9.9.9`.".into());
     }
+    strg_c_abfangen();
     let mut sender = Vec::new();
     for z in &ziele {
         let ip = resolve4(z)?;
@@ -453,7 +490,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
             sc.spawn(move || {
                 for seq in 0u16.. {
                     let t0 = Instant::now();
-                    if t0 >= ende {
+                    if t0 >= ende || unterbrochen() {
                         break;
                     }
                     let zeit = jetzt_ms();
@@ -466,7 +503,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                     if tx.send((i, s)).is_err() {
                         break;
                     }
-                    std::thread::sleep(takt.saturating_sub(t0.elapsed()));
+                    // Nicht über das Ende hinaus schlafen (Intervall bis 60 s).
+                    schlafen(
+                        takt.saturating_sub(t0.elapsed())
+                            .min(ende.saturating_duration_since(Instant::now())),
+                    );
                 }
             });
         }
@@ -670,5 +711,32 @@ mod tests {
         let s = serie(&[Some(1.0), Some(8.0), None, Some(4.0)], 1);
         assert_eq!(kurve(&s.proben, 40), "▂█×▅");
         assert_eq!(kurve(&s.proben, 2), "×█");
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+
+    /// Eine Serie mit einer Probe und eine mit nur Verlusten: keine Division durch null, kein NaN.
+    #[test]
+    fn eine_probe_und_nur_verluste_ohne_nan() {
+        let mut s = Serie::default();
+        s.push(1000, Some(12.0));
+        let k = s.kennzahlen(1000).unwrap();
+        assert_eq!((k.jitter_ms, k.verlust_prozent), (Some(0.0), 0.0));
+        let mut s = Serie::default();
+        s.push(1000, None);
+        let k = s.kennzahlen(1000).unwrap();
+        assert!(k.median_ms.is_none() && k.verlust_prozent == 100.0);
+        assert!(zeilen("x", &s, false).iter().all(|z| !z.contains("NaN")));
+        assert!(Serie::default().kennzahlen(1000).is_none());
+    }
+
+    #[test]
+    fn schlafen_endet_nach_der_dauer() {
+        let t = Instant::now();
+        schlafen(Duration::from_millis(150));
+        assert!(t.elapsed() >= Duration::from_millis(150) && t.elapsed() < Duration::from_secs(2));
     }
 }

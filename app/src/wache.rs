@@ -3,7 +3,8 @@
 
 use netzinfo::netze;
 use netzinfo::pruefen::{self, Klasse, Unterschied};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, PoisonError, TryLockError};
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
@@ -133,8 +134,11 @@ fn schluessel() -> Option<String> {
 
 /// Checks the current network now and updates the icon and menu.
 fn pruefe(app: &AppHandle) {
-    let Ok(_sperre) = LAEUFT.try_lock() else {
-        return;
+    // Eine Panik in einer früheren Runde vergiftet die Sperre; die Wache soll trotzdem weiterlaufen.
+    let _sperre = match LAEUFT.try_lock() {
+        Ok(g) => g,
+        Err(TryLockError::Poisoned(g)) => g.into_inner(),
+        Err(TryLockError::WouldBlock) => return,
     };
     if schluessel().is_none() {
         return anzeigen(app, Zustand::KeinNetz, "Kein Netz", "Nicht geprüft");
@@ -174,6 +178,7 @@ fn pruefe(app: &AppHandle) {
 
 pub fn fenster_oeffnen(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
+        // Kosmetik: scheitert eines davon, bleibt das Fenster eben, wo es war.
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
@@ -231,21 +236,58 @@ pub fn starten(app: &mut App) -> tauri::Result<()> {
 
     let app = app.handle().clone();
     std::thread::spawn(move || {
-        // `None`: nothing seen yet, so the first round checks too.
-        let mut letzter: Option<Option<String>> = None;
+        let mut haengt = 0u32;
         loop {
-            let jetzt = schluessel();
-            if letzter.as_ref() != Some(&jetzt) {
-                if jetzt.is_some() {
-                    std::thread::sleep(DHCP_WARTEN);
+            // Jede Runde läuft in einem eigenen Thread: eine Panik oder ein hängender
+            // Systembefehl in einer Runde hält die Wache nicht an.
+            if RUNDE.swap(true, Ordering::AcqRel) {
+                haengt += 1;
+                if haengt == HAENGT_NACH {
+                    anzeigen(
+                        &app,
+                        Zustand::Unbekannt,
+                        "Netz",
+                        "Die Prüfung hängt, die nächste Runde wartet darauf",
+                    );
                 }
-                pruefe(&app);
-                letzter = Some(schluessel());
+            } else {
+                haengt = 0;
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| runde(&app)));
+                    if r.is_err() {
+                        eprintln!("Eine Runde der Wache ist abgestürzt, die nächste läuft normal.");
+                    }
+                    RUNDE.store(false, Ordering::Release);
+                });
             }
             std::thread::sleep(INTERVALL);
         }
     });
     Ok(())
+}
+
+/// Läuft gerade eine Runde? Nur eine zur Zeit.
+static RUNDE: AtomicBool = AtomicBool::new(false);
+/// Nach so vielen übersprungenen Takten (3 Minuten) gilt eine Runde als hängend.
+const HAENGT_NACH: u32 = 9;
+/// Der zuletzt gesehene Netzschlüssel. `None`: noch nichts gesehen, die erste Runde prüft immer.
+static LETZTER: Mutex<Option<Option<String>>> = Mutex::new(None);
+
+fn runde(app: &AppHandle) {
+    let jetzt = schluessel();
+    let neu = LETZTER
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+        != Some(&jetzt);
+    if neu {
+        if jetzt.is_some() {
+            std::thread::sleep(DHCP_WARTEN);
+        }
+        pruefe(app);
+        *LETZTER.lock().unwrap_or_else(PoisonError::into_inner) = Some(schluessel());
+    }
 }
 
 fn xml(s: &str) -> String {
