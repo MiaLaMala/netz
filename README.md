@@ -42,9 +42,9 @@ Die App hat vier Ansichten. Jede beantwortet oben eine Frage, alles Weitere lieg
 
 Drei Dinge sind der Kern:
 
-- **Das Netz wiedererkennen und warnen.** Netzinfo vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und der Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
-- **Den Engpass finden.** Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Netzinfo sagt in einem Satz, welche der drei bremst, und was dagegen hilft. Fehlt eine Zahl, steht dort warum, geraten wird nicht.
-- **Ein Störungsprotokoll für die Hotline.** Netzinfo hält fest, wann das Internet weg war und vermutet aus den Messungen, ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
+- Netzinfo erkennt ein Netz wieder und warnt. Es vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und der Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
+- Netzinfo findet den Engpass. Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Netzinfo sagt in einem Satz, welche der drei bremst, und was dagegen hilft. Fehlt eine Zahl, steht dort warum, geraten wird nicht.
+- Netzinfo führt ein Störungsprotokoll für die Hotline. Es hält fest, wann das Internet weg war und vermutet aus den Messungen, ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
 
 <table>
   <tr>
@@ -77,9 +77,9 @@ Jede aktive Verbindung je Programm mit Zielname, Land und Anbieter, wer gerade w
 
 Die Einstellungen stehen abgesetzt unter der Seitenleiste und haben drei Gruppen:
 
-- **Gemerkte Netze:** alle Netze, die du dir gemerkt hast, zum Umbenennen, Vergessen und Markieren als „meins“. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
-- **Allgemein:** Netzinfo startet auf Wunsch mit der Anmeldung. Danach wacht es in der Menüleiste weiter, auch wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt.
-- **Fritz!Box:** der Zugang für die Geräteliste. Das Passwort liegt nur im macOS-Schlüsselbund.
+- Unter „Gemerkte Netze“ stehen alle Netze, die du dir gemerkt hast, zum Umbenennen, Vergessen und Markieren als „meins“. Nur ein Netz, das du als „meins“ markierst, darf Netzinfo nach Geräten und Ports absuchen.
+- Unter „Allgemein“: Netzinfo startet auf Wunsch mit der Anmeldung. Danach wacht es in der Menüleiste weiter, auch wenn das Fenster zu ist: Nach jedem Netzwechsel prüft es und schickt eine Mitteilung, wenn etwas auffällt.
+- Unter „Fritz!Box“ steht der Zugang für die Geräteliste. Das Passwort liegt nur im macOS-Schlüsselbund.
 
 ## Installieren
 
@@ -256,7 +256,7 @@ tools/          Skripte, die diese Datenbanken bauen
 testdata/       Aufgezeichnete Antworten für die Tests
 ```
 
-- Rund 28 000 Zeilen Rust in gut 50 Dateien, über 400 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
+- Rund 29 000 Zeilen Rust in 55 Dateien, über 400 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.

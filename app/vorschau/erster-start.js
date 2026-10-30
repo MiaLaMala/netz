@@ -9,6 +9,8 @@
   if (!marken.includes('erster-start')) return;
   // Erst jetzt, nach allen anderen Dateien: Deren Klicks beim Laden (geraete*, wlan-*, verbindungen*) sollen nicht auslösen, die Antworten schon.
   marken.push('wlan-gut', 'engpass-ungemessen', 'verbindungen-keinnetz');
+  // Gerade gemerkt heißt: noch nichts zum Vergleichen. Ohne eigene pruefung-Marke ist die Prüfung der erste Besuch.
+  if (!marken.some((m) => m.startsWith('pruefung-'))) marken.push('pruefung-erst');
   let name = marken.includes('erster-start-gemerkt') || marken.includes('erster-start-meins') ? 'WG' : null;
   let meins = marken.includes('erster-start-meins');
   const merken = VORSCHAU.netz_merken;

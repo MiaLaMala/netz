@@ -8,14 +8,14 @@ Die erste Veröffentlichung. Netzinfo merkt sich jedes Netz, in dem dein Mac war
 
 ### Hinzugefügt
 
-- **Netz wiedererkennen:** Netzinfo vergleicht mit dem letzten Besuch (Router, DNS, Zertifikate, öffentliche IP, Portfreigaben, Weg ins Internet) und sagt in einem Satz, ob alles wie immer ist.
-- **Engpass finden:** Leitung laut Router, WLAN und Mac stehen nebeneinander, ein Satz nennt den Bremser und was hilft.
-- **Störungsprotokoll:** hält fest, wann das Internet weg war und woran es lag, und schreibt einen sachlichen Text für die Hotline des Anbieters.
-- **Geräte im Netz:** nur in Netzen, die du als „meins“ markierst, mit Namen aus der Fritz!Box.
-- **Verbindungen:** wer redet mit wem, wer lauscht, mit Land und Anbieter des Ziels.
-- **Wache in der Menüleiste:** prüft nach jedem Netzwechsel und schickt eine Mitteilung, wenn etwas auffällt.
-- **Kommandozeile `netzinfo`** für Mac und Linux. `--erklaer` sagt auf Deutsch, was im Netz passiert.
-- **Privat:** kein Server, kein Konto, keine Telemetrie. Das Fritz!Box-Passwort liegt nur im Schlüsselbund.
+- Netzinfo vergleicht ein Netz mit dem letzten Besuch (Router, DNS, Zertifikate, öffentliche IP, Portfreigaben, Weg ins Internet) und sagt in einem Satz, ob alles wie immer ist.
+- Die Engpass-Karte stellt Leitung laut Router, WLAN und Mac nebeneinander und nennt den Bremser und was hilft.
+- Das Störungsprotokoll hält fest, wann das Internet weg war und woran es lag, und schreibt daraus einen sachlichen Text für die Hotline des Anbieters.
+- Geräte im Netz sucht Netzinfo nur in Netzen, die du als „meins“ markierst, auf Wunsch mit den Namen aus der Fritz!Box.
+- Verbindungen zeigt, welche Programme auf dem Mac mit wem verbunden sind und welche lauschen, mit Land und Anbieter des Ziels.
+- Die Wache in der Menüleiste prüft nach jedem Netzwechsel und schickt eine Mitteilung, wenn etwas auffällt.
+- Die Kommandozeile `netzinfo` läuft auf dem Mac und unter Linux. `--erklaer` sagt auf Deutsch, was im Netz passiert.
+- Kein Server, kein Konto, keine Telemetrie. Das Fritz!Box-Passwort liegt nur im Schlüsselbund.
 
 ### Installieren
 
