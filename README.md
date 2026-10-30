@@ -182,6 +182,7 @@ Anzahl Hosts:  62
 |---|---|
 | `netzinfo geraete [--nachbarn]` | Geräte im eigenen Netz, neu und verschwunden, mit MAC und Hersteller (`--nachbarn` nur Mac) |
 | `netzinfo geraete --karten` | Gerätekarten mit Typ und Hinweisen |
+| `netzinfo geraete <Bereich> --gross` | Bereich größer als /22 absuchen (bis /16), dauert lange |
 | `netzinfo fritzbox [--zugang <Benutzer>\|--entfernen]` | Geräteliste der Fritz!Box über TR-064, Zugang im Schlüsselbund (nur Mac) |
 | `netzinfo ports <Host>` | Offene Ports eines eigenen Geräts |
 | `netzinfo bonjour [--txt]` | Dienste, die sich per Bonjour melden |
@@ -225,7 +226,7 @@ Sicherheitslücken bitte nicht als Issue melden, sondern wie in [SECURITY.md](SE
 
 ## Selbst bauen
 
-Du brauchst aktuelles Rust stable (mindestens 1.85 wegen Edition 2024) und die Xcode Command Line Tools. Die Oberfläche ist schlichtes HTML, CSS und JavaScript ohne npm. Node brauchst du nur für die `.dmg` (siehe unten).
+Du brauchst aktuelles Rust stable (mindestens 1.89, für die App 1.90 wegen Tauri) und die Xcode Command Line Tools. Die Oberfläche ist schlichtes HTML, CSS und JavaScript ohne npm. Node brauchst du nur für die `.dmg` (siehe unten).
 
 Land und Anbieter in `verbindungen` brauchen zwei Offline-Datenbanken (zusammen etwa 18 MB, nicht im Git): `sh tools/ipdb-bauen.sh ipdb` lädt sie mit fester Version und Prüfsumme. Ohne sie bleiben die beiden Felder leer. Ein selbst gebautes Programm findet den Ordner über `NETZ_IPDB`:
 

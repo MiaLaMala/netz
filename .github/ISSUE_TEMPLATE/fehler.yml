@@ -13,7 +13,7 @@ body:
     id: version
     attributes:
       label: Netzinfo-Version
-      description: Ausgabe von `netzinfo --version`; bei der App der Eintrag „About Netzinfo“ (oder „Über Netzinfo“) im Menü „Netzinfo“
+      description: Ausgabe von `netzinfo --version`; bei der App der Eintrag „Über Netzinfo“ im Menü „Netzinfo“
     validations:
       required: true
   - type: input

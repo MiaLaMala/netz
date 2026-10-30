@@ -130,6 +130,10 @@ const GRUPPEN: &[(&str, &[(&str, &str)])] = &[
                 "Gerätekarten mit Typ und Hinweisen aus dem Gemerkten",
             ),
             (
+                "geraete <Bereich> --gross",
+                "Bereich größer als /22 absuchen (bis /16), dauert lange",
+            ),
+            (
                 "fritzbox [--zugang <Benutzer>|--entfernen]",
                 "Geräteliste der Fritz!Box (TR-064), Zugang im Schlüsselbund (nur Mac)",
             ),
@@ -276,7 +280,7 @@ const DETAILS: &[(&str, &str, &str)] = &[
     (
         "messen",
         "messen --minuten 5",
-        "Schickt Pings (ICMP) und speichert die Werte je Netz.",
+        "Fragt DNS beim Router und bei 1.1.1.1, baut TCP-Verbindungen zu 1.1.1.1 auf und speichert die Zeiten je Netz.",
     ),
     (
         "bericht",
@@ -321,7 +325,7 @@ const DETAILS: &[(&str, &str, &str)] = &[
     (
         "geraete",
         "geraete --karten",
-        "Fragt Geräte im eigenen Netz (Bonjour, UPnP, DNS). Nur private Adressen, nur in „meins“-Netzen.",
+        "Probiert an jeder Adresse 12 TCP-Ports (mit --nachbarn auch einen Ping) und fragt Bonjour, UPnP und DNS. Nur private Adressen, nur in „meins“-Netzen.",
     ),
     (
         "fritzbox",
@@ -346,7 +350,7 @@ const DETAILS: &[(&str, &str, &str)] = &[
     (
         "offen",
         "offen --json",
-        "Liest nur diesen Rechner, sendet nichts. --aussen fragt zusätzlich von außen.",
+        "Liest nur diesen Rechner, sendet nichts. --aussen probiert die Ports an der Netzadresse dieses Macs.",
     ),
     (
         "verbindungen",

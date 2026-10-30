@@ -2,7 +2,7 @@
 
 ## Fehler melden (zwei Minuten)
 
-1. Version holen: `netzinfo --version`, in der App der Eintrag „About Netzinfo“ im Menü „Netzinfo“.
+1. Version holen: `netzinfo --version`, in der App der Eintrag „Über Netzinfo“ im Menü „Netzinfo“.
 2. Den Befehl noch einmal mit `--erklaer` starten und die Ausgabe kopieren. Bei der App: Ansicht, Text oder Screenshot.
 3. Echte IP-Adressen, MACs, Hostnamen und WLAN-Namen ersetzen durch `192.0.2.x`, `198.51.100.x`, `203.0.113.x`, `2001:db8::` und `aa:bb:cc:dd:ee:ff`. Das gilt auch für Screenshots.
 4. [Fehler melden](https://github.com/MiaLaMala/netzinfo/issues/new?template=fehler.yml) und die Felder ausfüllen. Eine Sicherheitslücke bitte nicht hier, sondern wie in [SECURITY.md](SECURITY.md).
