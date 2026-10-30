@@ -56,7 +56,7 @@
     };
     window.VORSCHAU = antworten;
     window.__TAURI__ = { core: { invoke: async (befehl, args) => {
-      if (!VORSCHAU[befehl]) throw `Die Vorschau kennt den Befehl ${befehl} nicht.`;
+      if (!VORSCHAU[befehl]) throw `Command ${befehl} not found`;
       return VORSCHAU[befehl](args);
     } } };
 

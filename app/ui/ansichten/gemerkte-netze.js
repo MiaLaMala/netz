@@ -3,6 +3,13 @@
 (() => {
   const { el, zeit, meldung } = Netz;
 
+  // Datum ohne Uhrzeit; fehlt der Wert oder ist er unsinnig, steht „unbekannt“ statt „Invalid Date“.
+  const tag = (s) => (Number.isFinite(s) && s > 0 && !isNaN(new Date(s * 1000)) ? new Date(s * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' }) : 'unbekannt');
+  // Fehlt der Befehl (kein Mac), ist die Gruppe zu Recht weg. Jeder andere Fehler (z. B. Schlüsselbund) wird gezeigt.
+  const fehltBefehl = (f) => /not found|nicht gefunden|unknown command/i.test(Netz.text(f));
+  const fehlerGruppe = (id, titel, f) => el('section', { class: 'gruppe', 'aria-labelledby': id },
+    el('h3', { id, text: titel }), el('div', { class: 'liste block' }, meldung(Netz.text(f))));
+
   function zeile(start, nr, hier) {
     let n = start;
     const ort = el('div', { class: 'netz-zeile', role: 'listitem' });
@@ -77,7 +84,6 @@
     const feld = (label, wert, farbe, leer) => el('div', { class: 'feld' }, el('dt', { class: 'fl', text: label }),
       el('dd', { class: `fw wert${leer ? ' leer' : ''}` }, farbe && el('span', { class: `punkt ${farbe}`, 'aria-hidden': 'true' }), wert));
     // Letzte Messung des verschlüsselten DNS (#88), ohne zu senden. Fehlt sie, steht ein Feld mit „noch nicht geprüft“.
-    const tag = (s) => new Date(s * 1000).toLocaleDateString('de-DE', { dateStyle: 'medium' });
     const ja = { Erreichbar: ['ja', 'gruen'], Blockiert: ['nein', 'orange'], Abgefangen: ['abgefangen', 'rot'] };
     const dns = el('dl', { class: 'felder' }, feld('Verschlüsseltes DNS', 'noch nicht geprüft', null, true));
     Netz.invoke('dns_gespeichert', { name: n.name }).then((g) => {
@@ -86,11 +92,14 @@
       const [dot, doh] = [m.dot, m.doh].map((x) => ja[x] ?? ['unbekannt', 'grau']);
       dns.replaceChildren(feld('DoT', dot[0], dot[1]), feld('DoH', doh[0], doh[1]),
         feld('DDR', m.ddr ? 'ja' : 'nein', m.ddr ? 'gruen' : 'grau'), feld('DNS geprüft am', tag(m.zeit)));
-    }).catch(() => {});
+    }).catch(() => {
+      // Lesefehler heißt nicht „nie geprüft“: Das Feld sagt es, statt „noch nicht geprüft“ stehen zu lassen.
+      dns.replaceChildren(feld('Verschlüsseltes DNS', 'nicht lesbar', null, true));
+    });
 
     // Verbunden: Der Status steht schon oben, der Platz bleibt leer, damit die Felder in allen Zeilen untereinander stehen.
     const fein = () => [feld('Zuletzt hier', hier ? 'jetzt' : zeit(n.last_seen)), feld('Gemerkt seit', tag(n.first_seen)),
-      feld('Router', n.fingerprint.router), feld('Domain', n.fingerprint.domain || 'ohne Domain', null, !n.fingerprint.domain)];
+      feld('Router', n.fingerprint?.router || 'unbekannt', null, !n.fingerprint?.router), feld('Domain', n.fingerprint?.domain || 'ohne Domain', null, !n.fingerprint?.domain)];
     const normal = () => {
       ort.classList.remove('bearbeiten');
       ort.onkeydown = null;
@@ -137,9 +146,13 @@
 
   // Start mit der Anmeldung (#9). Fehlt der Befehl oder scheitert er beim Lesen, bleibt die Gruppe weg.
   async function autostart() {
-    const an = await Netz.invoke('autostart_lesen').catch(() => null);
-    if (an === null) return null;
+    let an;
+    try { an = await Netz.invoke('autostart_lesen'); } catch (f) {
+      return fehltBefehl(f) ? null : fehlerGruppe('g-allgemein', 'Allgemein', f);
+    }
+    if (an === null || an === undefined) return null;
     // Dev build: the login item would point into target/, the core says so (#142).
+    // Nur ein Zusatzhinweis: Scheitert er, bleibt der Schalter ohne ihn bedienbar.
     const hinweis = await Netz.invoke('autostart_hinweis').catch(() => null);
     const s = el('button', { class: 'erklaeren-schalter', type: 'button', role: 'switch', 'aria-checked': an, 'aria-describedby': 'autostart-hilfe' },
       el('span', { class: 'spur' }), el('span', { text: 'Mit der Anmeldung starten' }));
@@ -166,7 +179,10 @@
   // Fehlt der Befehl (kein Mac), bleibt die Gruppe weg.
   let feldNr = 0;
   async function fritzbox() {
-    let benutzer = await Netz.invoke('fritzbox_zugang').catch(() => undefined);
+    let benutzer;
+    try { benutzer = await Netz.invoke('fritzbox_zugang'); } catch (f) {
+      return fehltBefehl(f) ? null : fehlerGruppe('g-fritz', 'Fritz!Box', f);
+    }
     if (benutzer === undefined) return null;
     const ort = el('div', { class: 'liste block' });
     const gruppe = el('section', { class: 'gruppe fritz', 'aria-labelledby': 'g-fritz' }, el('h3', { id: 'g-fritz', text: 'Fritz!Box' }), ort);
@@ -225,7 +241,7 @@
         ansage.textContent = 'Zugang entfernt.';
         ort.querySelector('.fritz-einrichten')?.focus();
       },
-      fehler: (f) => zeile.append(meldung(Netz.text(f), 'rot')),
+      fehler: (f) => { zeile.querySelector('.meldung')?.remove(); zeile.append(meldung(Netz.text(f), 'rot')); },
     }));
 
     function zeichne() {
@@ -251,6 +267,7 @@
     async render(wurzel) {
       const liste = await Netz.invoke('gemerkte_netze');
       // Which saved network is the Mac in right now? Unknown or not saved: no row is marked.
+      // Nur Zierde (Zeile „Verbunden“): Scheitert die Erkennung, bleibt keine Zeile markiert, die Liste steht trotzdem.
       const jetzt = (await Netz.invoke('dieses_netz').catch(() => null))?.netz?.name;
       const [start, fritz] = await Promise.all([autostart(), fritzbox()]);
       const titel = liste.length ? `Gemerkte Netze (${liste.length})` : 'Gemerkte Netze';

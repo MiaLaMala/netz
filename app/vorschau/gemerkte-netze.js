@@ -52,6 +52,44 @@ addEventListener('DOMContentLoaded', () => setTimeout(() => {
   if (marken.includes('einst-fritz-formular') || marken.includes('einst-fritz-fehler')) document.querySelector('.fritz-einrichten')?.click();
   if (marken.includes('einst-fritz-fehler')) document.querySelector('.fritz-formular')?.requestSubmit();
 }, 600));
+// Robustheit (#176, Runde 4). Zusammen mit tab-gemerkte-netze:
+// netze-viele (100 Netze, lange Namen mit <b> und &amp;), netze-lang (drei Namen mit 60 Zeichen), netze-daten-fehlen (Fingerabdruck
+// und Daten null oder Unsinn), netze-dns-fehler (gespeicherte DNS-Messung nicht lesbar), netze-ladefehler-objekt / -error / -leer
+// (Fehler als { art, text }, als Error, als nichts), netze-render-wirft (Kern liefert null, die Ansicht wirft beim Zeichnen),
+// einst-autostart-fehler, einst-fritz-schluessel (Schlüsselbund nicht lesbar), einst-fritz-entfernen-fehler (Entfernen scheitert
+// zweimal, eine Meldung), fang-fehler (unbehandelte Fehler, ein Band), speicher-gesperrt (localStorage wirft).
+const lang = (stamm) => `${stamm} <b>fett</b> &amp; ${'x'.repeat(60)}`.slice(0, 60);
+if (marken.includes('netze-viele')) {
+  netze = [...netze, ...Array.from({ length: 97 }, (_, i) => ({ name: i % 5 ? `Gast ${i + 4}` : lang(`Netz ${i + 4}`), fingerprint: fp2(i), meins: false, first_seen: t - 86400 * (i + 1), last_seen: t - 86400 * i }))];
+}
+function fp2(i) { return { router: `198.51.100.${(i % 250) + 1}`, dhcp_server: `198.51.100.${(i % 250) + 1}`, domain: null, subnet: `198.51.100.0/24` }; }
+if (marken.includes('netze-lang')) netze = netze.map((n, i) => ({ ...n, name: ['<b>fett</b> & &amp; ' + 'W'.repeat(41), 'Büro-Netz-im-zweiten-Stock-links-neben-der-Küche-1234567890', '🏨 Hotel „Seeblick“ ' + 'ä'.repeat(40)][i].slice(0, 60) }));
+if (marken.includes('netze-daten-fehlen')) {
+  netze = netze.map((n, i) => (i === 1 ? { ...n, fingerprint: null, first_seen: null, last_seen: 1e18 } : i === 2 ? { ...n, fingerprint: {}, first_seen: 0, last_seen: undefined } : n));
+}
+if (marken.includes('netze-dns-fehler')) VORSCHAU.dns_gespeichert = async () => { throw 'Die gespeicherte DNS-Messung ließ sich nicht lesen.'; };
+const ladefehler = { 'netze-ladefehler-objekt': { art: 'sonstiges', text: 'Die gemerkten Netze ließen sich nicht lesen. Die Datei bleibt dabei unverändert.' },
+  'netze-ladefehler-error': new Error('Failed to fetch'), 'netze-ladefehler-leer': undefined };
+for (const [m, f] of Object.entries(ladefehler)) if (marken.includes(m)) VORSCHAU.gemerkte_netze = async () => { throw f; };
+if (marken.includes('netze-render-wirft')) VORSCHAU.gemerkte_netze = async () => null;
+if (marken.includes('speicher-gesperrt')) for (const f of ['getItem', 'setItem']) Storage.prototype[f] = () => { throw new DOMException('Speicher voll', 'QuotaExceededError'); };
+// Geräte-Vorschau definiert die Fritz!Box-Befehle erst später: erst nach dem Laden überschreiben.
+addEventListener('DOMContentLoaded', () => {
+  if (marken.includes('einst-autostart-fehler')) VORSCHAU.autostart_lesen = async () => { throw 'Der Autostart ließ sich nicht lesen. Prüfe in den Systemeinstellungen unter Allgemein, Anmeldeobjekte.'; };
+  if (marken.includes('einst-fritz-schluessel')) VORSCHAU.fritzbox_zugang = async () => { throw 'Der Schlüsselbund ist gesperrt. Entsperre ihn in der App „Schlüsselbund“ und lade die Einstellungen neu.'; };
+  if (marken.includes('einst-fritz-entfernen-fehler')) VORSCHAU.fritzbox_entfernen = async () => { throw 'Der Schlüsselbund ließ das Entfernen nicht zu. Entferne den Eintrag „Netzinfo Fritz!Box“ selbst in der App „Schlüsselbund“.'; };
+});
+addEventListener('DOMContentLoaded', () => setTimeout(() => {
+  if (marken.includes('einst-fritz-entfernen-fehler')) {
+    document.querySelector('.fritz-entfernen')?.click();
+    for (let i = 0; i < 2; i++) document.querySelector('.bestaetigung .knopf.gefahr')?.click();
+  }
+  if (marken.includes('fang-fehler')) {
+    Promise.reject({ art: 'sonstiges', text: 'Die Fritz!Box antwortet nicht. Prüfe, ob sie eingeschaltet ist.' });
+    for (let i = 0; i < 3; i++) Promise.reject(new Error('boom'));
+    setTimeout(() => { throw new TypeError('x ist undefined'); });
+  }
+}, 900));
 // Start mit der Anmeldung (#9)
 let autostartAn = false;
 VORSCHAU.autostart_lesen = async () => autostartAn;
