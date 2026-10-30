@@ -13,9 +13,17 @@
   let reihe = [];
   let zaehler = 0;
 
-  const invoke = (befehl, args) => window.__TAURI__.core.invoke(befehl, args);
+  // Fehlt die Brücke zum Kern (z. B. Seite im Browser geöffnet), wirft das einen Satz statt eines TypeError.
+  const invoke = async (befehl, args) => {
+    const kern = window.__TAURI__?.core?.invoke;
+    if (!kern) throw 'Netzinfo erreicht den Kern nicht. Starte die App neu.';
+    return kern(befehl, args);
+  };
 
-  // Kleiner Elementbauer. `html` nur für die festen Icons unten, nie für Daten.
+  // Kleiner Elementbauer. `html` (innerHTML) nur für feste Symbole aus dem Quelltext: die Icons unten und in den
+  // Ansichten (Netz.icons.*, NETZ_BILDER, SYMBOLE und ZUFALL in geraete.js) sowie das `icon` von leerZustand.
+  // Geprüft per grep über app/ui/ (#176): Nie landet dort ein Wert aus dem Netz (SSID, Gerätename, Programmname).
+  // Alles Fremde geht über `text` (textContent) oder als Kind (append), beides setzt keinen Markup.
   function el(tag, props = {}, ...kinder) {
     const e = document.createElement(tag);
     for (let [k, v] of Object.entries(props)) {
@@ -46,20 +54,24 @@
   // Zeit in der Zeitzone des Macs, z. B. „26.10.2026, 21:30“.
   const zeit = (sekunden) =>
     Number.isFinite(sekunden)
+      && sekunden > 0 && !isNaN(new Date(sekunden * 1000)) // 0 und Riesenwerte wären „01.01.1970“ oder „Invalid Date“
       ? new Date(sekunden * 1000).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
       : 'unbekannt';
 
   // Fehler aus dem Kern sind deutsche Sätze, entweder pur oder als { art, text } (art: nicht_gemerkt,
   // nicht_meins, sonstiges). Ansichten fragen `f?.art`, nie den Satz. Alles andere ist ein Fehler der Oberfläche.
-  const text = (fehler) =>
-    typeof fehler === 'string' ? fehler : typeof fehler?.text === 'string' ? fehler.text
-      : 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
+  // Ein Error, ein Objekt ohne `text`, leer oder das Wort „undefined“ ergeben den allgemeinen Satz, nie „[object Object]“.
+  const ALLGEMEIN = 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
+  const text = (fehler) => {
+    const satz = typeof fehler === 'string' ? fehler : fehler?.text;
+    return typeof satz === 'string' && satz.trim() && !/^(\[object \w+\]|undefined|null)$/.test(satz.trim()) ? satz : ALLGEMEIN;
+  };
 
   // Core sentences name CLI commands in `backticks`: show them as code, not as raw marks.
   const mitCode = (satz) => satz.split('`').map((t, i) => (i % 2 ? el('code', { text: t }) : t));
 
   const meldung = (satz, farbe = 'rot') =>
-    el('p', { class: 'meldung', role: 'alert' }, el('span', { class: `punkt ${farbe}` }), el('span', {}, mitCode(satz)));
+    el('p', { class: 'meldung', role: 'alert' }, el('span', { class: `punkt ${farbe}` }), el('span', {}, mitCode(typeof satz === 'string' ? satz : text(satz))));
 
   // Fehler mit Ausweg: Satz plus „Erneut versuchen“ (lädt die Ansicht neu). `nochmal` ersetzt das Neuladen, z. B. für eine einzelne Messung.
   const fehlerKarte = (satz, nochmal) =>
@@ -87,7 +99,7 @@
   // Eine Zeile: Name links, Wert rechts, darunter der Satz für den Erklärmodus.
   // `wert` leer = noch unbekannt (gedämpft). `erklaerung` ist ein Satz.
   function zeile(label, wert, erklaerung) {
-    const leer = wert == null || wert === '';
+    const leer = wert == null || wert === '' || (typeof wert === 'number' && !Number.isFinite(wert));
     return el('div', { class: 'zeile' },
       el('dt', { class: 'label', text: label }),
       el('dd', { class: `wert${leer ? ' leer' : ''}`, text: leer ? 'unbekannt' : wert }),
@@ -119,9 +131,10 @@
         const h = await invoke('woher_zeigen', { pid });
         inhalt.append(
           el('div', { class: 'fein', text: `Quelle: ${QUELLE[h.quelle] ?? 'unbekannt'}` }),
-          el('ul', { class: 'woher-kette' }, [...h.kette].reverse().map((p, i) =>
-            el('li', { class: 'num', style: `margin-left:${i * 14}px`, text: `${p.name} (PID ${p.pid})` }))),
-          el('p', { class: 'fein', text: h.satz }));
+          // Fehlt die Kette, steht nur der Satz; Einrückung endet bei 10 Stufen, damit lange Ketten nicht aus dem Fenster laufen.
+          el('ul', { class: 'woher-kette' }, [...(h.kette ?? [])].reverse().map((p, i) =>
+            el('li', { class: 'num', style: `margin-left:${Math.min(i, 10) * 14}px`, text: `${p?.name ?? 'unbekannt'} (PID ${p?.pid ?? '?'})` }))),
+          h.satz && el('p', { class: 'fein', text: h.satz }));
       } catch (f) {
         inhalt.append(meldung(text(f), 'rot'));
       }
@@ -212,6 +225,7 @@
     // A view that owns ⌘R itself (aktualisieren: false) hides the shared button.
     document.getElementById('aktualisieren').hidden = a.aktualisieren === false;
     const nr = ++zaehler;
+    bandWeg();
     // data-ansicht scopes a view's CSS file: all views share one document.
     const wurzel = el('div', { class: `ansicht${wechsel ? ' neu' : ''}`, 'data-ansicht': id });
     feld.setAttribute('aria-busy', 'true');
@@ -271,7 +285,33 @@
     knopf.addEventListener('click', () => setze(knopf.getAttribute('aria-checked') !== 'true'));
   }
 
+  // ---- Unbehandelte Fehler ----
+  // Ein Fehler außerhalb von render (Zeitgeber, Klick, vergessenes await) ließ die Ansicht still stehen. Jetzt steht ein
+  // Satz unten, bis man ihn schließt oder neu lädt. Gegen Schleifen: gleicher Satz binnen 5 s zählt nicht neu, nach 20
+  // Meldungen bleibt nur noch die Konsole, und der Fänger selbst wirft nie.
+  let bandZahl = 0;
+  let bandLetzte = [null, 0];
+  function bandWeg() { document.getElementById('fehlerband')?.remove(); }
+  function fang(f, quelle) {
+    try {
+      console.error(quelle, f);
+      if (/ResizeObserver loop/.test(String(f?.message ?? f))) return; // harmlos, kein Fehler der App
+      // Sätze aus dem Kern (String oder { text }) zeigen wir, bei einem Error der Oberfläche der allgemeine Satz.
+      const satz = text(f?.reason ?? f?.error ?? f);
+      const jetzt = Date.now();
+      if (bandLetzte[0] === satz && jetzt - bandLetzte[1] < 5000) return;
+      bandLetzte = [satz, jetzt];
+      if (++bandZahl > 20) return;
+      bandWeg();
+      document.body.append(el('div', { id: 'fehlerband', class: 'fehlerband' }, meldung(satz),
+        el('button', { class: 'knopf', type: 'button', text: 'Schließen', onclick: bandWeg }),
+        el('button', { class: 'knopf haupt', type: 'button', text: 'Ansicht neu laden', onclick: () => neuLaden() })));
+    } catch (e) { console.error(e); }
+  }
+
   function start() {
+    window.addEventListener('unhandledrejection', (e) => fang(e, 'unhandledrejection'));
+    window.addEventListener('error', (e) => fang(e, 'error'));
     // Only events, no initial check: unknown focus (e.g. headless Chrome) looks active.
     for (const ev of ['focus', 'blur']) window.addEventListener(ev, () => document.documentElement.classList.toggle('inaktiv', ev === 'blur'));
     baueMenue();
@@ -280,11 +320,12 @@
     document.addEventListener('keydown', (e) => {
       if (!e.metaKey || e.shiftKey || e.altKey) return;
       // ⌘1 bis ⌘4: Ansichten in der Reihenfolge der Seitenleiste.
-      if (/^[1-4]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement.closest('nav') }); }
+      if (/^[1-4]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement?.closest('nav') }); }
       else if (e.key.toLowerCase() === 'r') { e.preventDefault(); neuLaden(); }
       // ⌘, wie in jeder Mac-App: Einstellungen (gemerkte Netze, Autostart, Fritz!Box).
-      else if (e.key === ',') { e.preventDefault(); zeige(EINSTELLUNGEN, { fokus: !!document.activeElement.closest('nav') }); }
+      else if (e.key === ',') { e.preventDefault(); zeige(EINSTELLUNGEN, { fokus: !!document.activeElement?.closest('nav') }); }
     });
+    if (!reihe.length) return document.getElementById('scroll').append(fehlerKarte('Keine Ansicht geladen. Starte die App neu.', () => location.reload()));
     zeige(reihe[0].id);
   }
 
