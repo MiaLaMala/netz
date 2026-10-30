@@ -26,3 +26,8 @@
 [data-ansicht='offen'] .offen-tabelle .warn { display: flex; align-items: flex-start; gap: 6px; }
 [data-ansicht='offen'] .offen-tabelle .warn .punkt { margin-top: 5px; width: 7px; height: 7px; }
 /* Nur für Vorlesegeräte: Ansage nach dem Filter. */
+
+/* Runde 4: lange IPv6-Adressen mit Zonen-ID brechen um, "Weitere zeigen" */
+[data-ansicht='offen'] .offen-tabelle td.adresse.lang { white-space: normal; overflow-wrap: anywhere; max-width: 200px; }
+[data-ansicht='offen'] .mehr { margin: 12px 0 0; }
+[data-ansicht='offen'] .offen-tabelle tr:focus { outline: none; }
