@@ -3,7 +3,7 @@
 // Netz.registriere({ id, titel, icon, render(wurzel), aktualisieren?, teil? }) an. Welche Ansicht in welchem
 // Abschnitt der Seitenleiste steht, sagt die Tabelle `abschnitte`; was dort fehlt, landet unten ohne Titel.
 // `teil: true` hält eine Ansicht aus der Seitenleiste: Sie lebt eingebettet (Netz.einbetten) in einer anderen.
-// Die Einstellungen (id `gemerkte-netze`) sind ein Teil und stehen als abgesetzter Knopf unten in der Seitenleiste (⌘,).
+// Die Einstellungen (id `gemerkte-netze`) sind ein Teil und stehen als abgesetzter Knopf unten in der Seitenleiste (⌘, aus dem Menü der App und hier).
 (() => {
   // Vier Ansichten, jede beantwortet oben eine Frage (#208). „Offen“ geht in „Verbindungen“ auf.
   const abschnitte = [[null, ['uebersicht', 'tempo', 'geraete', 'verbindungen', 'offen']]];
@@ -272,6 +272,9 @@
 
   const neuLaden = () => zeige(aktuell, { neuLaden: true });
 
+  // ⌘, kommt aus dem Menü der App (main.rs) und als Tastendruck hierher: Wer zuerst da ist, öffnet, der zweite ändert nichts.
+  const einstellungen = (fokus = false) => { if (aktuell !== EINSTELLUNGEN) zeige(EINSTELLUNGEN, { fokus }); };
+
   // Eine Teilansicht in eine andere einbetten: eigene Wurzel mit data-ansicht, damit ihr CSS greift.
   // Ihre Schleifen enden wie bisher über isConnected, sobald die äußere Ansicht ersetzt wird.
   async function einbetten(id) {
@@ -333,7 +336,7 @@
       if (/^[1-4]$/.test(e.key) && reihe[e.key - 1]) { e.preventDefault(); zeige(reihe[e.key - 1].id, { fokus: !!document.activeElement?.closest('nav') }); }
       else if (e.key.toLowerCase() === 'r') { e.preventDefault(); neuLaden(); }
       // ⌘, wie in jeder Mac-App: Einstellungen (gemerkte Netze, Autostart, Fritz!Box).
-      else if (e.key === ',') { e.preventDefault(); zeige(EINSTELLUNGEN, { fokus: !!document.activeElement?.closest('nav') }); }
+      else if (e.key === ',') { e.preventDefault(); einstellungen(!!document.activeElement?.closest('nav')); }
     });
     if (!reihe.length) return document.getElementById('scroll').append(fehlerKarte('Keine Ansicht geladen. Starte die App neu.', () => location.reload()));
     zeige(reihe[0].id);
@@ -341,7 +344,7 @@
 
   window.Netz = {
     invoke, frist, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, zumKopf, woher, bestaetigung,
-    einbetten, zeige,
+    einbetten, zeige, einstellungen,
     registriere: (a) => ansichten.push(a),
   };
   document.addEventListener('DOMContentLoaded', start);

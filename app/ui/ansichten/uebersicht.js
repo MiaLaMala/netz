@@ -66,7 +66,9 @@
       funk ? 'Das Signal liegt bei einer Zahl unter null. Je näher an null, desto besser, ab minus 70 dBm wird es merklich schlechter.' : 'Ohne Funk gibt es kein Signal, das Kabel ist die Verbindung.');
     if (st) signal.querySelector('.wert').classList.add({ gut: 'gut', mittel: 'mittel', schwach: 'schlecht' }[st]);
     return gruppe('Auf einen Blick', [
-      zeile('Netz', (Netz.dieses.ssidOk(funk?.ssid) ? funk.ssid : null) ?? (d.netz?.name || null) ?? (funk ? 'WLAN' : vpn ? 'VPN-Tunnel' : 'Kabel'), 'Der Name des WLANs, sonst der Name, unter dem du das Netz gemerkt hast.'),
+      zeile('Netz', (Netz.dieses.ssidOk(funk?.ssid) ? funk.ssid : null) ?? (d.netz?.name || null) ?? (funk ? 'WLAN' : vpn ? 'VPN-Tunnel' : 'Kabel'), funk && !Netz.dieses.ssidOk(funk.ssid) && !d.netz
+        ? 'macOS gibt den Namen des WLANs erst mit Standortfreigabe heraus, bis dahin steht hier „WLAN“.'
+        : 'Der Name des WLANs, sonst der Name, unter dem du das Netz gemerkt hast.'),
       zeile('Adresse', i.ip ?? 'keine IPv4-Adresse', E.ip(i.dhcp_server != null)),
       zeile('Router', i.router ?? 'kein IPv4-Router', E.router),
       zeile('DNS', dns, E.systemDns(sd.includes('100.100.100.100'))),
@@ -138,7 +140,9 @@
         if (hatteFokus) kopf.querySelector('h2').focus({ preventScroll: true });
       };
 
-      wurzel.append(ansage, kopf, belege, werte(d, funk, vpn), aktion, details);
+      // Ohne Standortfreigabe zeigt macOS den WLAN-Namen nicht: Das steht hier, wo „Netz: WLAN“ steht, nicht tief in „Details“.
+      const ort = funk ? Netz.dieses.ortKarte(await Netz.dieses.mitFrist(Netz.invoke('ort_status'), 10000).catch(() => 'Erlaubt')) : null;
+      wurzel.append(ansage, kopf, belege, werte(d, funk, vpn), aktion, ort && el('div', { class: 'eingebettet', 'data-ansicht': 'dieses-netz' }, ort), details);
       if (kannPruefen) aktion.append(pruefKnopf);
       else if (d.erkennung_fehler) aktion.append(el('button', { class: 'knopf haupt', type: 'button', onclick: () => Netz.neuLaden() }, 'Neu lesen', el('span', { class: 'kbd', 'aria-hidden': 'true', text: '⌘R' })));
       else aktion.append(Netz.dieses.offenKnopf());

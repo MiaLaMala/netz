@@ -171,7 +171,7 @@
     return el('section', { class: 'gruppe', 'aria-labelledby': 'g-allgemein' },
       el('h3', { id: 'g-allgemein', text: 'Allgemein' }),
       el('div', { class: 'liste block' }, s,
-        el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. Das Fenster zu schließen beendet die Wache nicht.' }),
+        el('p', { class: 'fein', id: 'autostart-hilfe', text: 'Netzinfo läuft dann in der Menüleiste und meldet sich, wenn ein Netz auffällig ist. macOS fragt dann einmal, ob Netzinfo Mitteilungen senden darf. Das Fenster zu schließen beendet die Wache nicht.' }),
         hinweis && el('p', { class: 'fein', text: hinweis }), fehler));
   }
 

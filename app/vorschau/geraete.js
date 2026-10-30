@@ -136,6 +136,11 @@
   const freimarken = ['freigaben', 'freigaben-aus', 'freigaben-login', 'freigaben-nichtmeins'].map((x) => `geraete-${x}`);
   const fritzmarken = ['liste', 'falsch', 'aus', 'weg', 'haengt', 'unbekannt'].map((x) => `geraete-fritz-${x}`);
   const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche', 'haengt', 'gross'].map((x) => `geraete-${x}`);
+  // Die Ansicht sucht nur in „meins“-Netzen und sagt das vorher: Alle Marken außer erster-start spielen in einem Netz, das „meins“ ist.
+  if (marken.some((s) => s.startsWith('geraete')) && !marken.includes('erster-start')) {
+    const roh = VORSCHAU.dieses_netz;
+    VORSCHAU.dieses_netz = async (a) => { const r = await roh(a); return { ...r, netz: { ...(r.netz ?? netze[0]), meins: true } }; };
+  }
   if (marken.some((s) => s.startsWith('geraete'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-geraete')?.click();

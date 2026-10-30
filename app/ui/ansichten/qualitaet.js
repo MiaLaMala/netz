@@ -706,7 +706,9 @@
       const x = (t) => `${Math.min(100, Math.max(0, ((t - von) / TAGE7) * 100))}%`;
       knopf.hidden = liste.length === 0;
       if (liste.length === 0) {
-        ort.replaceChildren(status('gruen', 'Keine Ausfälle in den letzten 7 Tagen'), aus.length ? el('p', { class: 'fuss', text: `${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')}, jeweils unter 15 Sekunden` }) : '');
+        // Leer heißt „nichts aufgezeichnet“, nicht „alles gut“: Ohne den Schalter misst niemand.
+        const zeichnet = tempo ? 'Antwortzeiten aufzeichnen' : 'Messen';
+        ort.replaceChildren(status('grau', 'Keine Ausfälle aufgezeichnet'), el('p', { class: 'fuss', text: aus.length ? `${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')}, jeweils unter 15 Sekunden` : `Netzinfo erkennt Ausfälle nur, solange „${zeichnet}“ an ist.` }));
         return;
       }
       const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${anzahl(liste.length, 'Ausfall', 'Ausfälle')} und ${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')} in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
