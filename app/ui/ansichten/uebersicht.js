@@ -142,7 +142,7 @@
 
       // Ohne Standortfreigabe zeigt macOS den WLAN-Namen nicht: Das steht hier, wo „Netz: WLAN“ steht, nicht tief in „Details“.
       const ort = funk ? Netz.dieses.ortKarte(await Netz.dieses.mitFrist(Netz.invoke('ort_status'), 10000).catch(() => 'Erlaubt')) : null;
-      wurzel.append(ansage, kopf, belege, werte(d, funk, vpn), aktion, ort && el('div', { class: 'eingebettet', 'data-ansicht': 'dieses-netz' }, ort), details);
+      wurzel.append(ansage, kopf, belege, werte(d, funk, vpn), aktion, ort ? el('div', { class: 'eingebettet', 'data-ansicht': 'dieses-netz' }, ort) : '', details); // append schreibt null als Text
       if (kannPruefen) aktion.append(pruefKnopf);
       else if (d.erkennung_fehler) aktion.append(el('button', { class: 'knopf haupt', type: 'button', onclick: () => Netz.neuLaden() }, 'Neu lesen', el('span', { class: 'kbd', 'aria-hidden': 'true', text: '⌘R' })));
       else aktion.append(Netz.dieses.offenKnopf());
