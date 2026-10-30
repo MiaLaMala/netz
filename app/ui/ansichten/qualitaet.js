@@ -22,10 +22,11 @@
   };
 
   let alt = null; // state of the last rendered view: { wurzel, an, stop }
-  const fmt = (n, stellen = 1) => n.toLocaleString('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen });
-  const ms = (v) => (v == null ? '-' : `${fmt(v)} ms`);
-  const dauer = (sek) => (sek === 0 ? 'keiner' : sek < 60 ? `${sek} s` : `${Math.floor(sek / 60)} min ${sek % 60} s`);
-  const uhr = (sek) => new Date(sek * 1000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  // Zahlen aus dem Kern können fehlen oder kaputt sein (null, NaN): dann steht ein Strich da, nie „NaN“ und nie ein Absturz.
+  const fmt = (n, stellen = 1) => (Number.isFinite(n) ? n.toLocaleString('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen }) : '–');
+  const ms = (v) => (Number.isFinite(v) && v >= 0 ? `${fmt(v)} ms` : '-');
+  const dauer = (sek) => (!Number.isFinite(sek) || sek < 0 ? '-' : sek === 0 ? 'keiner' : sek < 60 ? `${sek} s` : `${Math.floor(sek / 60)} min ${sek % 60} s`);
+  const uhr = (sek) => (Number.isFinite(sek) ? new Date(sek * 1000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '–');
   const sv = (tag, attr = {}, text) => {
     const e = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attr)) if (v !== '') e.setAttribute(k, v);
@@ -42,6 +43,13 @@
   const rund = (v) => [10, 20, 50, 100, 250, 500, 1000, 2500].find((n) => n >= v) ?? Math.ceil(v / 1000) * 1000;
   // Error with a way out: the button repeats the action (or reloads the view).
   const fehlerAus = (e, nochmal) => Netz.fehlerKarte(Netz.text(e), nochmal);
+  // Ein Befehl, der nie antwortet, sperrt keine Ansicht und keinen Knopf: Nach `sek` Sekunden steht ein Satz da. Der Kern lässt sich nicht abbrechen,
+  // eine späte Antwort wird verworfen. `window.NETZ_FRIST` (nur die Vorschau) kürzt die Fristen für den Test.
+  const frist = (befehl, args, sek) => {
+    let wecker;
+    const ablauf = new Promise((_, nein) => { wecker = setTimeout(() => nein(`Keine Antwort nach ${sek} Sekunden. Prüfe die Verbindung und versuche es noch mal.`), sek * 1000 * (window.NETZ_FRIST ?? 1)); });
+    return Promise.race([Netz.invoke(befehl, args), ablauf]).finally(() => clearTimeout(wecker));
+  };
   // After a redraw the focus must not fall to the page: give it back to the button if it was there (or in the result) before.
   const halteFokus = (knopf, ort) => {
     const hatte = knopf.matches(':focus') || ort.contains(document.activeElement);
@@ -62,7 +70,9 @@
   function kurve(reihen, std, jetzt) {
     const B = 600, H = 284, L = 56, R = 12, T = 12, Y1 = 196, STREIFEN = 16;
     const von = jetzt - std * 3600;
-    const sichtbar = reihen.map((r) => r.punkte.filter((p) => p.zeit >= von));
+    // Unbrauchbare Werte (NaN, negativ) werden zur Lücke, nie zu „NaN“ im Pfad; ein Punkt ohne Zeit fällt weg.
+    const sichtbar = reihen.map((r) => r.punkte.filter((p) => p.zeit >= von && p.zeit <= jetzt + 60)
+      .map((p) => (p.ms == null || (Number.isFinite(p.ms) && p.ms >= 0) ? p : { ...p, ms: null })));
     const hoechst = Math.max(0, ...sichtbar.flat().map((p) => p.ms ?? 0));
     const oben = [10, 20, 30, 40, 50, 100, 200, 500, 1000, 2000].find((n) => n >= hoechst) ?? Math.ceil(hoechst / 1000) * 1000;
     const x = (t) => L + ((t - von) / (jetzt - von)) * (B - L - R);
@@ -156,7 +166,7 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an vier Stellen'));
       try {
-        const r = await Netz.invoke('diagnose');
+        const r = await frist('diagnose', undefined, 30);
         ort.replaceChildren(
           el('ul', { class: 'diagnose-ziele' }, funkZeile(r.funk), r.ziele.map((z) => el('li', {},
             el('span', { class: `punkt ${AMPEL[z.status]}` }),
@@ -194,7 +204,7 @@
     const breite = h.median_ms != null && max > 0 ? Math.max(2, (h.median_ms / max) * 100) : 0;
     return el('li', { class: `hop${rot ? ' ende-verlust' : ''}${h.adressen.length ? '' : ' stumm'}` },
       el('span', { class: 'ttl' }, el('span', { class: 'nur-vorlesen', text: 'Station ' }), String(h.ttl)),
-      el('span', { class: 'adresse', text: adr + (h.ziel ? ' (Ziel)' : '') }),
+      el('span', { class: 'adresse', title: adr, text: adr + (h.ziel ? ' (Ziel)' : '') }),
       el('span', { class: 'balken', 'aria-hidden': 'true' }, el('span', { style: `width:${breite}%` })),
       el('span', { class: 'zahl', text: ms(h.median_ms) }),
       el('span', { class: `zahl verlust${h.verlust_prozent > 0 ? ' hat' : ''}`, text: `${fmt(h.verlust_prozent, 0)} % Verlust` }));
@@ -237,7 +247,7 @@
       if (wegLaeuft) return;
       const zurueck = halteFokus(knopf, ort);
       const ziel = eingabe.value.trim() || '1.1.1.1';
-      const p = Netz.invoke('pfad_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
+      const p = frist('pfad_messen', { ziel }, 90).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
       wegLaeuft = { ziel, p };
       zeichneWeg();
       wegLetzt = await p;
@@ -316,6 +326,7 @@
     ort.replaceChildren(status('grau', 'Liest das WLAN …'));
 
     function zeichne(a) {
+      if (a.verbunden && !a.proben?.length) return ort.replaceChildren(status('grau', 'Verbunden, aber noch keine Messwerte. Gleich geht es weiter.'));
       if (!a.verbunden && a.proben.every((q) => !q.verbunden)) {
         return ort.replaceChildren(leerZustand(Netz.icons.qualitaet, 'Kein WLAN. Am Kabel oder bei ausgeschaltetem WLAN gibt es keinen Funkverlauf zu zeigen.', 'kein-wlan'));
       }
@@ -351,7 +362,7 @@
       if (!k.isConnected) return; // view was left: the loop ends, nothing else to clean up
       if (document.hidden) return; // resumed by `sicht`
       try {
-        const a = await Netz.invoke('wlan_verlauf_abtasten');
+        const a = await frist('wlan_verlauf_abtasten', undefined, 15);
         delete ort.dataset.fehler;
         zeichne(a);
       } catch (e) {
@@ -416,7 +427,7 @@
       if (mtuLaeuft) return;
       const zurueck = halteFokus(knopf, ort);
       const ziel = eingabe.value.trim() || '1.1.1.1';
-      const p = Netz.invoke('mtu_messen', { ziel }).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
+      const p = frist('mtu_messen', { ziel }, 90).then((erg) => ({ erg }), (f) => ({ fehler: Netz.text(f) }));
       mtuLaeuft = { ziel, p };
       zeichneMtu();
       mtuLetzt = await p;
@@ -438,7 +449,7 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst vier Server nacheinander, etwa 20 Sekunden'));
       try {
-        const r = await Netz.invoke('dns_tempo');
+        const r = await frist('dns_tempo', undefined, 90);
         const hoechst = Math.max(...r.zeilen.flatMap((z) => [z.bekannt_p95, z.unbekannt_p95]).filter((v) => v != null), 1);
         const balken = (v) => { const b = el('span', { class: 'balken' }, el('span')); b.firstChild.style.width = `${v == null ? 0 : Math.max(2, (v / hoechst) * 100)}%`; return b; };
         ort.replaceChildren(
@@ -446,7 +457,7 @@
             el('span', { class: 'name', text: z.name }),
             el('span', { class: 'werte' }, balken(z.bekannt_median), el('span', { class: 'zahl', text: `bekannt ${ms(z.bekannt_median)}` })),
             el('span', { class: 'werte' }, balken(z.unbekannt_median), el('span', { class: 'zahl', text: `neu ${ms(z.unbekannt_median)}` })),
-            el('span', { class: 'zahl', text: `${Math.round(z.fehlerrate * 100)} % Fehler` })))),
+            el('span', { class: 'zahl', text: z.fehlerrate == null ? 'Fehlerrate unbekannt' : `${Math.round(z.fehlerrate * 100)} % Fehler` })))),
           status('gruen', r.satz),
           el('p', { class: 'fuss', text: r.datenschutz }),
           el('p', { class: 'erklaerung', text: r.erklaerung }));
@@ -477,7 +488,7 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst etwa 5 Sekunden an fünf Diensten'));
       try {
-        const r = await Netz.invoke('ipv6_messen');
+        const r = await frist('ipv6_messen', undefined, 30);
         const [ampel, wort] = V6[r.urteil];
         ort.replaceChildren(
           r.ziele.length ? el('table', { class: 'ipv6-tabelle' },
@@ -500,12 +511,12 @@
     const k = el('section', { class: 'zeit-karte' }, ort);
     const sek = (v) => `${v > 0 ? '+' : ''}${Math.abs(v) < 10000 ? `${v} ms` : `${fmt(v / 1000)} s`}`;
     ort.replaceChildren(gruppe('Uhrzeit', [zeile('Uhr', 'wird geprüft …')]));
-    Netz.invoke('zeit_pruefen').then((e) => {
+    frist('zeit_pruefen', undefined, 30).then((e) => {
       ort.replaceChildren(gruppe('Uhrzeit', [
         zeile('Uhr', e.klasse ? { Harmlos: 'stimmt', Auffaellig: 'weicht ab', Alarm: 'Alarm' }[e.klasse] : 'nicht geprüft', 'Abweichung zur Uhr dieses Macs, gemessen per NTP und HTTPS-Date. Ich stelle die Uhr nie.'),
         ...e.befunde.map((b) => zeile(b.quelle, b.versatz_ms == null ? 'keine Antwort' : sek(b.versatz_ms))),
       ], e.satz));
-    }, (f) => ort.replaceChildren(fehlerAus(f)));
+    }).catch((f) => ort.replaceChildren(fehlerAus(f))); // auch ein Fehler beim Zeichnen: sonst bliebe „wird geprüft …“ stehen
     return k;
   }
 
@@ -522,7 +533,7 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Prüft 16 Ports, das dauert bis zu 15 Sekunden'));
       try {
-        const a = await Netz.invoke('egress_pruefen', { ziel: feld.value.trim() || null });
+        const a = await frist('egress_pruefen', { ziel: feld.value.trim() || null }, 60);
         ort.replaceChildren(gruppe(`Ausgehende Ports zu ${a.ziel}`,
           a.ports.map((p) => zeile(`${p.port} ${p.name}`, p.status === 'offen' || p.status === 'abgelehnt' ? `${WORT[p.status]} (${p.ms} ms)` : `${WORT[p.status]} (keine Antwort)`, p.satz)), a.hinweise.join(' ')));
       } catch (e) {
@@ -547,7 +558,7 @@
   function umfeldBalken(a) {
     if (a.belegung.length === 0) return meldung('Der Scan hat kein Netz gehört. Ohne Standortfreigabe liefert macOS manchmal nichts; erteile sie unter „Dieses Netz“.', 'orange');
     const eigene = (band, kanal) => a.beobachtungen.filter((b) => b.band === band && b.kanal === kanal).length;
-    const hoechst = Math.max(...a.beobachtungen.map((b) => eigene(b.band, b.kanal)));
+    const hoechst = Math.max(1, ...a.beobachtungen.map((b) => eigene(b.band, b.kanal)));
     const ziel = a.empfehlung.ziel;
     return el('div', {},
       el('p', { class: 'umfeld-summe', text: `${a.beobachtungen.length} Netze in Reichweite${a.land ? `, Regelgebiet ${a.land}` : ''}` }),
@@ -576,7 +587,7 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Scannt etwa 5 Sekunden, die Verbindung kann kurz haken'));
       try {
-        ort.replaceChildren(umfeldBalken(await Netz.invoke('wlan_umfeld')));
+        ort.replaceChildren(umfeldBalken(await frist('wlan_umfeld', undefined, 30)));
       } catch (e) {
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
       }
@@ -616,10 +627,11 @@
       knopf.disabled = true;
       ort.replaceChildren(status('grau', 'Misst bis zu 30 Sekunden, die Leitung ist dabei voll ausgelastet'));
       try {
-        const l = await Netz.invoke('last_messen', { trotzHotspot: trotz });
+        const l = await frist('last_messen', { trotzHotspot: trotz }, 90);
         ort.replaceChildren(el('dl', { class: 'liste' }, lastZahlen(l.ergebnis, tempo)));
         knopf.textContent = 'Noch einmal messen';
-        zeigeVerlauf((await Netz.invoke('last_vorab')).verlauf);
+        // Die Messung steht schon da: Scheitert nur der Verlauf, bleibt er, wie er war, und das Ergebnis geht nicht verloren.
+        try { zeigeVerlauf((await frist('last_vorab', undefined, 15)).verlauf); } catch (v) { console.error(v); }
         await nach?.(l.ergebnis);
       } catch (e) {
         ort.replaceChildren(fehlerAus(e, () => knopf.click()));
@@ -634,13 +646,18 @@
       ort.replaceChildren(el('div', { class: 'last-trotzdem' }, meldung(frage, 'orange')));
       knopf.textContent = 'Trotzdem messen';
     });
-    Netz.invoke('last_vorab').then((v) => {
-      hinweis.textContent = v.hinweis;
-      hotspot = v.hotspot;
-      frage = v.hotspot_frage;
-      zeigeVerlauf(v.verlauf);
+    // Ein Fehler beim Lesen oder Zeichnen darf `vorab` nicht verschlucken: Tempo wartet darauf, um die Engpass-Karte zu laden.
+    (async () => {
+      let v = null;
+      try {
+        v = await frist('last_vorab', undefined, 15);
+        hinweis.textContent = v.hinweis ?? '';
+        hotspot = !!v.hotspot;
+        frage = v.hotspot_frage ?? '';
+        zeigeVerlauf(v.verlauf ?? []);
+      } catch (f) { hinweis.replaceChildren(fehlerAus(f)); }
       vorab?.(v);
-    }, (f) => { hinweis.replaceChildren(fehlerAus(f)); vorab?.(null); });
+    })();
   }
 
   function lastKarte() {
@@ -655,6 +672,7 @@
 
   // ---- Gruppe „Ausfälle“ (src/ausfall.rs, issue #51): Zeitleiste der letzten 7 Tage und Text für den Anbieter ----
   const TAGE7 = 7 * 86400;
+  const MAX_LISTE = 50; // mehr Zeilen machen die Ansicht zäh; der Text für den Anbieter enthält alle
   const ORT = { router_oder_wlan: 'Router oder WLAN', anbieter_oder_weiter: 'Anbieter oder weiter weg', nur_dns: 'nur DNS', unklar: 'nicht zuzuordnen' };
   const ERKL = {
     router_oder_wlan: 'Der Router war nicht erreichbar. Das spricht für ein Problem im WLAN oder am Router.',
@@ -685,6 +703,11 @@
       const von = bis - TAGE7;
       const liste = d.liste.filter((e) => e.beginn >= von);
       const aus = d.aussetzer.filter((t) => t >= von);
+      // Bei der Zeitumstellung (am 25.10.2026 ging die Uhr von 3 auf 2 Uhr zurück) kommt 2:30 Uhr zweimal vor: Dann steht MESZ oder MEZ dabei.
+      const gezeigt = [...liste].reverse().slice(0, MAX_LISTE);
+      const labels = gezeigt.map((e) => zeit(e.beginn));
+      const doppelt = new Set(labels.filter((t, i) => labels.indexOf(t) !== i));
+      const wann = (s) => (doppelt.has(zeit(s)) ? `${zeit(s)} ${new Intl.DateTimeFormat('de-DE', { timeZoneName: 'short' }).formatToParts(new Date(s * 1000)).find((t) => t.type === 'timeZoneName')?.value ?? ''}` : zeit(s));
       const x = (t) => `${Math.min(100, Math.max(0, ((t - von) / TAGE7) * 100))}%`;
       knopf.hidden = liste.length === 0;
       if (liste.length === 0) {
@@ -693,13 +716,21 @@
       }
       const leiste = el('div', { class: 'ausfall-leiste', role: 'img', 'aria-label': `${anzahl(liste.length, 'Ausfall', 'Ausfälle')} und ${anzahl(aus.length, 'kurzer Aussetzer', 'kurze Aussetzer')} in den letzten 7 Tagen, Einzelheiten in der Liste darunter` },
         aus.map((t) => { const a = el('span', { class: 'strich', title: `Aussetzer, ${zeit(t)}` }); a.style.left = x(t); return a; }),
-        liste.map((e) => { const b = el('span', { class: 'ausfall-balken', title: `Ausfall, ${zeit(e.beginn)}, ${dauer(e.dauer_s)}, ${ORT[e.schicht]}` }); b.style.left = x(e.beginn); b.style.width = `max(4px, ${(e.dauer_s / TAGE7) * 100}%)`; return b; }));
+        liste.map((e) => { const b = el('span', { class: 'ausfall-balken', title: `Ausfall, ${wann(e.beginn)}, ${dauer(e.dauer_s)}, ${ORT[e.schicht] ?? ORT.unklar}` }); b.style.left = x(e.beginn); b.style.width = `max(4px, ${((e.dauer_s || 0) / TAGE7) * 100}%)`; return b; }));
       ort.replaceChildren(leiste,
         el('div', { class: 'ausfall-achse' }, el('span', { text: 'vor 7 Tagen' }), el('span', { text: 'jetzt' })),
-        el('dl', { class: 'liste' }, [...liste].reverse().map((e) => zeile(zeit(e.beginn), `Ausfall, ${dauer(e.dauer_s)}`, `${ORT[e.schicht]}${e.aussetzer ? `, ${e.aussetzer} Aussetzer dabei` : ''}`, ERKL[e.schicht]))),
+        el('dl', { class: 'liste' }, gezeigt.map((e) => zeile(wann(e.beginn), `Ausfall, ${dauer(e.dauer_s)}`, `${ORT[e.schicht] ?? ORT.unklar}${e.aussetzer ? `, ${e.aussetzer} Aussetzer dabei` : ''}`, ERKL[e.schicht]))),
+        liste.length > MAX_LISTE ? el('p', { class: 'fuss', text: `Hier stehen die ${MAX_LISTE} neuesten. Die ${liste.length - MAX_LISTE} älteren stehen im Text für den Anbieter.` }) : '',
         el('p', { class: 'fuss', text: `Strich = Aussetzer unter 15 Sekunden (${aus.length}), roter Balken = Ausfall. Die Zuordnung ist eine Vermutung aus der Messung.` }));
     }
-    const lade = () => Netz.invoke('ausfaelle').then((r) => { d = r; zeichne(); }, (f) => ort.replaceChildren(fehlerAus(f, lade)));
+    const lade = async () => {
+      try {
+        const r = await frist('ausfaelle', undefined, 15);
+        if (!Array.isArray(r?.liste) || !Array.isArray(r.aussetzer)) throw 'Das Störungsprotokoll kam in einer unbekannten Form an. Starte die App neu; hilft das nicht, melde es als Fehler auf GitHub.';
+        d = r;
+        zeichne();
+      } catch (f) { d = null; knopf.hidden = true; ort.replaceChildren(fehlerAus(f, lade)); } // auch ein Fehler beim Zeichnen: sonst bliebe „Lädt …“ stehen
+    };
     lade();
     return {
       lade,
@@ -716,7 +747,7 @@
     icon: Netz.icons.qualitaet,
     render: (wurzel) => bauen(wurzel),
   });
-  Netz.qualitaet = { bauen, lastSteuerung };
+  Netz.qualitaet = { bauen, lastSteuerung, frist };
 
   // `tempo` (aus tempo.js): `{ ausfall }` bekommt das Störungsprotokoll; `wurzel` nimmt dann nur die Details auf,
   // ohne Kopf, ohne „Unter Last“ (das ist die Hauptaktion der Karte) und mit dem Schalter „Antwortzeiten aufzeichnen“.
@@ -729,7 +760,7 @@
       if (tempo) tempo.ausfall = ausfaelle.wurzel;
       let b;
       try {
-        b = await Netz.invoke('bericht', { name: null });
+        b = await frist('bericht', { name: null }, 15);
       } catch (e) {
         const unbekannt = e?.art === 'nicht_gemerkt';
         if (tempo) {
@@ -764,6 +795,7 @@
       const kopieren = el('button', { class: 'knopf', type: 'button', text: 'Bericht kopieren', onclick: async () => {
         try {
           await navigator.clipboard.writeText(markdown(b));
+          fehler.replaceChildren();
           kopieren.textContent = 'Kopiert';
           setTimeout(() => { kopieren.textContent = 'Bericht kopieren'; }, 2000);
         } catch {
@@ -796,15 +828,17 @@
       async function tick() {
         if (!wurzel.isConnected) return zustand.stop(); // view was left
         try {
-          const p = await Netz.invoke('messen_einmal');
+          const p = await frist('messen_einmal', undefined, 15);
           fehler.replaceChildren();
           delete fehler.dataset.t;
           p.werte.forEach((w, k) => {
             if (w.ms == null && !w.verlust) return; // not measured
             (b.reihen[k] ??= { ziel: w.ziel, punkte: [] }).punkte.push({ zeit: p.zeit, ms: w.ms, verlust: w.verlust });
           });
+          // Die Kurve zeigt höchstens 6 Stunden: Ältere Punkte bleiben nicht im Speicher, sonst wächst das Feld über Tage.
+          if (Number.isFinite(p.zeit)) for (const r of b.reihen) { const i = r.punkte.findIndex((q) => q.zeit >= p.zeit - 6 * 3600); r.punkte.splice(0, i < 0 ? r.punkte.length : i); }
           // ponytail: Kennzahlen are reread on the first and every 6th probe, the chart grows locally
-          if (b.ziele.length === 0 || ++seit % 6 === 0) { b = { ...(await Netz.invoke('bericht', { name: null })), reihen: b.reihen }; ausfaelle.lade(); }
+          if (b.ziele.length === 0 || ++seit % 6 === 0) { b = { ...(await frist('bericht', { name: null }, 15)), reihen: b.reihen }; ausfaelle.lade(); }
         } catch (e) {
           if (fehler.dataset.t !== Netz.text(e)) { fehler.dataset.t = Netz.text(e); fehler.replaceChildren(meldung(Netz.text(e))); } // once, not every 5 s
         }
@@ -823,7 +857,8 @@
         zustand.stop();
         zustand.an = an;
         schalter.setAttribute('aria-checked', an);
-        if (an) { document.addEventListener('visibilitychange', sicht); tick(); } else zeichne();
+        // Nach ⌘R hängt die neue Ansicht noch nicht im Dokument: sofort zu messen hielte den Schalter an und die Messung aus.
+        if (an) { document.addEventListener('visibilitychange', sicht); if (wurzel.isConnected) tick(); else setTimeout(tick, 100); } else zeichne();
       }
       schalter.addEventListener('click', () => schalte(!zustand.an));
       alt = zustand;
