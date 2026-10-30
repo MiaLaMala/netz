@@ -43,13 +43,8 @@
   const rund = (v) => [10, 20, 50, 100, 250, 500, 1000, 2500].find((n) => n >= v) ?? Math.ceil(v / 1000) * 1000;
   // Error with a way out: the button repeats the action (or reloads the view).
   const fehlerAus = (e, nochmal) => Netz.fehlerKarte(Netz.text(e), nochmal);
-  // Ein Befehl, der nie antwortet, sperrt keine Ansicht und keinen Knopf: Nach `sek` Sekunden steht ein Satz da. Der Kern lässt sich nicht abbrechen,
-  // eine späte Antwort wird verworfen. `window.NETZ_FRIST` (nur die Vorschau) kürzt die Fristen für den Test.
-  const frist = (befehl, args, sek) => {
-    let wecker;
-    const ablauf = new Promise((_, nein) => { wecker = setTimeout(() => nein(`Keine Antwort nach ${sek} Sekunden. Prüfe die Verbindung und versuche es noch mal.`), sek * 1000 * (window.NETZ_FRIST ?? 1)); });
-    return Promise.race([Netz.invoke(befehl, args), ablauf]).finally(() => clearTimeout(wecker));
-  };
+  const frist = (befehl, args, sek) =>
+    Netz.frist(Netz.invoke(befehl, args), sek * 1000, `Keine Antwort nach ${sek} Sekunden. Prüfe die Verbindung und versuche es noch mal.`);
   // After a redraw the focus must not fall to the page: give it back to the button if it was there (or in the result) before.
   const halteFokus = (knopf, ort) => {
     const hatte = knopf.matches(':focus') || ort.contains(document.activeElement);

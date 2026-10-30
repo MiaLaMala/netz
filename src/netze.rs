@@ -245,39 +245,9 @@ pub struct Sperre(#[allow(dead_code)] Option<std::fs::File>);
 /// Kommandozeile). Wartet höchstens 5 s und macht dann ohne Sperre weiter: ein hängender
 /// Prozess darf das Speichern nicht dauerhaft blockieren. Ohne Sperrdatei (kein Schreibrecht)
 /// ebenso; das eigentliche Speichern meldet dann den Satz dazu.
-// ponytail: flock auf Unix, auf anderen Systemen keine Sperre.
 pub fn sperre(path: &Path) -> Sperre {
-    #[cfg(unix)]
-    {
-        use std::os::fd::AsRawFd;
-        let mut name = path.as_os_str().to_owned();
-        name.push(".lock");
-        if let Some(dir) = Path::new(&name).parent() {
-            // Fehler zeigt `save` mit einem Satz.
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let Ok(f) = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(&name)
-        else {
-            return Sperre(None);
-        };
-        for _ in 0..100 {
-            // SAFETY: gültiger, eigener Dateideskriptor.
-            if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-        Sperre(Some(f))
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-        Sperre(None)
-    }
+    // Gleiche Sperre wie `crate::sperre`, nur ohne Abbruch: ihr Satz kommt hier nicht weiter.
+    Sperre(crate::sperre(path).ok())
 }
 
 pub fn find(list: &[Netz], fp: &Fingerprint) -> Option<usize> {

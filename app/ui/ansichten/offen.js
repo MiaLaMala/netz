@@ -16,16 +16,10 @@
   };
   const ART = { Netz: 'Netz', Lokal: 'Lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: 'Unklar' };
 
-  // Ein Aufruf ohne Antwort darf die Ansicht nicht festhalten (gleicher Baustein wie in verbindungen.js).
-  // window.NETZ_ZEITLIMIT_MS überschreibt das Limit, nur die Vorschau setzt es.
-  const mitZeit = (versprechen, sekunden, satz) => {
-    let uhr;
-    const ablauf = new Promise((_, nein) => { uhr = setTimeout(() => nein(satz), window.NETZ_ZEITLIMIT_MS ?? sekunden * 1000); });
-    return Promise.race([versprechen, ablauf]).finally(() => clearTimeout(uhr));
-  };
+  const mitZeit = (versprechen, sekunden, satz) => Netz.frist(versprechen, sekunden * 1000, satz);
   const lies = async (aussen) => {
     const l = await mitZeit(Netz.invoke('offen_zeigen', { aussen }), aussen ? 45 : 20, aussen
-      ? 'Die Prüfung von außen dauert zu lange. Das Netz antwortet nicht.'
+      ? 'Nach 45 Sekunden kam keine Antwort.'
       : 'Das System antwortet nicht. Versuch es in einem Moment noch einmal.');
     if (!Array.isArray(l)) throw 'Die Antwort des Systems war unlesbar. Versuch es noch einmal.';
     return l;

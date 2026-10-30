@@ -315,7 +315,7 @@
   // ,ausfaelle-viele: 80 Ausfälle (Liste kappt bei 50); ,ausfaelle-doppelt: zwei Ausfälle zur selben Ortszeit (Zeitumstellung); ,ausfaelle-haengt, ,ausfaelle-krumm
   VORSCHAU.ausfaelle = async () => {
     const t = jetzt();
-    if (marken.includes('ausfaelle-haengt')) return new Promise(() => {});
+    if (marken.includes('ausfaelle-haengt')) { window.NETZ_ZEITLIMIT_MS = 1500; return new Promise(() => {}); }
     if (marken.includes('ausfaelle-krumm')) return { liste: null };
     if (marken.includes('ausfaelle-viele')) return { liste: Array.from({ length: 80 }, (_, i) => ({ beginn: t - 3600 - i * 7000, ende: t, dauer_s: 20 + i, schicht: i % 9 === 0 ? 'neu_unbekannt' : 'nur_dns', aussetzer: 0 })), aussetzer: [], abschnitt: '', text: 'x' };
     if (marken.includes('ausfaelle-doppelt')) return { liste: [0, 3600].map((d) => ({ beginn: 1792888200 + d, ende: 0, dauer_s: 100, schicht: 'unklar', aussetzer: 0 })), aussetzer: [], abschnitt: '', text: 'x' };
