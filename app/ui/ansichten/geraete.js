@@ -29,11 +29,8 @@
   const nach = (tabelle, schluessel) => (Object.hasOwn(tabelle, schluessel) ? tabelle[schluessel] : undefined);
   // The shell cannot cancel a command, but a view must not wait forever: after the limit the button is free again.
   Netz.geraeteLimit = { suche: 180000, router: 30000, speichern: 20000 };
-  const mitLimit = (versprechen, ms) => {
-    let uhr;
-    const ende = new Promise((_, nein) => { uhr = setTimeout(() => nein('Das dauert ungewöhnlich lange. Prüfe die Verbindung zum Netz und versuche es noch einmal.'), ms); });
-    return Promise.race([versprechen, ende]).finally(() => clearTimeout(uhr));
-  };
+  const mitLimit = (versprechen, ms) =>
+    Netz.frist(versprechen, ms, 'Das dauert ungewöhnlich lange. Prüfe die Verbindung zum Netz und versuche es noch einmal.');
   const SEITE = 60; // cards drawn at once; a /24 has up to 254
 
   const E = {

@@ -46,12 +46,7 @@
     if (klasse) z.querySelector('.wert').classList.add(klasse);
     return z;
   };
-  // Hängt ein Befehl (Netz weg, Dienst tot), endet das Warten nach `ms` mit einem Satz statt nie. Der Befehl läuft weiter,
-  // seine späte Antwort zählt nicht mehr.
-  const mitFrist = (p, ms, satz = 'Keine Antwort. Prüf, ob du im Netz bist, und versuch es noch mal.') => {
-    let t;
-    return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(satz), ms); })]).finally(() => clearTimeout(t));
-  };
+  const mitFrist = (p, ms, satz) => Netz.frist(p, ms, satz);
   const liste = (x) => (Array.isArray(x) ? x : []);
   // Nach dem Neuzeichnen steht der Fokus an der neuen Überschrift (sonst im Nichts am Seitenanfang).
   const zumKopf = () => document.querySelector("[data-ansicht='dieses-netz'] h2, [data-ansicht='uebersicht'] h2")?.focus();

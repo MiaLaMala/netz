@@ -8,14 +8,14 @@
 //   engpass: 'leitung' | 'wlan' | 'router' | 'keiner' | 'unklar',
 //   satz: string, rat: string | null }
 // The Mac number comes from last_messen (networkQuality), the card passes it in.
-// Robustheit: ,engpass-haengt (Kern antwortet nie, Frist 20 s, mit window.NETZ_FRIST kürzer) ,engpass-kaputt (NaN, negativ, null in den Zahlen).
+// Robustheit: ,engpass-haengt (Kern antwortet nie, die Vorschau kürzt die Frist auf 1,5 s) ,engpass-kaputt (NaN, negativ, null in den Zahlen).
 // Marks: ,engpass-wlan ,engpass-leitung ,engpass-ohne-router ,engpass-kabel ,engpass-ungemessen (before „Tempo messen“) ,engpass-fehler; none = all good
 (() => {
   const m = (s) => marken.includes(s);
   const fritz = (down, up, vd, vu) => ({ down_mbit: down, up_mbit: up, vertrag_down_mbit: vd, vertrag_up_mbit: vu, quelle: 'fritzbox' });
   VORSCHAU.engpass_lesen = async ({ macDownMbit = null } = {}) => {
     if (m('engpass-fehler')) throw 'Kein Netz gefunden: Es gibt keine Default-Route. Verbinde den Mac mit WLAN oder Kabel und versuche es noch mal.';
-    if (m('engpass-haengt')) return new Promise(() => {});
+    if (m('engpass-haengt')) { window.NETZ_ZEITLIMIT_MS = 1500; return new Promise(() => {}); }
     if (m('engpass-kaputt')) return { leitung: fritz(NaN, -5, NaN, null), leitung_fehlt: null, wlan: { rate_mbit: null, nutz_mbit: NaN, band: null }, kabel: false, mac_down_mbit: NaN, engpass: 'wlan', satz: 'Kaputte Zahlen.', rat: null };
     const mac = macDownMbit;
     if (m('engpass-wlan')) return { leitung: fritz(116, 42, 100, 40), leitung_fehlt: null, wlan: { rate_mbit: 72, nutz_mbit: 43, band: '2,4 GHz' }, kabel: false, mac_down_mbit: mac ?? 38,

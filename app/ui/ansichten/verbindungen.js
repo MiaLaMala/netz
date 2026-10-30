@@ -15,13 +15,7 @@
   const ART = { netz: 'im eigenen Netz', lokal: 'dieser Mac' };
   const NAME_QUELLE = { PTR: 'Name aus dem DNS', 'Gerät': 'Name aus „Geräte“' };
 
-  // Ein Aufruf ohne Antwort darf keine Ansicht festhalten: nach `sekunden` wird daraus ein Satz.
-  // window.NETZ_ZEITLIMIT_MS überschreibt das Limit, nur die Vorschau setzt es (Marke „traffichaengt“).
-  const mitZeit = (versprechen, sekunden, satz) => {
-    let uhr;
-    const ablauf = new Promise((_, nein) => { uhr = setTimeout(() => nein(satz), window.NETZ_ZEITLIMIT_MS ?? sekunden * 1000); });
-    return Promise.race([versprechen, ablauf]).finally(() => clearTimeout(uhr));
-  };
+  const mitZeit = (versprechen, sekunden, satz) => Netz.frist(versprechen, sekunden * 1000, satz);
   const LESEN = 'Das System antwortet nicht. Versuch es in einem Moment noch einmal.';
   // Ohne Gruppen-Liste lässt sich nichts zeichnen. Besser ein Satz als eine leere Ansicht oder „keine Verbindungen“.
   const gueltig = (r) => r && Array.isArray(r.gruppen) && r.gruppen.every((g) => g && Array.isArray(g.verbindungen));

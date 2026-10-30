@@ -62,6 +62,13 @@
   // nicht_meins, sonstiges). Ansichten fragen `f?.art`, nie den Satz. Alles andere ist ein Fehler der Oberfläche.
   // Ein Error, ein Objekt ohne `text`, leer oder das Wort „undefined“ ergeben den allgemeinen Satz, nie „[object Object]“.
   const ALLGEMEIN = 'In der Oberfläche ist etwas schiefgegangen. Starte die App neu.';
+  // Ein Befehl, der nie antwortet, sperrt keine Ansicht und keinen Knopf: Nach `ms` endet das Warten mit `satz`. Der Kern
+  // lässt sich nicht abbrechen, seine späte Antwort zählt nicht mehr. `window.NETZ_ZEITLIMIT_MS` setzt nur die Vorschau.
+  const frist = (versprechen, ms, satz = 'Keine Antwort. Prüf, ob du im Netz bist, und versuch es noch mal.') => {
+    let uhr;
+    const ablauf = new Promise((_, nein) => { uhr = setTimeout(() => nein(satz), window.NETZ_ZEITLIMIT_MS ?? ms); });
+    return Promise.race([versprechen, ablauf]).finally(() => clearTimeout(uhr));
+  };
   const text = (fehler) => {
     const satz = typeof fehler === 'string' ? fehler : fehler?.text;
     return typeof satz === 'string' && satz.trim() && !/^(\[object \w+\]|undefined|null)$/.test(satz.trim()) ? satz : ALLGEMEIN;
@@ -235,7 +242,10 @@
       if (nr === zaehler) feld.replaceChildren(el('div', { class: 'ansicht' }, leerZustand('', 'Lädt …')));
     }, 250);
     try {
-      await a.render(wurzel);
+      // Auch eine Ansicht, die beim Aufbau hängen bleibt, gibt ⌘R und den Knopf wieder frei (ohne die Kürzung der Vorschau).
+      let uhr;
+      const satz = 'Die Ansicht hat nach zweieinhalb Minuten nicht fertig geladen. Versuch es noch einmal.';
+      await Promise.race([a.render(wurzel), new Promise((_, nein) => { uhr = setTimeout(nein, 150000, satz); })]).finally(() => clearTimeout(uhr));
     } catch (e) {
       console.error(e);
       wurzel.replaceChildren(fehlerKarte(text(e)));
@@ -330,7 +340,7 @@
   }
 
   window.Netz = {
-    invoke, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, zumKopf, woher, bestaetigung,
+    invoke, frist, el, icons, zeit, text, meldung, fehlerKarte, status, gruppe, zeile, leerZustand, neuLaden, zumKopf, woher, bestaetigung,
     einbetten, zeige,
     registriere: (a) => ansichten.push(a),
   };
