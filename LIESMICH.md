@@ -11,3 +11,4 @@ Dieser Zweig hat keinen Code und wird nie gemergt. Ein Ordner je Runde oder Issu
 Aufgenommen mit headless Chrome über Playwright. Der rote Ring zeigt einen Klick, der Untertitel sagt, was gerade passiert.
 - `welle-15/`: Welle 15 (#207, #208), vier Ansichten und Engpass, aus der Vorschau mit Beispieldaten.
 - `feinschliff-4/`: Feinschliff Runde 4 (#176), Robustheit: Fristen, kaputte und fehlende Daten, lange Listen, Kommandozeile mit geschlossener Pipe.
+- `feinschliff-5/`: Feinschliff Runde 5 (#176), erster Eindruck: erster Start in der App, README-Bilder, Vorschaubild, Hilfe der Kommandozeile in 80 Spalten.
