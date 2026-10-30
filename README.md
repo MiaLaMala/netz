@@ -1,27 +1,27 @@
 <p align="center">
-  <img src="app/icons/128x128@2x.png" width="128" height="128" alt="Netzinfo-Symbol: drei WLAN-Bögen mit Lesezeichen">
+  <img src="app/icons/128x128@2x.png" width="96" height="96" alt="Netzinfo-Symbol: drei WLAN-Bögen mit Lesezeichen">
 </p>
 
 <h1 align="center">Netzinfo</h1>
 
 <p align="center">
-  Kennt jedes Netz, in dem dein Mac war, und meldet sich, wenn eins sich anders verhält als sonst.
+  <b>Sagt dir, was in einem Netz anders ist als beim letzten Mal.</b><br>
+  Mac-App und Kommandozeile, auf Deutsch, ohne Konto und ohne Telemetrie.
 </p>
 
 <p align="center">
   <a href="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml"><img src="https://github.com/MiaLaMala/netzinfo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B%20%C2%B7%20Apple%20Silicon-6e6e73?logo=apple&logoColor=white" alt="macOS 13 oder neuer, Apple Silicon">
-  <img src="https://img.shields.io/badge/Rust-2024-b7410e?logo=rust&logoColor=white" alt="Rust 2024">
-  <img src="https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white" alt="Tauri 2">
+  <img src="https://img.shields.io/badge/Linux-Kommandozeile-6e6e73?logo=linux&logoColor=white" alt="Linux: Kommandozeile">
   <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-1d5fd8" alt="Lizenz MIT"></a>
 </p>
 
 <p align="center">
+  <b><a href="https://github.com/MiaLaMala/netzinfo/releases">Herunterladen</a></b> ·
   <a href="#installieren">Installieren</a> ·
-  <a href="#was-netzinfo-kann">Was Netzinfo kann</a> ·
+  <a href="#was-netzinfo-kann">Was es kann</a> ·
   <a href="#kommandozeile">Kommandozeile</a> ·
   <a href="#datenschutz">Datenschutz</a> ·
-  <a href="#wie-es-gebaut-ist">Wie es gebaut ist</a> ·
   <a href="#english-in-short">English</a>
 </p>
 
@@ -32,19 +32,19 @@
   </picture>
 </p>
 
-Andere Netzwerk-Werkzeuge schauen auf ein Netz, und zwar jetzt. Netzinfo merkt sich jedes Netz, in dem du warst (WG, Arbeit, Schule, Hotspot), und vergleicht beim nächsten Besuch: Ist das derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Ist ein Gerät dazugekommen?
+`ifconfig`, Wireshark und die Oberfläche der Fritz!Box zeigen ein Netz, wie es jetzt ist. Netzinfo merkt sich jedes Netz, in dem du warst (WG, Arbeit, Schule, Hotspot), und vergleicht beim nächsten Besuch: Ist das derselbe Router? Antwortet DNS wie immer? Hat das Zertifikat von github.com plötzlich jemand anderes unterschrieben? Ist ein Gerät dazugekommen?
 
-Es gibt Netzinfo als Mac-App und als Kommandozeile `netzinfo` (die läuft auch unter Linux). Beide nutzen denselben Kern in Rust. Mit „Erklären“ (in der App) oder `--erklaer` (im Terminal) sagt jeder Schritt auf Deutsch, was gerade im Netz passiert, passend zum Stoff der IHK-Prüfung für Fachinformatiker.
+Die Mac-App zeigt das in vier Ansichten, die Kommandozeile `netzinfo` läuft auch unter Linux. Mit „Erklären“ (App) oder `--erklaer` (Terminal) sagt jeder Schritt auf Deutsch, was gerade im Netz passiert, passend zum Stoff der IHK-Prüfung für Fachinformatiker.
 
 ## Was Netzinfo kann
 
-Die App hat vier Ansichten. Jede beantwortet oben eine Frage, alles Weitere liegt eine Ebene tiefer unter „Details“. ⌘1 bis ⌘4 wechseln die Ansicht, ⌘, öffnet die Einstellungen.
+Die App hat vier Ansichten. Jede beantwortet oben eine Frage, alles Weitere liegt eine Ebene tiefer unter „Details“. ⌘1 bis ⌘4 wechseln die Ansicht, ⌘R prüft neu, ⌘, öffnet die Einstellungen.
 
 Drei Dinge sind der Kern:
 
 - **Das Netz wiedererkennen und warnen.** Netzinfo vergleicht mit dem letzten Besuch: Router und DHCP, DNS-Antworten, Zertifikate (erkennt SSL-Inspection), öffentliche IP, Webfilter am Servernamen, Portfreigaben des Routers und der Weg ins Internet. Jede Abweichung ist harmlos, auffällig oder Alarm.
 - **Den Engpass finden.** Die Leitung laut Router, das WLAN und der Mac stehen nebeneinander. Netzinfo sagt in einem Satz, welche der drei bremst, und was dagegen hilft. Fehlt eine Zahl, steht dort warum, geraten wird nicht.
-- **Ein Störungsprotokoll für die Hotline.** Netzinfo hält fest, wann das Internet weg war und ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
+- **Ein Störungsprotokoll für die Hotline.** Netzinfo hält fest, wann das Internet weg war und vermutet aus den Messungen, ob es am WLAN, am Router oder dahinter lag, und schreibt daraus einen sachlichen Text für den Anbieter. „Text für den Anbieter kopieren“ legt ihn in die Zwischenablage.
 
 <table>
   <tr>
@@ -208,8 +208,16 @@ Ausführlicher zu einzelnen Befehlen (Erkennung eines Netzes, Einstufung in `pru
 - Netzinfo hat keinen eigenen Server, kein Konto und keine Telemetrie. Was es sich merkt (Merkmale jedes Netzes, Messwerte, Gerätelisten), liegt nur auf deinem Mac in `~/Library/Application Support/netzinfo/` (anderer Ort: Umgebungsvariable `NETZ_DATEN`).
 - Der Zugang zur Fritz!Box (Benutzer und Passwort) liegt nur im macOS-Schlüsselbund, nie in einer Datei und nie als Argument eines anderen Programms. Netzinfo liest damit nur die Geräteliste und ändert nichts.
 - Gescannt wird nur, was dir gehört: `ports`, `geraete` und `portfreigaben` laufen nur gegen private Adressen und nur in Netzen, die du als „meins“ markiert hast. Auf dem eigenen Rechner geht es immer. In fremden Netzen macht Netzinfo nur, was jeder Laptop beim Verbinden ohnehin tut.
-- Ins Internet gehen nur Prüfanfragen, keine Daten von dir: DNS-Fragen an öffentliche Resolver (1.1.1.1, 8.8.8.8, 9.9.9.9) zum Vergleich und für die eigene öffentliche IP, TLS-Verbindungsaufbau mit bekannten Seiten (github.com, apple.com, cloudflare.com, für den SNI-Test auch youtube.com, bbc.com und telegram.org), die Portal-Prüfadressen von Apple, Google und Firefox, die Uhrzeit von time.apple.com und pool.ntp.org, Pings und der Weg zu 1.1.1.1 und 9.9.9.9. Mit `--erklaer` sagt jeder Befehl, was er wohin schickt.
-- Der Lasttest (`last`, lädt mehrere hundert Megabyte) und der Test ausgehender Ports (`ports --raus`, nur gegen deinen eigenen Server) laufen nur auf ausdrücklichen Start.
+- Ins Internet gehen nur Prüfanfragen, keine Daten von dir:
+  - DNS-Fragen an öffentliche Resolver (1.1.1.1, 8.8.8.8, 9.9.9.9) zum Vergleich und für die eigene öffentliche IP (Cloudflare antwortet mit der Adresse, von der die Frage kam). `dns --tempo` fragt dabei rund 20 bekannte Seitennamen, dazu die, die du selbst angibst.
+  - Verschlüsseltes DNS bei Cloudflare und Quad9 (`dns --verschluesselt`).
+  - TLS-Verbindungsaufbau mit github.com, apple.com und cloudflare.com, für den SNI-Test auch mit bbc.com, youtube.com und telegram.org.
+  - IPv4 gegen IPv6 mit cloudflare.com, google.com, wikipedia.org, dns.quad9.net und www.apple.com.
+  - Die Portal-Prüfadressen von Apple, Google und Firefox.
+  - Die Uhrzeit von time.apple.com und pool.ntp.org und der Date-Kopf von www.cloudflare.com.
+  - Pings und der Weg zu 1.1.1.1 und 9.9.9.9.
+  - Mit `--erklaer` sagt jeder Befehl, was er wohin schickt.
+- Der Lasttest (`last`, geht zu Apples Testservern und kann mehrere hundert Megabyte verbrauchen) und der Test ausgehender Ports (`ports --raus`, nur gegen deinen eigenen Server) laufen nur auf ausdrücklichen Start.
 - Vom Weg ins Internet speichert Netzinfo nur gekürzte Hop-Adressen (/24 und /48).
 - Land und Anbieter eines Ziels schlägt Netzinfo in einer Datei nach, die mit der App kommt. Dafür geht keine Adresse ins Netz.
 
@@ -244,7 +252,7 @@ tools/          Skripte, die diese Datenbanken bauen
 testdata/       Aufgezeichnete Antworten für die Tests
 ```
 
-- Gut 25 000 Zeilen Rust in knapp 50 Modulen, über 360 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
+- Rund 28 000 Zeilen Rust in gut 50 Dateien, über 400 Tests. Parser und Bewertungsregeln werden mit aufgezeichneten Ausgaben echter Werkzeuge getestet, Netzwerkcode gegen lokale Testserver.
 - Wenige Abhängigkeiten: rustls und ring für TLS, socket2 für Ping und Traceroute ohne Root, serde für die gespeicherten Daten, maxminddb für die Offline-Datenbanken. DNS, Bonjour, SSDP und UPnP spricht Netzinfo selbst.
 - Die CI prüft jeden Pull Request unter Linux und auf dem Mac mit `cargo fmt`, `cargo clippy -D warnings`, den Tests und `cargo deny` (Lizenzen, bekannte Lücken). Ein Tag baut die App als `.dmg` und die Kommandozeile als Archiv mit Prüfsummen.
 - Der Kern baut auch unter Linux, die CI läuft dort. Was nur auf macOS geht (CoreWLAN, libproc), hat unter Linux eine eigene Variante oder einen klaren Fehlersatz.
@@ -256,7 +264,7 @@ Wie man mitmacht, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## English in short
 
-Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than before: a new router, changed DNS answers, TLS interception, new devices. It is a Rust command line tool (macOS and Linux, x86_64 and arm64) plus a Tauri Mac app. Output and docs are in German; `--erklaer` (or the “Erklären” switch in the app) explains in plain German what each step does on the wire. Scanning only targets private addresses on networks you marked as yours. macOS 13+ on Apple Silicon is the main platform; the core also builds on Linux (CI). No telemetry, no account, MIT licensed.
+Netzinfo remembers every network your Mac has been on and tells you when one behaves differently than last time: a new router, changed DNS answers, TLS interception, new devices. `ifconfig` or Wireshark show a network as it is right now; Netzinfo compares it with your last visit. It comes as a Mac app (Tauri, Apple Silicon, macOS 13+) and as a command line tool `netzinfo` for macOS and Linux (x86_64 and arm64), built on the same Rust core. **The interface, the output and the docs are in German**; `--erklaer` (or the “Erklären” switch in the app) explains in plain German what each step does on the wire. Downloads are on the [Releases page](https://github.com/MiaLaMala/netzinfo/releases); the app is only ad-hoc signed, see “Installieren”. Scanning only targets private addresses on networks you marked as yours. No telemetry, no account, MIT licensed.
 
 ## Lizenz
 

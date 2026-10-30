@@ -13,13 +13,14 @@ body:
     id: version
     attributes:
       label: Netzinfo-Version
-      description: Ausgabe von `netzinfo --version`; bei der App die Version aus „Über Netzinfo“
+      description: Ausgabe von `netzinfo --version`; bei der App der Eintrag „About Netzinfo“ (oder „Über Netzinfo“) im Menü „Netzinfo“
     validations:
       required: true
   - type: input
     id: befehl
     attributes:
-      label: Befehl
+      label: Befehl oder Ansicht
+      description: Der Befehl, den du eingegeben hast, oder die Ansicht der App (Übersicht, Tempo, Geräte, Verbindungen)
       placeholder: netzinfo pruefen
     validations:
       required: true
@@ -39,5 +40,14 @@ body:
     id: ausgabe
     attributes:
       label: Ausgabe ohne echte IPs und WLAN-Namen
-      description: Bitte IP-Adressen, MACs, Hostnamen und WLAN-Namen durch Platzhalter ersetzen (z. B. 192.0.2.1).
+      description: |
+        Kopier die Ausgabe des Befehls hierher, am besten mit `--erklaer` (Beispiel: `netzinfo pruefen --erklaer`). Bei der App ein Screenshot oder der Text aus der Ansicht.
+        Ersetz vorher IP-Adressen, MACs, Hostnamen und WLAN-Namen durch Platzhalter: 192.0.2.1, 198.51.100.7, 203.0.113.9, 2001:db8::1, aa:bb:cc:dd:ee:ff, MeinNetz.
       render: text
+  - type: checkboxes
+    id: geprueft
+    attributes:
+      label: Vor dem Absenden
+      options:
+        - label: Ich habe echte Adressen, MACs und Netznamen in Text und Screenshots ersetzt.
+          required: true
