@@ -7,6 +7,10 @@
 // geraete-fritz-formular (Formular offen), geraete-fritz (Zugang da, noch nicht gelesen),
 // geraete-fritz-liste (gelesen, Karten mit „vom Router“), geraete-fritz-falsch (401), geraete-fritz-aus (TR-064 aus),
 // geraete-fritz-weg (nicht erreichbar).
+// Robustheit (#176): geraete-viele (250 Karten, 10 davon IPv6, gemischt geliefert: sortiert wird in der Ansicht),
+// geraete-gross (Netz ist ein /16: Suche startet nicht, Hinweis), geraete-randfaelle (ohne Namen, ohne Hersteller, Namen mit 63 Zeichen,
+// Emoji, Umlaute, doppelte Namen, nur IPv6, Typ „constructor“, fehlende Felder), geraete-haengt (Suche kommt nie an, Grenze nach 1,5 s),
+// geraete-fritz-haengt (Router antwortet nie), geraete-fritz-unbekannt (Zustand, den die Ansicht nicht kennt).
 // Cards (issue #29): geraete (cards), geraete-gefiltert (filter „Drucker“), geraete-keine (no cards), geraete-name (edit form of the first card).
 (() => {
   const m = (s) => marken.includes(s);
@@ -23,7 +27,7 @@
   const warte = (ms) => new Promise((r) => setTimeout(r, ms));
 
   VORSCHAU.geraete_suchen = async () => {
-    await warte(m('geraete-suche') ? 600000 : 700);
+    await warte(m('geraete-suche') || m('geraete-haengt') ? 600000 : 700);
     if (m('geraete-nichtmeins')) throw { art: 'nicht_meins', text: nichtMeins };
     if (m('geraete-fehler')) throw 'Das Subnetz deines Netzes ist unbekannt. Verbinde dich mit einem Netz und versuche es noch einmal.';
     const r = { bereich: '192.0.2.0/24', adressen: 254, geraete: [router, mac, handy, drucker, neu], neu: [neu], verschwunden: [weg], erster_lauf: false };
@@ -54,7 +58,7 @@
     nurRouter('192.0.2.50', '00:00:5e:00:53:50', 'steckdose-flur', 'WLAN'),
     nurRouter('192.0.2.52', '00:00:5e:00:53:52', 'thermostat-bad', 'WLAN'),
   ].sort((a, b) => b.last_seen - a.last_seen);
-  let zugang = m('einst-fritz') || m('einst-fritz-entfernen') || m('geraete-fritz') || m('geraete-fritz-liste') || m('geraete-fritz-falsch') || m('geraete-fritz-aus') || m('geraete-fritz-weg') ? 'netzinfo' : null;
+  let zugang = m('geraete-fritz-haengt') || m('geraete-fritz-unbekannt') || m('einst-fritz') || m('einst-fritz-entfernen') || m('geraete-fritz') || m('geraete-fritz-liste') || m('geraete-fritz-falsch') || m('geraete-fritz-aus') || m('geraete-fritz-weg') ? 'netzinfo' : null;
   let gelesen = false;
   VORSCHAU.fritzbox_zugang = async () => zugang;
   VORSCHAU.fritzbox_speichern = async ({ benutzer }) => {
@@ -63,7 +67,9 @@
   };
   VORSCHAU.fritzbox_entfernen = async () => { zugang = null; gelesen = false; };
   VORSCHAU.fritzbox_lesen = async () => {
+    if (m('geraete-fritz-haengt')) await warte(600000);
     await warte(600);
+    if (m('geraete-fritz-unbekannt')) return { zustand: 'constructor', satz: '', gefunden: 0, neu: 0 };
     const aus = (zustand, satz) => ({ zustand, satz, gefunden: 0, neu: 0 });
     if (m('geraete-fritz-falsch')) return aus('zugang_falsch', 'Die Fritz!Box lehnt Benutzer oder Passwort ab. Prüfe sie unter System, Fritz!Box-Benutzer, oder richte den Zugang neu ein.');
     if (m('geraete-fritz-aus')) return aus('tr064_aus', 'TR-064 ist in der Fritz!Box aus. Schalte es ein unter Heimnetz, Netzwerk, Netzwerkeinstellungen, Heimnetzfreigaben: „Zugriff für Anwendungen zulassen“.');
@@ -71,7 +77,31 @@
     gelesen = true;
     return { zustand: 'ok', satz: '', gefunden: 6, neu: 3 };
   };
-  VORSCHAU.geraete_karten = async () => (m('geraete-keine') ? [] : m('geraete-fritz-liste') || gelesen ? MIT_ROUTER : KARTEN);
+  // Robustheit: viele Karten und Randfälle.
+  const lang = 'laserjet-etagendrucker-obergeschoss-links-hinten-neben-dem-archiv'.slice(0, 63);
+  const RAND = [
+    k(d('192.0.2.70', null, [], 3 * TAG, 0, '00:00:5e:00:53:70'), 'Unbekannt', '❔', '192.0.2.70', 'Dieses Gerät kennt Netzinfo noch nicht. Du kannst ihm einen Namen geben.', [], { besuche: 2 }),
+    k(d('192.0.2.71', null, [], 0, 0, '00:00:5e:00:53:71'), 'Unbekannt', '❔', '', '', [], { hersteller: 'Beispiel Unterhaltungselektronik und Netzwerktechnik Gesellschaft mit beschränkter Haftung International', hinweise: undefined, dienste: undefined, besuche: 1 }),
+    k(d('192.0.2.72', lang, [631], 9 * TAG, 0, '00:00:5e:00:53:72'), 'Drucker', '🖨️', lang, 'Netzinfo hält dieses Gerät für einen Drucker, weil Port 631 offen ist.', [], { hersteller: 'Beispiel Druck AG', namequelle: 'DNS (PTR)' }),
+    k(d('192.0.2.73', null, [], 5 * TAG, 0, '00:00:5e:00:53:73'), 'Medien', '📺', 'Müllers Fernseher 📺 Wohnzimmer', 'Du hast festgelegt, dass dies ein Gerät vom Typ „Medien“ ist.', [], { von_mia: { name: 'Müllers Fernseher 📺 Wohnzimmer', typ: 'Medien' }, namequelle: 'von dir' }),
+    k(d('192.0.2.74', 'wohnzimmer-tv.example', [], 5 * TAG, 0, '00:00:5e:00:53:74'), 'Medien', '📺', 'Wohnzimmer-TV', 'Netzinfo hält dieses Gerät für ein Medien-Gerät.', [], { namequelle: 'Bonjour' }),
+    k(d('192.0.2.75', 'wohnzimmer-tv.example', [], 5 * TAG, 0, '00:00:5e:00:53:75'), 'Medien', '📺', 'Wohnzimmer-TV', 'Netzinfo hält dieses Gerät für ein Medien-Gerät.', [], { namequelle: 'Bonjour' }),
+    k(d('192.0.2.76', null, [], 2 * TAG, 0, '02:00:5e:00:53:76'), 'Handy', '📱', 'Bücherregal-Lautsprecher 🔊', 'Netzinfo hält dieses Gerät für ein Handy.', ['nutzt eine zufällige MAC-Adresse'], { mac_zufaellig: true, namequelle: 'Bonjour' }),
+    k(d('2001:db8::1a2b', null, [], 1 * TAG, 0, '00:00:5e:00:53:77'), 'Smart Home', '🏠', 'sensor-flur.example', 'Netzinfo hält dieses Gerät für Smart Home.', [], { namequelle: 'DNS (PTR)' }),
+    k(d('2001:db8::2', null, [], 1 * TAG, 0, '00:00:5e:00:53:78'), 'Computer', '💻', '2001:db8::2', 'Dieses Gerät kennt Netzinfo noch nicht.', [], {}),
+    k(d('192.0.2.79', null, [], 1 * TAG, 0, '00:00:5e:00:53:79'), 'constructor', '❔', 'Typ aus fremder Quelle', 'Dieses Gerät kennt Netzinfo noch nicht.', [], { upnp: { udn: '', server: null, geraetetyp: null, hersteller: null, modell: null, name: null, location_pfad: null } }),
+  ];
+  const VIELE = Array.from({ length: 250 }, (_, i) => {
+    const n = (i * 37) % 250 + 1; // gemischt, jede Adresse einmal
+    const v6 = n > 240;
+    const ip = v6 ? `2001:db8::${n.toString(16)}` : `192.0.2.${n}`;
+    const typ = n === 1 ? 'Router' : ['Computer', 'Handy', 'Medien', 'Smart Home', 'Drucker'][n % 5];
+    return k(d(ip, `geraet-${n}.example`, n % 7 ? [] : [22], 20 * TAG, 0, `00:00:5e:00:${(n >> 8).toString(16).padStart(2, '0')}:${(n & 255).toString(16).padStart(2, '0')}`), typ, '❔', `geraet-${n}.example`, `Netzinfo hält dieses Gerät für ${typ}.`, [], { besuche: n % 9 + 1, gateway: n === 1 });
+  });
+  VORSCHAU.geraete_karten = async () => (m('geraete-viele') ? VIELE : m('geraete-randfaelle') ? RAND : m('geraete-keine') ? [] : m('geraete-fritz-liste') || gelesen ? MIT_ROUTER : KARTEN);
+  // „Netz ist ein /16“: nur die Grösse des Netzes ändert sich, der Rest kommt aus der Vorschau von dieses-netz.js.
+  const dieses = VORSCHAU.dieses_netz;
+  if (m('geraete-gross') && dieses) VORSCHAU.dieses_netz = async (a) => { const r = await dieses(a); return { ...r, info: { ...r.info, subnet: { ...r.info.subnet, network: '192.0.0.0', prefix: 16 } } }; };
   VORSCHAU.geraet_setzen = async () => {};
   // UPnP (issue #42): model and type of the TV, as `netzinfo upnp` stores them.
   KARTEN.find((x) => x.ip === neu.ip).upnp = { udn: 'uuid:0000-example', server: null, geraetetyp: 'urn:schemas-upnp-org:device:MediaRenderer:1', hersteller: 'Beispiel Elektronik Co.', modell: 'Bildschirm 55', name: 'Wohnzimmer-TV', location_pfad: '/desc.xml' };
@@ -104,11 +134,12 @@
   // vorschau.html only knows the mark „geraete“; the other marks open the tab here. Search marks press „Suchen“.
   const routermarken = ['router', 'router-umleitung', 'router-nichtmeins'].map((x) => `geraete-${x}`);
   const freimarken = ['freigaben', 'freigaben-aus', 'freigaben-login', 'freigaben-nichtmeins'].map((x) => `geraete-${x}`);
-  const fritzmarken = ['liste', 'falsch', 'aus', 'weg'].map((x) => `geraete-fritz-${x}`);
-  const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche'].map((x) => `geraete-${x}`);
+  const fritzmarken = ['liste', 'falsch', 'aus', 'weg', 'haengt', 'unbekannt'].map((x) => `geraete-fritz-${x}`);
+  const suchmarken = ['lauf', 'erst', 'leer', 'nichtmeins', 'fehler', 'suche', 'haengt', 'gross'].map((x) => `geraete-${x}`);
   if (marken.some((s) => s.startsWith('geraete'))) {
     addEventListener('DOMContentLoaded', () => setTimeout(() => {
       document.querySelector('#tab-geraete')?.click();
+      Netz.geraeteLimit.suche = Netz.geraeteLimit.router = 1500; // nur die Vorschau wartet nicht drei Minuten
       if (marken.some((s) => suchmarken.includes(s))) setTimeout(() => document.querySelector('.aktion button')?.click(), 250);
       if (marken.some((s) => routermarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.router-knoepfe button')][0]?.click(), 400);
       if (marken.some((s) => freimarken.includes(s))) setTimeout(() => [...document.querySelectorAll('.router-knoepfe button')][1]?.click(), 400);

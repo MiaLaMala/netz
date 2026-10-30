@@ -10,6 +10,10 @@
 [data-ansicht='geraete'] .chip[aria-pressed="true"] { background: var(--accent); color: var(--auf-accent); border-color: transparent; }
 [data-ansicht='geraete'] .filter + .fuss { margin: 8px 0 0; }
 /* Wide enough for two cards side by side (the view may grow to 880 px). */
+[data-ansicht='geraete'] .karten-mehr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; }
+[data-ansicht='geraete'] .karten-mehr .fuss { margin: 0; }
+[data-ansicht='geraete'] .karte:focus { outline: none; }
+[data-ansicht='geraete'] .karte:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [data-ansicht='geraete'] .karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 [data-ansicht='geraete'] .karte { background: var(--gruppe); border: 0.5px solid var(--linie); border-radius: 10px; padding: 16px; margin: 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; row-gap: 4px; }
 /* The router has the most to say: it takes the full row, so no gap opens next to it. */
@@ -24,7 +28,7 @@
 [data-ansicht='geraete'] .karte-symbol svg { width: 24px; height: 24px; display: block; margin: 0 auto; }
 [data-ansicht='geraete'] .karte-typ { font-size: 12px; color: var(--fg2); white-space: nowrap; line-height: 20px; }
 [data-ansicht='geraete'] .netz-name { font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
-[data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+[data-ansicht='geraete'] .fein { color: var(--fg2); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 [data-ansicht='geraete'] .karte-kopf .fein { display: flex; flex-wrap: wrap; column-gap: 12px; }
 [data-ansicht='geraete'] .zufall { display: flex; align-items: center; gap: 4px; }
 [data-ansicht='geraete'] .zufall svg { width: 12px; height: 12px; }
