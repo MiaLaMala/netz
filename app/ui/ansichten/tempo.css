@@ -6,7 +6,7 @@
 [data-ansicht='tempo'] .zahl-feld { min-width: 0; padding: 12px; border: 1px solid var(--linie); border-radius: 8px; }
 [data-ansicht='tempo'] .zahl-feld.bremst { padding: 11px; border: 2px solid var(--orange); }
 [data-ansicht='tempo'] .zahl-feld .label { color: var(--fg2); font-size: 12px; }
-[data-ansicht='tempo'] .zahl-feld .gross { margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; }
+[data-ansicht='tempo'] .zahl-feld .gross { margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 [data-ansicht='tempo'] .zahl-feld .klein { margin: 2px 0 0; color: var(--fg2); font-size: 12px; }
 [data-ansicht='tempo'] .engpass-wort { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; color: var(--orange); font-size: 12px; font-weight: 600; }
 [data-ansicht='tempo'] .engpass-rat { margin: 16px 0 0; font-size: 14px; line-height: 1.45; }

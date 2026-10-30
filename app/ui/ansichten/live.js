@@ -16,7 +16,8 @@
   const FENSTER_MS = 300000;
   const NS = 'http://www.w3.org/2000/svg';
   const komma = (z) => z.replace('.', ',');
-  const ms = (v) => (v == null ? '–' : komma(`${v.toFixed(v < 10 ? 1 : 0)} ms`));
+  // Fehlt der Wert oder ist er kaputt (null, NaN, negativ), steht ein Strich da, nie „NaN ms“.
+  const ms = (v) => (Number.isFinite(v) && v >= 0 ? komma(`${v.toFixed(v < 10 ? 1 : 0)} ms`) : '–');
 
   const sv = (tag, attr) => {
     const e = document.createElementNS(NS, tag);
@@ -53,16 +54,21 @@
     const linien = s.appendChild(sv('g', {}));
     const striche = s.appendChild(sv('g', {}));
     s.zeichne = (a) => {
-      const jetzt = a.punkte.length ? a.punkte[a.punkte.length - 1].zeit : 0;
-      const werte = a.punkte.map((p) => p.ms).filter((v) => v != null);
+      // Punkte ohne Zeit fallen weg, ältere als das Fenster auch; ein kaputter Wert (NaN, negativ) wird zur Lücke ohne Verluststrich.
+      const alle = (a.punkte ?? []).filter((p) => Number.isFinite(p.zeit));
+      const jetzt = alle.length ? alle[alle.length - 1].zeit : 0;
+      const punkte = alle.filter((p) => p.zeit >= jetzt - FENSTER_MS)
+        .map((p) => (p.ms == null || (Number.isFinite(p.ms) && p.ms >= 0) ? p : { zeit: p.zeit, ms: null, kaputt: true }));
+      const werte = punkte.map((p) => p.ms).filter((v) => v != null);
       // Glatte Achse (50, 100, 200 …), damit die Beschriftung nicht bei jedem Takt springt.
       const hoechst = Math.max(0, ...werte) * 1.05;
-      const max = [50, 100, 200, 500, 1000, 2000, 5000].find((g) => g >= hoechst) ?? hoechst;
+      const max = [50, 100, 200, 500, 1000, 2000, 5000].find((g) => g >= hoechst) ?? Math.ceil(hoechst / 1000) * 1000;
       const x = (t) => L + ((t - (jetzt - FENSTER_MS)) / FENSTER_MS) * (B - L - 4);
       [0, 0.5, 1].forEach((t, i) => { const v = max * t; beschriftung[i].textContent = t === 1 ? `${Math.round(v)} ms` : Math.round(v); });
       const k = a.kennzahlen;
-      band.toggleAttribute('hidden', !(k && k.p5_ms != null));
-      if (k && k.p5_ms != null) {
+      const mitBand = k && Number.isFinite(k.p5_ms) && Number.isFinite(k.p95_ms);
+      band.toggleAttribute('hidden', !mitBand);
+      if (mitBand) {
         band.setAttribute('x', x(jetzt - 60000));
         band.setAttribute('y', y(k.p95_ms, max));
         band.setAttribute('width', x(jetzt) - x(jetzt - 60000));
@@ -70,13 +76,13 @@
       }
       // Eine Linie je Strecke ohne Verlust; ein Verlust unterbricht sie.
       const teile = [[]];
-      for (const p of a.punkte) {
+      for (const p of punkte) {
         if (p.ms == null) teile.push([]);
         else teile[teile.length - 1].push(`${x(p.zeit).toFixed(1)} ${y(p.ms, max).toFixed(1)}`);
       }
       const nichtLeer = teile.filter((t) => t.length);
       pool(linien, nichtLeer.length, 'path', 'linie').forEach((e, i) => e.setAttribute('d', `M${nichtLeer[i].join(' L')}`));
-      const weg = a.punkte.filter((p) => p.ms == null);
+      const weg = punkte.filter((p) => p.ms == null && !p.kaputt);
       pool(striche, weg.length, 'line', 'verlust').forEach((e, i) => {
         e.setAttribute('x1', x(weg[i].zeit)); e.setAttribute('x2', x(weg[i].zeit));
         e.setAttribute('y1', H - U + 3); e.setAttribute('y2', H - U + 9);
@@ -131,7 +137,7 @@
     const setze = (a) => {
       const k = a.kennzahlen;
       const tot = !!k && k.verlust_prozent >= 100;
-      const letzter = a.punkte[a.punkte.length - 1];
+      const letzter = (a.punkte ?? []).at(-1);
       const kopf = a.ziel === a.ziel_ip ? a.ziel : `${a.ziel} · ${a.ziel_ip}`;
       if (h.textContent !== kopf) h.textContent = kopf;
       antwortlos.hidden = !tot;
@@ -143,7 +149,7 @@
       diagramm.zeichne(a);
       tAktuell.textContent = !letzter ? '–' : letzter.ms == null ? 'Verlust' : ms(letzter.ms);
       tJitter.textContent = k ? ms(k.jitter_ms) : '–';
-      tVerlust.textContent = k ? komma(`${k.verlust_prozent.toFixed(1)} %`) : '–';
+      tVerlust.textContent = k && Number.isFinite(k.verlust_prozent) ? komma(`${Math.min(100, Math.max(0, k.verlust_prozent)).toFixed(1)} %`) : '–';
       eignungKopf.hidden = eignungListe.hidden = !a.eignung;
       const st = a.eignung ? [a.eignung.anruf, a.eignung.spiel, a.eignung.streaming] : null;
       if (st) ampeln.forEach(([, p], i) => setzeAmpel(p, st[i]));
@@ -178,7 +184,7 @@
   async function bauen(wurzel, kompakt) {
       if (kompakt) wurzel.classList.add('kompakt');
       const HINWEIS = 'Name oder Adresse, mehrere mit Leerzeichen getrennt, bis zu vier.';
-      let laeuft = false, nr = 0, t0Lauf = 0, messungen = 0;
+      let laeuft = false, nr = 0, t0Lauf = 0, messungen = 0, fehlerFolge = 0;
       const feld = el('input', { type: 'text', id: 'live-ziel', class: 'ziel-feld', value: '1.1.1.1', placeholder: '1.1.1.1 9.9.9.9', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'live-lauf' });
       const knopf = el('button', { class: kompakt ? 'knopf' : 'knopf haupt', type: 'button', text: 'Start', 'aria-label': 'Start: Messung beginnen' });
       const ort = el('div', { class: 'ergebnis' }, leereFlaeche());
@@ -208,17 +214,22 @@
         if (document.hidden) laufText.textContent = `Pausiert, solange das Fenster verborgen ist (${zeit()})`;
         else {
           try {
-            const antworten = await Promise.all(ziele().map((z) => invoke('live_sonde', { ziel: z, neu })));
+            const antworten = await Promise.all(ziele().map((z) => Netz.qualitaet.frist('live_sonde', { ziel: z, neu }, 10)));
             if (lauf !== nr) return;
             zeichne(antworten);
             messungen++;
+            fehlerFolge = 0;
             laufText.textContent = `Läuft seit ${zeit()}`;
           } catch (f) {
             if (lauf !== nr) return;
-            stopp();
-            gebaut = null;
-            ort.replaceChildren(meldung(Netz.text(f), 'rot'));
-            return knopf.focus();
+            // Ein Aussetzer mitten in der Messung ist eine Lücke in der Kurve, kein Ende: Erst der fünfte Fehler in Folge (oder einer vor der ersten Antwort) stoppt.
+            if (messungen > 0 && ++fehlerFolge < 5) laufText.textContent = `Aussetzer, die Kurve hat eine Lücke. Neuer Versuch (${fehlerFolge} von 4): ${Netz.text(f)}`;
+            else {
+              stopp();
+              gebaut = null;
+              ort.replaceChildren(meldung(Netz.text(f), 'rot'));
+              return knopf.focus();
+            }
           }
         }
         setTimeout(() => takt(false, lauf), Math.max(0, 1000 - (Date.now() - t0)));
@@ -231,7 +242,7 @@
         if (!ziele().length) { laufText.textContent = 'Gib mindestens ein Ziel ein, zum Beispiel 1.1.1.1.'; return feld.focus(); }
         laeuft = true; feld.disabled = true; knopf.textContent = 'Stopp'; knopf.setAttribute('aria-label', 'Stopp: Messung beenden'); gebaut = null; ansage.textContent = '';
         knopf.focus(); // das Feld ist jetzt gesperrt (auch nach Enter im Feld): der Fokus bleibt am Knopf
-        t0Lauf = Date.now(); messungen = 0; laufText.textContent = alle().length > 4 ? 'Startet, gemessen werden die ersten vier Ziele …' : 'Startet, warte auf die erste Antwort …';
+        t0Lauf = Date.now(); messungen = 0; fehlerFolge = 0; laufText.textContent = alle().length > 4 ? 'Startet, gemessen werden die ersten vier Ziele …' : 'Startet, warte auf die erste Antwort …';
         takt(true, ++nr);
       };
       knopf.addEventListener('click', () => (laeuft ? stopp() : start()));

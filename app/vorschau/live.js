@@ -1,7 +1,7 @@
 // Fake answers for the view „live“ in vorschau.html.
 // Marks: #live (stopped, nothing measured yet), ,live-gut (starts, good line), ,live-schlecht (jitter and losses),
 // ,live-zwei (two targets), ,live-fehler (name not found), ,live-recht (no ICMP socket), ,live-aus (target never answers);
-// add ,erklaeren.
+// ,live-kaputt (NaN und negative Werte in Punkten und Kennzahlen), add ,erklaeren.
 (() => {
   const m = (s) => marken.includes(s);
   const rausch = (i, k) => Math.abs(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1;
@@ -42,6 +42,12 @@
   VORSCHAU.live_sonde = async ({ ziel }) => {
     if (m('live-fehler')) throw `Für „${ziel}“ gibt es keine IP-Adresse. Prüfe den Namen.`;
     if (m('live-recht')) throw 'Kann keinen ICMP-Socket öffnen (keine Berechtigung). Auf dem Mac geht das ohne sudo; prüfe, ob eine Firewall oder ein Profil das blockt.';
+    if (m('live-kaputt')) {
+      const a = ansicht(ziel, 0);
+      a.punkte = a.punkte.map((p, i) => (i % 17 === 3 ? { ...p, ms: NaN } : i % 19 === 4 ? { ...p, ms: -3 } : p));
+      a.kennzahlen = { ...a.kennzahlen, median_ms: NaN, p5_ms: NaN, jitter_ms: null, verlust_prozent: NaN };
+      return a;
+    }
     return ansicht(ziel, ['1.1.1.1', '9.9.9.9'].indexOf(ziel) === 1 ? 1 : 0);
   };
 

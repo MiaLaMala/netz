@@ -10,6 +10,7 @@
 [data-ansicht='live'] .kachel .label { color: var(--fg2); font-size: 12px; }
 [data-ansicht='live'] .kachel .gross { white-space: nowrap; margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 [data-ansicht='live'] .kachel .erklaerung { margin-top: 4px; }
+[data-ansicht='live'] .live-ziel > h3 { overflow-wrap: anywhere; }
 [data-ansicht='live'] .gruppe > h3.unter { margin-top: 18px; }
 [data-ansicht='live'] .leer-karte { position: relative; margin-top: 18px; }
 [data-ansicht='live'] .leer-text { position: absolute; top: 46%; left: 54%; transform: translate(-50%, -50%); width: min(380px, 80%); padding: 8px 12px; background: var(--gruppe); text-align: center; color: var(--fg2); font-size: 13px; line-height: 1.4; }

@@ -4,7 +4,11 @@
 // Das CSS dieser Ansicht steht am Ende von qualitaet.css: index.html bindet kein eigenes tempo.css ein.
 (() => {
   const { el, meldung } = Netz;
-  const mbit = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
+  // Zahlen vom Router können fehlen oder kaputt sein (null, NaN, negativ): dann steht ein Strich da, nie „NaN Mbit/s“ und kein Absturz.
+  const ok = (v) => Number.isFinite(v) && v >= 0;
+  const rate = (v) => (ok(v) ? `${v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 })} Mbit/s` : '–');
+  // Ein Mac-Download aus einer älteren Messung sagt nichts mehr über das Netz von jetzt: nach einer Stunde zählt er nicht.
+  const FRISCH_S = 3600;
   const AMPEL = { keiner: 'gruen', wlan: 'orange', leitung: 'orange', router: 'orange', unklar: 'grau' };
   // Wo man am Router die Zahl der Leitung freischaltet; ohne Router (kein_router) gibt es nichts zu tun.
   const UPNP = 'Schalte am Router die Statusinformationen über UPnP ein (bei der Fritz!Box unter Heimnetz, Netzwerk, Netzwerkeinstellungen).';
@@ -18,13 +22,13 @@
       bremst && el('dd', { class: 'engpass-wort' }, el('span', { class: 'punkt orange' }), 'Engpass'));
     const l = e.leitung;
     const leitung = l
-      ? feld('Leitung laut Router', `${mbit(l.down_mbit)} Mbit/s`, l.vertrag_down_mbit != null ? `gebucht ${mbit(l.vertrag_down_mbit)} Mbit/s` : 'Vertrag unbekannt', e.engpass === 'leitung')
+      ? feld('Leitung laut Router', rate(l.down_mbit), ok(l.vertrag_down_mbit) ? `gebucht ${rate(l.vertrag_down_mbit)}` : 'Vertrag unbekannt', e.engpass === 'leitung')
       : feld('Leitung laut Router', '–', e.leitung_fehlt?.satz ?? 'Der Router nennt keine Zahl.');
     const w = e.wlan;
     const funk = e.kabel
       ? feld('WLAN', 'Kabel', 'kein WLAN dazwischen')
-      : feld('WLAN', w ? `${mbit(w.nutz_mbit)} Mbit/s` : '–', w ? `Senderate ${mbit(w.rate_mbit)} Mbit/s${w.band ? `, ${w.band}` : ''}` : 'nicht ermittelt', e.engpass === 'wlan');
-    const mac = feld('Am Mac', e.mac_down_mbit != null ? `${mbit(e.mac_down_mbit)} Mbit/s` : '–', e.mac_down_mbit != null ? 'Download, gemessen' : 'noch nicht gemessen');
+      : feld('WLAN', w ? rate(w.nutz_mbit) : '–', w ? `${ok(w.rate_mbit) ? `Senderate ${rate(w.rate_mbit)}` : 'Senderate unbekannt'}${w.band ? `, ${w.band}` : ''}` : 'nicht ermittelt', e.engpass === 'wlan');
+    const mac = feld('Am Mac', rate(e.mac_down_mbit), ok(e.mac_down_mbit) ? 'Download, gemessen' : 'noch nicht gemessen');
     return el('dl', { class: 'engpass-zahlen' }, leitung, funk, mac);
   }
 
@@ -52,14 +56,18 @@
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: 'Tempo messen' });
       let mac = null; // letzter Download am Mac in Mbit/s, aus dem Verlauf oder der Messung
 
+      let stand = 0; // nur die jüngste Antwort zählt: „Erneut versuchen“ und die Messung können sich überholen
       async function lies() {
+        const nr = ++stand;
         try {
-          const e = await Netz.invoke('engpass_lesen', { macDownMbit: mac });
+          const e = await Netz.qualitaet.frist('engpass_lesen', { macDownMbit: mac }, 20);
+          if (nr !== stand) return;
           antworte(AMPEL[e.engpass] ?? 'grau', e.satz);
           zahlenOrt.replaceChildren(zahlen(e), ausweg(e.leitung_fehlt));
           rat.textContent = e.rat ?? '';
           rat.hidden = !e.rat;
         } catch (f) {
+          if (nr !== stand) return;
           antworte('rot', 'Das Tempo ist gerade nicht lesbar');
           zahlenOrt.replaceChildren(Netz.fehlerKarte(Netz.text(f), lies));
           rat.hidden = true;
@@ -69,8 +77,8 @@
       // Messung, Hotspot-Rückfrage, Fortschritt und Verlauf teilt sich die Karte mit „Unter Last“ in „Qualität“.
       Netz.qualitaet.lastSteuerung({
         knopf, ort, verlauf, hinweis, tempo: true,
-        vorab: (v) => { const l = v?.verlauf?.at(-1); mac = l?.ergebnis.down_bps != null ? l.ergebnis.down_bps / 1e6 : null; lies(); },
-        nach: (r) => { mac = r.down_bps != null ? r.down_bps / 1e6 : null; return lies(); },
+        vorab: (v) => { const l = v?.verlauf?.at(-1); mac = l?.zeit > Date.now() / 1000 - FRISCH_S && ok(l.ergebnis?.down_bps) ? l.ergebnis.down_bps / 1e6 : null; lies(); },
+        nach: (r) => { mac = ok(r?.down_bps) ? r.down_bps / 1e6 : null; return lies(); },
       });
 
       const karte = el('section', { class: 'gruppe engpass-karte', 'aria-labelledby': 'g-engpass' },
@@ -86,11 +94,13 @@
             } }), '.')));
 
       // „Details“ zuerst bauen: das Störungsprotokoll gehört zu „Qualität“, steht aber hier oben.
+      // Bricht ein Teil ab, zeigt nur dieser Teil seine Fehlerkarte; die Engpass-Karte oben bleibt.
       const gemeinsam = { ausfall: null };
       const detailsInhalt = el('div', { class: 'eingebettet', 'data-ansicht': 'qualitaet' });
-      await Netz.qualitaet.bauen(detailsInhalt, gemeinsam);
       const live = el('div', { class: 'eingebettet', 'data-ansicht': 'live' });
-      await Netz.live.bauen(live, true);
+      for (const [ort, bau] of [[detailsInhalt, () => Netz.qualitaet.bauen(detailsInhalt, gemeinsam)], [live, () => Netz.live.bauen(live, true)]]) {
+        try { await bau(); } catch (f) { console.error(f); ort.replaceChildren(Netz.fehlerKarte(Netz.text(f))); }
+      }
 
       wurzel.append(
         el('div', { class: 'kopf', 'aria-live': 'polite' }, antwort),

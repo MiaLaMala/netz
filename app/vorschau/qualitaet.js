@@ -312,8 +312,13 @@
 // Gruppe „Ausfälle“ (#51). Marken: ,ausfaelle (zwei Ausfälle, mehrere Aussetzer) ,ausfaelle-leer. Alle Werte erfunden.
 (() => {
   const jetzt = () => Math.floor(Date.now() / 1000);
+  // ,ausfaelle-viele: 80 Ausfälle (Liste kappt bei 50); ,ausfaelle-doppelt: zwei Ausfälle zur selben Ortszeit (Zeitumstellung); ,ausfaelle-haengt, ,ausfaelle-krumm
   VORSCHAU.ausfaelle = async () => {
     const t = jetzt();
+    if (marken.includes('ausfaelle-haengt')) return new Promise(() => {});
+    if (marken.includes('ausfaelle-krumm')) return { liste: null };
+    if (marken.includes('ausfaelle-viele')) return { liste: Array.from({ length: 80 }, (_, i) => ({ beginn: t - 3600 - i * 7000, ende: t, dauer_s: 20 + i, schicht: i % 9 === 0 ? 'neu_unbekannt' : 'nur_dns', aussetzer: 0 })), aussetzer: [], abschnitt: '', text: 'x' };
+    if (marken.includes('ausfaelle-doppelt')) return { liste: [0, 3600].map((d) => ({ beginn: 1792888200 + d, ende: 0, dauer_s: 100, schicht: 'unklar', aussetzer: 0 })), aussetzer: [], abschnitt: '', text: 'x' };
     if (marken.includes('ausfaelle-leer')) return { liste: [], aussetzer: [t - 4 * 86400], abschnitt: '', text: 'In den letzten 7 Tagen wurde kein Ausfall gemessen.' };
     if (!marken.includes('ausfaelle')) return { liste: [], aussetzer: [], abschnitt: '', text: '' };
     return {
