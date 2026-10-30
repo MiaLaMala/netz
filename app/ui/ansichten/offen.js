@@ -16,7 +16,23 @@
   };
   const ART = { Netz: 'Netz', Lokal: 'Lokal', Vpn: 'VPN', UdpClient: 'UDP-Client', Unbekannt: 'Unklar' };
 
-  const zustand = { nurNetz: false, aussen: false };
+  // Ein Aufruf ohne Antwort darf die Ansicht nicht festhalten (gleicher Baustein wie in verbindungen.js).
+  // window.NETZ_ZEITLIMIT_MS überschreibt das Limit, nur die Vorschau setzt es.
+  const mitZeit = (versprechen, sekunden, satz) => {
+    let uhr;
+    const ablauf = new Promise((_, nein) => { uhr = setTimeout(() => nein(satz), window.NETZ_ZEITLIMIT_MS ?? sekunden * 1000); });
+    return Promise.race([versprechen, ablauf]).finally(() => clearTimeout(uhr));
+  };
+  const lies = async (aussen) => {
+    const l = await mitZeit(Netz.invoke('offen_zeigen', { aussen }), aussen ? 45 : 20, aussen
+      ? 'Die Prüfung von außen dauert zu lange. Das Netz antwortet nicht.'
+      : 'Das System antwortet nicht. Versuch es in einem Moment noch einmal.');
+    if (!Array.isArray(l)) throw 'Die Antwort des Systems war unlesbar. Versuch es noch einmal.';
+    return l;
+  };
+  // Mehr als SEITE Zeilen auf einmal machen die Ansicht zäh: der Rest kommt auf Wunsch.
+  const SEITE = 100;
+  const zustand = { nurNetz: false, aussen: false, zeilen: SEITE };
   let liste = null;
   // Nach dem Neuzeichnen der ganzen Ansicht („Von außen prüfen“) steht der Fokus sonst im Nichts.
   let fokusNach = false;
@@ -35,21 +51,25 @@
   };
 
   // `*` und die Loopback-Adressen sagen Menschen nichts.
-  const adresse = (a) => (a === '*' ? 'alle Adressen' : a === '127.0.0.1' || a === '::1' ? 'nur dieser Mac' : a);
+  const adresse = (a) => (typeof a !== 'string' || !a ? 'unbekannt' : a === '*' ? 'alle Adressen' : a === '127.0.0.1' || a === '::1' ? 'nur dieser Mac' : a);
 
   function zelle(l) {
     const hinweise = [
       l.apple_signiert === false && 'nicht von Apple signiert',
       l.von_aussen && 'auch von außen erreichbar',
     ].filter(Boolean);
+    // Ein unbekannter oder fehlender Wert steht als „Unklar“ da, er bricht nicht die ganze Liste.
+    const art = ART[l.reichweite] ? l.reichweite : 'Unbekannt';
+    const port = Number.isInteger(l.port) ? l.port : 'unbekannt';
     return el('tr', {},
-      el('td', {}, el('span', { class: `offen-art ${l.reichweite.toLowerCase()}`, text: ART[l.reichweite] })),
-      el('td', { class: 'programm' }, el('div', { class: 'kuerzen', title: l.programm, text: l.programm || `Unbekanntes Programm (PID ${l.pid})` }),
+      el('td', {}, el('span', { class: `offen-art ${art.toLowerCase()}`, text: ART[art] })),
+      el('td', { class: 'programm' }, el('div', { class: 'kuerzen', title: l.programm, text: l.programm || (Number.isInteger(l.pid) ? `Unbekanntes Programm (PID ${l.pid})` : 'Unbekanntes Programm') }),
         hinweise.length ? el('div', { class: 'fein warn' }, el('span', { class: 'punkt orange' }), el('span', { text: hinweise.join(' · ') })) : null,
-        Netz.woher(l.pid, l.programm)),
-      el('td', { class: 'num' }, el('div', { text: `${l.protokoll} ${l.port}` }),
+        // Ohne PID gibt es nichts nachzufragen.
+        Number.isInteger(l.pid) ? Netz.woher(l.pid, l.programm) : null),
+      el('td', { class: 'num' }, el('div', { text: [l.protokoll, port].filter(Boolean).join(' ') }),
         l.dienst ? el('div', { class: 'fein', text: l.dienst }) : null),
-      el('td', { class: 'fein num adresse', text: adresse(l.adresse) }));
+      el('td', { class: `fein num adresse${adresse(l.adresse).length > 24 ? ' lang' : ''}`, text: adresse(l.adresse) }));
   }
 
   // Der Kopf trägt die Aussage; ein UDP-Client lauscht nicht und zählt nicht mit.
@@ -63,10 +83,12 @@
     return `${netz} von ${dienste} Programmen ${netz === 1 ? 'ist' : 'sind'} fürs Netz erreichbar`;
   }
 
-  function zeichne(ort, titel, unter) {
+  const imFilter = () => (zustand.nurNetz ? liste.filter((l) => l.reichweite === 'Netz') : liste);
+
+  function zeichne(ort, titel, unter, mehr) {
     const alle = liste;
     const netz = alle.filter((l) => l.reichweite === 'Netz');
-    const gezeigt = zustand.nurNetz ? netz : alle;
+    const gezeigt = imFilter();
     const auffaellig = netz.filter((l) => l.apple_signiert === false || l.von_aussen).length;
     titel.textContent = kopfSatz(alle);
     unter.replaceChildren(...(alle.length
@@ -83,7 +105,10 @@
     const geprueft = zustand.aussen && tcp.length ? el('p', { class: 'fuss', text: `Von außen geprüft: ${tcp.filter((l) => l.von_aussen).length} von ${tcp.length} TCP-Ports im Netz sind auch von außen offen.` }) : null;
     ort.replaceChildren(geprueft ?? '', el('div', { class: 'karte' }, el('table', { class: 'offen-tabelle', 'aria-label': 'Lauschende Programme' },
       el('thead', {}, el('tr', {}, ['Reichweite', 'Programm', 'Port', 'Adresse'].map((t) => el('th', { scope: 'col', text: t })))),
-      el('tbody', {}, gezeigt.map(zelle)))));
+      el('tbody', {}, gezeigt.slice(0, zustand.zeilen).map(zelle)))),
+    ...(gezeigt.length > zustand.zeilen ? [el('div', { class: 'mehr' },
+      el('p', { class: 'fuss', text: `${zustand.zeilen} von ${gezeigt.length} Zeilen gezeigt.` }),
+      el('button', { class: 'knopf', type: 'button', text: 'Weitere zeigen', onclick: mehr }))] : []));
   }
 
   Netz.registriere({
@@ -93,12 +118,22 @@
     teil: true, // lebt in „Verbindungen“ unter „Lauschend“
     async render(wurzel) {
       ansage.textContent = '';
+      zustand.zeilen = SEITE;
       const ort = el('div', { class: 'ergebnis' });
       const titel = el('h2', { text: 'Wird gelesen …' });
       const unter = el('p', { class: 'status' });
+      const mehr = () => {
+        const vorher = ort.querySelectorAll('tbody tr').length;
+        zustand.zeilen += SEITE;
+        zeichne(ort, titel, unter, mehr);
+        // Der Knopf ist weg oder weiter unten: der Fokus geht an die erste neue Zeile, die Rollposition bleibt.
+        const erste = ort.querySelectorAll('tbody tr')[vorher];
+        if (erste) { erste.tabIndex = -1; erste.focus({ preventScroll: true }); }
+      };
       const pruefen = el('button', { class: 'knopf haupt', type: 'button', 'aria-describedby': 'beschr-pruefen', text: zustand.aussen ? 'Erneut prüfen' : 'Von außen prüfen' });
       pruefen.addEventListener('click', () => {
         zustand.aussen = true;
+        zustand.zeilen = SEITE;
         pruefen.disabled = true;
         pruefen.textContent = 'Prüfe …';
         fokusNach = true;
@@ -110,8 +145,9 @@
         el('div', { class: 'werkzeuge' },
           el('div', { class: 'werkzeug' }, schalter('Nur Netz', 'nurNetz', () => {
             if (!liste) return;
-            zeichne(ort, titel, unter);
-            ansage.textContent = `${titel.textContent}. ${ort.querySelectorAll('tbody tr').length} Zeilen in der Liste.`;
+            zustand.zeilen = SEITE;
+            zeichne(ort, titel, unter, mehr);
+            ansage.textContent = `${titel.textContent}. ${imFilter().length} Zeilen in der Liste.`;
           }),
             el('p', { class: 'fein', id: 'beschr-nurnetz', text: 'Blendet Programme aus, die nur dieser Mac erreicht. Ändert nur die Liste.' })),
           el('div', { class: 'werkzeug' }, pruefen,
@@ -128,22 +164,23 @@
           zeile('Sichtbar', 'nur deine Programme', E.fremd),
         ]), { className: 'gruppe erklaer-gruppe' }));
       try {
-        liste = await Netz.invoke('offen_zeigen', { aussen: zustand.aussen });
-        zeichne(ort, titel, unter);
+        liste = await lies(zustand.aussen);
+        zeichne(ort, titel, unter, mehr);
       } catch (f) {
         // Scheitert nur die Prüfung von außen, bleibt die Liste sichtbar.
         const aussenFehler = zustand.aussen;
         zustand.aussen = false; // sonst scheitert jedes Neuladen am selben Grund
+        // Der Knopf steht nach „Prüfe …“ nie gesperrt da, egal wie es ausgeht.
+        pruefen.disabled = false;
+        pruefen.textContent = 'Von außen prüfen';
         try {
           if (!aussenFehler) throw f;
-          liste = await Netz.invoke('offen_zeigen', { aussen: false });
-          zeichne(ort, titel, unter);
+          liste = await lies(false);
+          zeichne(ort, titel, unter, mehr);
           ort.prepend(meldung(`Die Prüfung von außen ging nicht: ${Netz.text(f)}`, 'orange'));
-          pruefen.disabled = false;
-          pruefen.textContent = 'Von außen prüfen';
-        } catch {
+        } catch (g) {
           titel.textContent = 'Offen';
-          ort.replaceChildren(Netz.fehlerKarte(Netz.text(f)));
+          ort.replaceChildren(Netz.fehlerKarte(Netz.text(g)));
         }
       }
       if (fokusNach) {

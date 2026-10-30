@@ -15,7 +15,21 @@
   const ART = { netz: 'im eigenen Netz', lokal: 'dieser Mac' };
   const NAME_QUELLE = { PTR: 'Name aus dem DNS', 'Gerät': 'Name aus „Geräte“' };
 
-  const zustand = { nurNeue: false, merken: false };
+  // Ein Aufruf ohne Antwort darf keine Ansicht festhalten: nach `sekunden` wird daraus ein Satz.
+  // window.NETZ_ZEITLIMIT_MS überschreibt das Limit, nur die Vorschau setzt es (Marke „traffichaengt“).
+  const mitZeit = (versprechen, sekunden, satz) => {
+    let uhr;
+    const ablauf = new Promise((_, nein) => { uhr = setTimeout(() => nein(satz), window.NETZ_ZEITLIMIT_MS ?? sekunden * 1000); });
+    return Promise.race([versprechen, ablauf]).finally(() => clearTimeout(uhr));
+  };
+  const LESEN = 'Das System antwortet nicht. Versuch es in einem Moment noch einmal.';
+  // Ohne Gruppen-Liste lässt sich nichts zeichnen. Besser ein Satz als eine leere Ansicht oder „keine Verbindungen“.
+  const gueltig = (r) => r && Array.isArray(r.gruppen) && r.gruppen.every((g) => g && Array.isArray(g.verbindungen));
+  const UNLESBAR = 'Die Antwort des Systems war unlesbar. Versuch es noch einmal.';
+  const neue = (g) => g.verbindungen.filter((v) => v.neu === true).length;
+  // Mehr als SEITE Zeilen auf einmal machen die Ansicht zäh: der Rest kommt auf Wunsch.
+  const SEITE = 200;
+  const zustand = { nurNeue: false, merken: false, zeilen: SEITE };
   let ergebnis = null;
   // Nach dem Neuzeichnen der ganzen Ansicht (Merken, Löschen) steht der Fokus sonst im Nichts.
   let fokusNach = null;
@@ -36,17 +50,20 @@
 
   // Ohne Namen ist die Adresse der Titel und steht nicht noch einmal darunter.
   function verbindung(v) {
-    const adresse = v.ziel.includes(':') ? `[${v.ziel}]` : v.ziel;
-    const ziel = [v.name && adresse, v.dienst ? `Port ${v.ziel_port} (${v.dienst})` : `Port ${v.ziel_port}`].filter(Boolean);
+    const roh = typeof v.ziel === 'string' ? v.ziel : '';
+    const adresse = roh.includes(':') ? `[${roh}]` : roh;
+    const port = Number.isInteger(v.ziel_port) ? v.ziel_port : 'unbekannt';
+    const ziel = [v.name && adresse, v.dienst ? `Port ${port} (${v.dienst})` : `Port ${port}`].filter(Boolean);
     const herkunft = [ART[v.art], v.land, v.anbieter, NAME_QUELLE[v.name_quelle]].filter(Boolean);
-    const titel = v.name || adresse;
+    const titel = v.name || adresse || 'Unbekanntes Ziel';
     return el('div', { class: 'netz-zeile verbindung', role: 'listitem' },
       el('div', { class: 'text' },
         el('div', { class: 'netz-name num kuerzen', title: titel, text: titel }),
         el('div', { class: 'fein num', text: ziel.join(' · ') }),
         herkunft.length ? el('div', { class: 'fein', text: herkunft.join(' · ') }) : null),
       v.neu && el('span', { class: 'status verbindung-status' }, el('span', { class: 'punkt gruen' }), el('span', { text: 'neu' })),
-      Netz.woher(v.pid, v.programm));
+      // Ohne PID gibt es nichts nachzufragen.
+      Number.isInteger(v.pid) ? Netz.woher(v.pid, v.programm) : null);
   }
 
   // „Nach Land“: Zählung der Verbindungen je Land, nur wenn die Datenbank da ist und etwas trifft.
@@ -61,22 +78,27 @@
     const rest = sortiert.slice(6).reduce((s, [, x]) => s + x, 0);
     return gruppe(zustand.nurNeue ? 'Nach Land, nur neue' : 'Nach Land', [
       ...sortiert.slice(0, 6).map(([land, x]) => zeile(land, n(x))),
-      rest && zeile(`${sortiert.length - 6} weitere Länder`, n(rest)),
+      rest && zeile(sortiert.length - 6 === 1 ? '1 weiteres Land' : `${sortiert.length - 6} weitere Länder`, n(rest)),
       ohne ? zeile('Ohne Land', n(ohne), 'Verbindungen im eigenen Netz, zu diesem Mac selbst oder zu Adressen, die nicht in der Datei stehen.') : null,
     ].filter(Boolean));
   }
 
   function herkunftFuss(r) {
-    return el('p', { class: 'fuss', text: r.datenbank_stand
-      ? `Land und Anbieter aus einer Datei mit Stand ${r.datenbank_stand.slice(5)}/${r.datenbank_stand.slice(0, 4)}, nichts wird nachgefragt. IP Geolocation by DB-IP (db-ip.com), Anbieter von IPtoASN.`
+    const stand = /^(\d{4})-(\d{2})/.exec(r.datenbank_stand ?? '');
+    return el('p', { class: 'fuss', text: stand
+      ? `Land und Anbieter aus einer Datei mit Stand ${stand[2]}/${stand[1]}, nichts wird nachgefragt. IP Geolocation by DB-IP (db-ip.com), Anbieter von IPtoASN.`
       : 'Land und Anbieter bleiben leer: Die Datei dafür fehlt in dieser Installation.' });
   }
 
-  function liste(r) {
-    const gruppen = r.gruppen
-      .map((g) => ({ ...g, verbindungen: zustand.nurNeue ? g.verbindungen.filter((v) => v.neu) : g.verbindungen }))
-      .filter((g) => g.verbindungen.length);
-    const alle = r.gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
+  // Der Filter „Nur neue“ an einer Stelle: Liste, Länderzählung und Ansage nutzen dasselbe.
+  const gefiltert = (r) => r.gruppen
+    .map((g) => ({ ...g, verbindungen: zustand.nurNeue ? g.verbindungen.filter((v) => v.neu) : g.verbindungen }))
+    .filter((g) => g.verbindungen.length);
+  const zaehle = (gruppen) => gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
+
+  function liste(r, mehr) {
+    const gruppen = gefiltert(r);
+    const alle = zaehle(r.gruppen);
     const hinweis = !r.netz_name
       ? 'Dieses Netz ist nicht gemerkt: Es gibt kein „neu“ und nichts wird gespeichert.'
       : r.erster_lauf ? `Erster Lauf in „${r.netz_name}“: Das ist der Ausgangsstand, nichts ist „neu“.${r.gespeichert ? '' : ' Gespeichert wird nichts, schalte „Merken“ ein.'}`
@@ -89,23 +111,35 @@
           : r.erster_lauf ? 'Beim ersten Lauf ist nichts „neu“. Schau beim nächsten Mal wieder nach.'
           : 'Nichts Neues: Alle Ziele hat dein Rechner in diesem Netz schon einmal angesprochen.', 'verbindungen')];
     }
-    return [fuss, ...gruppen.map((g) => {
-      const n = g.verbindungen.length;
+    const gesamt = zaehle(gruppen);
+    let platz = zustand.zeilen;
+    const sichtbar = [];
+    for (const g of gruppen) {
+      if (platz <= 0) break;
+      sichtbar.push({ ...g, anzahl: g.verbindungen.length, verbindungen: g.verbindungen.slice(0, platz) });
+      platz -= g.verbindungen.length;
+    }
+    const rest = gesamt - zaehle(sichtbar);
+    return [fuss, ...sichtbar.map((g) => {
+      const n = g.anzahl;
       return el('section', { class: 'gruppe' },
-        el('h3', { text: `${g.programm} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
+        el('h3', { text: `${g.programm || 'Unbekanntes Programm'} · ${n} ${n === 1 ? 'Verbindung' : 'Verbindungen'}` }),
         el('div', { class: 'liste', role: 'list' }, g.verbindungen.map(verbindung)));
-    }), herkunftFuss(r)];
+    }), rest > 0 ? el('div', { class: 'mehr' },
+      el('p', { class: 'fuss', text: `${zaehle(sichtbar)} von ${gesamt} Verbindungen gezeigt.` }),
+      el('button', { class: 'knopf', type: 'button', text: 'Weitere zeigen', onclick: mehr })) : null, herkunftFuss(r)];
   }
 
   // „Wer sendet gerade“ (#58): measures only on click; repeats only while this view is on screen.
   const TRAFFIC_SEKUNDEN = 5;
   const TRAFFIC_TAKT = 30000;
-  const menge = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : b >= 1e3 ? `${(b / 1e3).toFixed(0)} kB` : `${Math.round(b)} B`).replace('.', ',');
+  const menge = (b) => ((b = Number.isFinite(b) && b > 0 ? b : 0) >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : b >= 1e3 ? `${(b / 1e3).toFixed(0)} kB` : `${Math.round(b)} B`).replace('.', ',');
 
   function trafficBalken(liste) {
-    const aktiv = liste.filter((v) => v.ein + v.aus > 0).slice(0, 8);
+    const aktiv = liste.filter((v) => v.ein + v.aus > 0).slice(0, 8).map((v) => ({ ...v, programm: v.programm || 'Unbekanntes Programm' }));
     if (!aktiv.length) return [el('p', { class: 'fuss', text: 'In diesen Sekunden floss bei keinem Programm etwas.' })];
-    const max = Math.max(...aktiv.map((v) => v.rate_ein + v.rate_aus));
+    // Ohne Rate (alles 0) gäbe es 0/0: dann bleiben die Balken leer.
+    const max = Math.max(1e-9, ...aktiv.map((v) => v.rate_ein + v.rate_aus).filter(Number.isFinite));
     const legende = el('div', { class: 'traffic-legende', 'aria-hidden': 'true' },
       el('span', { class: 'ein', text: '↓ Empfangen' }), el('span', { class: 'aus', text: '↑ Gesendet' }));
     return [legende, ...aktiv.map((v) => el('div', { class: 'traffic-zeile' },
@@ -113,8 +147,8 @@
         el('span', { class: 'netz-name kuerzen', title: v.programm, text: v.programm }),
         el('span', { class: 'fein num traffic-rate', 'aria-hidden': 'true' }, el('span', { text: `↓ ${menge(v.rate_ein)}/s` }), el('span', { text: `↑ ${menge(v.rate_aus)}/s` }))),
       el('div', { class: 'traffic-balken', role: 'img', 'aria-label': `${v.programm}: empfängt ${menge(v.rate_ein)} pro Sekunde, sendet ${menge(v.rate_aus)} pro Sekunde` },
-        el('span', { class: 'ein', style: `width:${((v.rate_ein / max) * 100).toFixed(1)}%` }),
-        el('span', { class: 'aus', style: `width:${((v.rate_aus / max) * 100).toFixed(1)}%` }))))];
+        el('span', { class: 'ein', style: `width:${Math.min(100, (v.rate_ein / max) * 100 || 0).toFixed(1)}%` }),
+        el('span', { class: 'aus', style: `width:${Math.min(100, (v.rate_aus / max) * 100 || 0).toFixed(1)}%` }))))];
   }
 
   function trafficAbschnitt() {
@@ -131,21 +165,25 @@
       messen.disabled = true;
       messen.textContent = 'Messe …';
       try {
-        const werte = await Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN });
+        const werte = await mitZeit(Netz.invoke('traffic_messen', { sekunden: TRAFFIC_SEKUNDEN }), TRAFFIC_SEKUNDEN + 25,
+          'Die Messung dauert zu lange, das System antwortet nicht. Versuch es noch einmal.');
+        if (!Array.isArray(werte)) throw UNLESBAR;
         const balken = trafficBalken(werte);
         const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         ort.replaceChildren(...balken, el('p', { class: 'fuss', text: `Gemessen um ${uhr} Uhr, ${TRAFFIC_SEKUNDEN} Sekunden lang.` }));
         // Nur die Messung per Hand wird angesagt, die Wiederholung alle 30 Sekunden bleibt still.
         if (vonHand) {
           const top = werte.filter((v) => v.ein + v.aus > 0).sort((a, b) => b.rate_ein + b.rate_aus - (a.rate_ein + a.rate_aus))[0];
-          ansage.textContent = top ? `Messung fertig. Am meisten Verkehr: ${top.programm}.` : 'Messung fertig. Bei keinem Programm floss etwas.';
+          ansage.textContent = top ? `Messung fertig. Am meisten Verkehr: ${top.programm || 'ein Programm ohne Namen'}.` : 'Messung fertig. Bei keinem Programm floss etwas.';
         }
       } catch (f) {
         ort.replaceChildren(Netz.fehlerKarte(Netz.text(f), einmal));
         wiederholen = false;
         sw.setAttribute('aria-checked', 'false');
+      } finally {
+        // Auch wenn das Zeichnen wirft: der Knopf bleibt nicht gesperrt.
+        laeuft = false;
       }
-      laeuft = false;
       messen.disabled = false;
       messen.textContent = 'Wer sendet gerade?';
       if (hatteFokus) messen.focus();
@@ -182,8 +220,9 @@
     const teile = [];
     let aufmerksam = false;
     if (r) {
-      const alle = r.gruppen.reduce((s, g) => s + g.verbindungen.length, 0);
-      const neu = r.netz_name && !r.erster_lauf ? r.gruppen.reduce((s, g) => s + g.neu, 0) : 0;
+      const alle = zaehle(r.gruppen);
+      // Aus den Zeilen gezählt, nicht aus g.neu: fehlt das Feld, stünde sonst „NaN neu“ da.
+      const neu = r.netz_name && !r.erster_lauf ? r.gruppen.reduce((s, g) => s + neue(g), 0) : 0;
       aufmerksam ||= neu > 0;
       teile.push(alle ? `${mal(alle, 'Verbindung', 'Verbindungen')} von ${mal(r.gruppen.length, 'Programm', 'Programmen')}${r.netz_name && !r.erster_lauf ? (neu ? `, ${neu} neu` : ', nichts neu') : ''}.` : 'Keine Verbindungen.');
     }
@@ -227,9 +266,17 @@
       const ort = el('div', { class: 'ergebnis' }, el('p', { class: 'fuss', text: 'Wird gelesen …' }));
       const landOrt = el('div');
       ansage.textContent = '';
+      const mehr = () => {
+        const vorher = ort.querySelectorAll('.verbindung').length;
+        zustand.zeilen += SEITE;
+        zeichne();
+        // Der Knopf ist weg oder weiter unten: der Fokus geht an die erste neue Zeile, die Rollposition bleibt.
+        const erste = ort.querySelectorAll('.verbindung')[vorher];
+        if (erste) { erste.tabIndex = -1; erste.focus({ preventScroll: true }); }
+      };
       const zeichne = () => {
-        ort.replaceChildren(...liste(ergebnis).filter(Boolean));
-        landOrt.replaceChildren(...[ergebnis.gruppen.length && nachLand(ergebnis.gruppen.map((g) => ({ ...g, verbindungen: zustand.nurNeue ? g.verbindungen.filter((v) => v.neu) : g.verbindungen })))].filter(Boolean));
+        ort.replaceChildren(...liste(ergebnis, mehr).filter(Boolean));
+        landOrt.replaceChildren(...[ergebnis.gruppen.length && nachLand(gefiltert(ergebnis))].filter(Boolean));
       };
       let loeschenAus = () => {};
       const merkenGruppe = () => {
@@ -266,9 +313,13 @@
       };
 
       // Beide Seiten werden vorab gelesen, damit der Satz oben stimmt. Lauschend liest seine Liste beim Einbetten selbst noch einmal (nur Sockets, kein Netz).
-      const [verb, lausch] = await Promise.allSettled([Netz.invoke('verbindungen_zeigen', { speichern: zustand.merken }), Netz.invoke('offen_zeigen', { aussen: false })]);
-      ergebnis = verb.status === 'fulfilled' ? verb.value : null;
-      const s = satz(ergebnis, lausch.status === 'fulfilled' ? lausch.value : null);
+      zustand.zeilen = SEITE;
+      const [verb, lausch] = await Promise.allSettled([
+        mitZeit(Netz.invoke('verbindungen_zeigen', { speichern: zustand.merken }), 20, LESEN),
+        mitZeit(Netz.invoke('offen_zeigen', { aussen: false }), 20, LESEN)]);
+      ergebnis = verb.status === 'fulfilled' && gueltig(verb.value) ? verb.value : null;
+      if (verb.status === 'fulfilled' && !ergebnis) verb.reason = UNLESBAR;
+      const s = satz(ergebnis, lausch.status === 'fulfilled' && Array.isArray(lausch.value) ? lausch.value : null);
       const kopf = el('div', { class: 'kopf' },
         el('h2', { class: 'antwort' }, el('span', { class: `punkt ${s.farbe}`, 'aria-hidden': 'true' }), el('span', { text: s.text })));
 
@@ -289,8 +340,9 @@
         const traffic = trafficAbschnitt();
         fl.replaceChildren(
           el('div', { class: 'werkzeuge' }, schalter('Nur neue', 'nurNeue', () => {
+            zustand.zeilen = SEITE;
             zeichne();
-            ansage.textContent = `${mal(ort.querySelectorAll('.verbindung').length, 'Verbindung', 'Verbindungen')} in der Liste.`;
+            ansage.textContent = `${mal(zaehle(gefiltert(ergebnis)), 'Verbindung', 'Verbindungen')} in der Liste.`;
           })),
           traffic.aktion, ort, ansage,
           el('details', { class: 'details', open: fokusNach ? '' : null },

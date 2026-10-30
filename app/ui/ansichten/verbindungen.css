@@ -44,3 +44,10 @@
 [data-ansicht='verbindungen'] .traffic-liste { background: var(--gruppe); border-radius: 10px; margin-top: 12px; }
 [data-ansicht='verbindungen'] .traffic-liste:has(.traffic-leer) { display: none; }
 [data-ansicht='verbindungen'] .details .gruppe:first-of-type { margin-top: 12px; }
+
+/* Runde 4: lange Namen, "Weitere zeigen" */
+[data-ansicht='verbindungen'] .gruppe h3, [data-ansicht='verbindungen'] .liste .fein { overflow-wrap: anywhere; }
+[data-ansicht='verbindungen'] .netz-zeile.verbindung .text { flex: 1; min-width: 0; }
+[data-ansicht='verbindungen'] .traffic-kopf .netz-name { min-width: 0; }
+[data-ansicht='verbindungen'] .mehr { margin: 12px 0 0; }
+[data-ansicht='verbindungen'] .verbindung:focus { outline: none; }
