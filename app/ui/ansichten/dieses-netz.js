@@ -162,7 +162,7 @@
     const aktion = (text, fn, label) => el('button', { class: 'knopf', type: 'button', text, 'aria-label': label, onclick: fn });
     const fehler = el('div');
     const nachrichten = {
-      NichtGefragt: 'Netzinfo hat noch nicht nach dem Standort gefragt, deshalb zeigt macOS Name und Kennung des WLANs nicht.',
+      NichtGefragt: 'Ohne Standortfreigabe zeigt macOS den Namen deines WLANs nicht. Mit „Standort freigeben“ fragt macOS einmal nach. Netzinfo liest damit nur den Namen und speichert keinen Standort.',
       Abgelehnt: 'Der Standort ist abgelehnt. Netzinfo funktioniert weiter, erkennt Netze aber ungenauer. Ändern geht in den Systemeinstellungen unter Datenschutz & Sicherheit > Ortungsdienste.',
       Eingeschraenkt: 'macOS beschränkt den Standort auf diesem Mac (z. B. durch Bildschirmzeit oder ein Profil). Netzinfo kann ihn nicht selbst freigeben.',
     };
@@ -250,7 +250,7 @@
   }
 
   // Für die Übersicht: das Merken-Formular und die Schwellen sind dieselben.
-  Netz.dieses = { offenKnopf, staerkeVon, E, mitFrist, liste, ssidOk };
+  Netz.dieses = { ortKarte, offenKnopf, staerkeVon, E, mitFrist, liste, ssidOk };
 
   Netz.registriere({
     id: 'dieses-netz',
@@ -357,7 +357,7 @@
       // WLAN-Karte: ohne Funkverbindung (Kabel) oder bei einem Fehler bleibt sie weg.
       if (funk) {
         const ort = ortKarte(await mitFrist(Netz.invoke('ort_status'), 10000).catch(() => 'Erlaubt'));
-        if (ort) wurzel.append(ort);
+        if (ort && !eingebettet) wurzel.append(ort); // eingebettet steht sie in der Übersicht, nicht noch einmal in „Details“
         wurzel.append(wlanKarte(funk, eingebettet));
       }
       // Der IPv6-Router setzt seine Zeile nach, wenn er antwortet; die Ansicht wartet nicht auf ihn.

@@ -4,8 +4,10 @@
 <dict>
   <!-- Tauri merges this file into the bundle's Info.plist. -->
   <key>NSLocalNetworkUsageDescription</key>
-  <string>Netzinfo sucht Geräte und Dienste in deinem eigenen Netz und liest dafür die Nachbartabelle.</string>
+  <string>Netzinfo sucht Geräte in deinem eigenen Netz, damit du siehst, was dort angeschlossen ist. Ohne die Freigabe findet die Suche keine Geräte.</string>
   <key>NSLocationWhenInUseUsageDescription</key>
-  <string>Netzinfo liest den Namen und die Kennung deines WLANs. Dein Standort wird nicht gespeichert.</string>
+  <string>Netzinfo liest den Namen deines WLANs. macOS rechnet ihn zum Standort. Dein Standort wird nicht gespeichert. Ohne die Freigabe zeigt Netzinfo den Namen nicht.</string>
+  <key>NSLocationUsageDescription</key>
+  <string>Netzinfo liest den Namen deines WLANs. macOS rechnet ihn zum Standort. Dein Standort wird nicht gespeichert. Ohne die Freigabe zeigt Netzinfo den Namen nicht.</string>
 </dict>
 </plist>

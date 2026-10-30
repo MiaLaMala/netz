@@ -57,6 +57,9 @@
 
   // The kernel names the refusal in `art`; the view never reads the sentence.
   const abgelehnt = (f) => f?.art === 'nicht_meins';
+  // Der Kern verweist dort auf die Kommandozeile; die App sagt, was man hier tut.
+  const NICHT_MEINS = 'In diesem Netz sucht Netzinfo nicht, weil es nicht als „meins“ markiert ist. Markiere es in den Einstellungen, wenn es dir gehört. Wer in Schule, Firma oder fremdem WLAN Geräte durchprobiert, bekommt schnell Ärger.';
+  const satz = (f) => (abgelehnt(f) ? NICHT_MEINS : Netz.text(f));
 
   // Card = one stored device (Rust: geraetekarte::Karte). All texts about the device come from the core.
   const TYPEN = ['Router', 'Drucker', 'Medien', 'Smart Home', 'Computer', 'Handy', 'Unbekannt'];
@@ -238,7 +241,7 @@
         zeige(r);
         ansage(fertig(r));
       } catch (f) {
-        ort.replaceChildren(meldung(Netz.text(f), f?.art === 'nicht_meins' ? 'orange' : 'rot'));
+        ort.replaceChildren(meldung(satz(f), abgelehnt(f) ? 'orange' : 'rot'));
       }
       knopf.disabled = false;
       knopf.focus(); // ein deaktivierter Knopf gibt den Fokus ab
@@ -278,7 +281,7 @@
       teile.push(el('div', { class: 'fein', text: `Zugang „${fritz.benutzer}“ im Schlüsselbund. Ändern oder entfernen kannst du ihn in den Einstellungen.` }),
         el('div', { class: 'karte-aktionen' }, el('button', { class: 'knopf fritz-lesen', type: 'button', text: 'Geräteliste lesen', disabled: fritz.laeuft, onclick: fritzLesen })));
       if (fritz.laeuft) teile.push(el('div', { class: 'fein', text: 'Lese die Liste …' }));
-      else if (fritz.fehler) teile.push(meldung(Netz.text(fritz.fehler), fritz.fehler?.art === 'nicht_meins' ? 'orange' : 'rot'));
+      else if (fritz.fehler) teile.push(meldung(satz(fritz.fehler), abgelehnt(fritz.fehler) ? 'orange' : 'rot'));
       else if (e?.zustand === 'ok') {
         const gefunden = e.gefunden ?? 0;
         teile.push(status('gruen', `${gefunden} ${gefunden === 1 ? 'Gerät' : 'Geräte'} vom Router gelesen`),
@@ -333,7 +336,7 @@
       text: t === null ? `Alle ${karten.length}` : `${t} ${karten.filter((k) => sorte(k) === t).length}`,
     });
     if (!karten.length) {
-      kartenOrt.replaceChildren(leerZustand(Netz.icons.geraete, 'Noch keine Geräte gemerkt. „Netz absuchen“ legt für jedes gefundene Gerät eine Karte an.', 'geraete'));
+      kartenOrt.replaceChildren(leerZustand(Netz.icons.geraete, 'Noch keine Geräte gemerkt. Die Suche legt für jedes gefundene Gerät eine Karte an.', 'geraete'));
       return;
     }
     kartenOrt.replaceChildren(...[
@@ -368,7 +371,7 @@
     if (!r.erster_lauf) teile.push(`${r.neu.length} neu`, `${r.verschwunden.length} verschwunden`);
     const kopf = status(r.geraete.length ? 'gruen' : 'orange', teile.join(' · '));
     const erster = r.erster_lauf && el('p', { class: 'fuss', text: 'Erster Lauf in diesem Netz: Das ist der Ausgangsstand, nichts ist „neu“. Ab dem nächsten Lauf siehst du, was dazukommt und was fehlt.' });
-    return [kopf, erster, !r.geraete.length && el('p', { class: 'fuss', text: 'Keine Geräte gefunden. Geräte, die jedes Paket verwerfen, bleiben unsichtbar.' })];
+    return [kopf, erster, !r.geraete.length && el('p', { class: 'fuss', text: 'Keine Geräte gefunden. Hat dir macOS „Lokales Netzwerk“ für Netzinfo verweigert? Schalte es unter Systemeinstellungen > Datenschutz & Sicherheit > Lokales Netzwerk ein und such noch mal.' })];
   }
 
   Netz.registriere({
@@ -382,8 +385,20 @@
       const knopf = el('button', { class: 'knopf haupt', type: 'button', text: letztes ? 'Netz noch mal absuchen' : 'Netz absuchen' });
       const fortschritt = el('p', { class: 'fuss fortschritt' });
       const ort = el('div', { class: 'ergebnis' });
+      // Der Systemdialog kommt erst beim ersten Absuchen: Vorher steht hier, wofür und was ohne die Freigabe fehlt.
+      const hinweis = el('p', { class: 'fuss aktion-hinweis', text: 'Das Absuchen tastet das Netz ab. Beim ersten Mal fragt macOS, ob Netzinfo im „Lokalen Netzwerk“ suchen darf. Erlaube es, sonst findet die Suche keine Geräte.' });
+      // Ohne „meins“ lehnt der Kern ab: Das steht vorher da, und der erste Schritt ist das Markieren, nicht eine Suche, die scheitert.
+      let erst = null;
+      mitLimit(Netz.invoke('dieses_netz'), 10000).then((d) => {
+        if (!knopf.isConnected || d?.netz?.meins) return;
+        const neu = !d?.netz;
+        hinweis.textContent = neu ? 'Dieses Netz ist noch nicht gemerkt. Netzinfo sucht nur in Netzen, die du als „meins“ markiert hast.' : 'Dieses Netz ist nicht als „meins“ markiert. Netzinfo sucht nur in Netzen, die dir gehören.';
+        knopf.textContent = neu ? 'Dieses Netz merken …' : 'Als „meins“ markieren …';
+        erst = () => Netz.zeige(neu ? 'uebersicht' : 'gemerkte-netze', { fokus: true });
+      }).catch(() => {}); // ohne Antwort bleibt der Knopf eine Suche, der Kern sagt dann selbst, was fehlt
 
       async function suche() {
+        if (erst) return erst();
         knopf.disabled = true;
         ort.replaceChildren();
         let bereich = 'deinem Netz';
@@ -413,7 +428,7 @@
         } catch (f) {
           const nein = abgelehnt(f);
           ansage(nein ? 'Suche nicht erlaubt in diesem Netz.' : 'Suche fehlgeschlagen.');
-          ort.replaceChildren(...[nein ? meldung(Netz.text(f), 'orange') : Netz.fehlerKarte(Netz.text(f), suche),
+          ort.replaceChildren(...[nein ? meldung(NICHT_MEINS, 'orange') : Netz.fehlerKarte(Netz.text(f), suche),
             nein && el('div', { class: 'aktion' }, el('button', {
               class: 'knopf', type: 'button', text: 'Zu den Einstellungen',
               onclick: () => Netz.zeige('gemerkte-netze'),
@@ -429,7 +444,7 @@
         el('div', { class: 'kopf' }, el('h2', { text: 'Geräte im Netz' }),
           el('p', { class: 'status' }, el('span', { text: 'Nur in Netzen, die du als „meins“ markiert hast.' }))),
         el('div', { class: 'aktion' }, knopf),
-        el('p', { class: 'fuss aktion-hinweis', text: '„Netz absuchen“ tastet das Netz ab und legt neue Karten an.' }),
+        hinweis,
         fortschritt, ort, ansageOrt, kartenOrt,
         Object.assign(gruppe('So funktioniert die Suche', [
           zeile('Abgelehnter Port', 'zeigt ein Gerät', E.abgelehnt),

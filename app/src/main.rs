@@ -6,6 +6,10 @@
 mod wache;
 
 use netzinfo::netze::{self, Aktuell, AppFehler as Fehler, Netz};
+use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{AppHandle, Manager, Wry};
+
+const REPO: &str = "https://github.com/MiaLaMala/netzinfo";
 
 #[tauri::command(async)]
 fn dieses_netz() -> Result<Aktuell, Fehler> {
@@ -359,8 +363,101 @@ fn engpass_lesen(mac_down_mbit: Option<f64>) -> Result<netzinfo::engpass::Ergebn
     netzinfo::engpass::lesen(mac_down_mbit).map_err(Into::into)
 }
 
+/// Das Menü der App auf Deutsch. Ohne eigenes zeigt Tauri das englische Standardmenü (About, Hide, Quit).
+/// „Über Netzinfo“ zeigt unter macOS Name, Version und Copyright; Lizenz und Link zum Repo stehen in `Credits.rtf`.
+fn menue(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    let ueber = AboutMetadataBuilder::new()
+        .name(Some("Netzinfo"))
+        .version(Some(env!("CARGO_PKG_VERSION")))
+        .copyright(Some("© 2026 Mia Grünwald"))
+        .build();
+    let trenn = || PredefinedMenuItem::separator(app);
+    let einstellungen = MenuItem::with_id(
+        app,
+        "einstellungen",
+        "Einstellungen …",
+        true,
+        Some("CmdOrCtrl+,"),
+    )?;
+    let hilfe = Submenu::with_items(
+        app,
+        "Hilfe",
+        true,
+        &[
+            &MenuItem::with_id(app, "repo", "Netzinfo auf GitHub", true, None::<&str>)?,
+            &MenuItem::with_id(app, "fehler", "Fehler melden", true, None::<&str>)?,
+        ],
+    )?;
+    let fenster = Submenu::with_items(
+        app,
+        "Fenster",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, Some("Minimieren"))?,
+            &PredefinedMenuItem::maximize(app, Some("Zoomen"))?,
+            &PredefinedMenuItem::close_window(app, Some("Fenster schließen"))?,
+        ],
+    )?;
+    // Ohne diese beiden Aufrufe fügt macOS seine eigenen Einträge (Suche, Fensterliste) nicht ein.
+    // Die beiden gibt es nur unter macOS, die CI baut die App auch unter Linux.
+    #[cfg(target_os = "macos")]
+    {
+        let _ = fenster.set_as_windows_menu_for_nsapp();
+        let _ = hilfe.set_as_help_menu_for_nsapp();
+    }
+    Menu::with_items(
+        app,
+        &[
+            &Submenu::with_items(
+                app,
+                "Netzinfo",
+                true,
+                &[
+                    &PredefinedMenuItem::about(app, Some("Über Netzinfo"), Some(ueber))?,
+                    &trenn()?,
+                    &einstellungen,
+                    &trenn()?,
+                    &PredefinedMenuItem::hide(app, Some("Netzinfo ausblenden"))?,
+                    &PredefinedMenuItem::hide_others(app, Some("Andere ausblenden"))?,
+                    &PredefinedMenuItem::show_all(app, Some("Alle einblenden"))?,
+                    &trenn()?,
+                    &PredefinedMenuItem::quit(app, Some("Netzinfo beenden"))?,
+                ],
+            )?,
+            &Submenu::with_items(
+                app,
+                "Bearbeiten",
+                true,
+                &[
+                    &PredefinedMenuItem::cut(app, Some("Ausschneiden"))?,
+                    &PredefinedMenuItem::copy(app, Some("Kopieren"))?,
+                    &PredefinedMenuItem::paste(app, Some("Einfügen"))?,
+                    &PredefinedMenuItem::select_all(app, Some("Alles auswählen"))?,
+                ],
+            )?,
+            &fenster,
+            &hilfe,
+        ],
+    )
+}
+
 fn main() {
     let r = tauri::Builder::default()
+        .menu(menue)
+        .on_menu_event(|app, ev| match ev.id().as_ref() {
+            // Das Fenster kann versteckt sein (Schließen versteckt nur): erst holen, dann umschalten.
+            "einstellungen" => {
+                wache::fenster_oeffnen(app);
+                if let Some(w) = app.get_webview_window("main") {
+                    // Scheitert das Skript, bleibt es beim geöffneten Fenster.
+                    let _ = w.eval("Netz.einstellungen()");
+                }
+            }
+            // Scheitert das Öffnen, passiert nichts: Die Seite steht im README.
+            "repo" => drop(im_browser(REPO)),
+            "fehler" => drop(im_browser(&format!("{REPO}/issues/new"))),
+            _ => {}
+        })
         .plugin(tauri_plugin_notification::init())
         .setup(|app| Ok(wache::starten(app)?))
         // Closing the window hides it; the guard keeps running in the menu bar.
