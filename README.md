@@ -83,7 +83,7 @@ Die Einstellungen stehen abgesetzt unter der Seitenleiste und haben drei Gruppen
 
 ## Installieren
 
-Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App als `.dmg`, die Kommandozeile als `netzinfo-<tag>-aarch64-apple-darwin.tar.gz` und `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`). Nur Apple Silicon, macOS 13 oder neuer.
+Unter [Releases](https://github.com/MiaLaMala/netzinfo/releases) liegen die App als `Netzinfo_<version>_aarch64.dmg`, die Kommandozeile als `netzinfo-<tag>-aarch64-apple-darwin.tar.gz` und `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`). Nur Apple Silicon, macOS 13 oder neuer.
 
 1. `.dmg` öffnen und Netzinfo in den Ordner „Programme“ ziehen.
 2. Netzinfo starten. macOS meldet, dass es die App nicht prüfen konnte: Sie ist nur ad hoc signiert, nicht notarisiert.
@@ -225,17 +225,20 @@ Sicherheitslücken bitte nicht als Issue melden, sondern wie in [SECURITY.md](SE
 
 ## Selbst bauen
 
-Du brauchst Rust (stable) und die Xcode Command Line Tools, sonst nichts. Die Oberfläche ist schlichtes HTML, CSS und JavaScript ohne npm.
+Du brauchst aktuelles Rust stable (mindestens 1.85 wegen Edition 2024) und die Xcode Command Line Tools. Die Oberfläche ist schlichtes HTML, CSS und JavaScript ohne npm. Node brauchst du nur für die `.dmg` (siehe unten).
+
+Land und Anbieter in `verbindungen` brauchen zwei Offline-Datenbanken (zusammen etwa 18 MB, nicht im Git): `sh tools/ipdb-bauen.sh ipdb` lädt sie mit fester Version und Prüfsumme. Ohne sie bleiben die beiden Felder leer. Ein selbst gebautes Programm findet den Ordner über `NETZ_IPDB`:
 
 ```sh
+sh tools/ipdb-bauen.sh ipdb
 cargo build --release                 # Kommandozeile
-./target/release/netzinfo hier --erklaer
+NETZ_IPDB=ipdb ./target/release/netzinfo hier --erklaer
 
 cargo build -p netzinfo-app           # Mac-App
-./target/debug/netzinfo-app
+NETZ_IPDB=ipdb ./target/debug/netzinfo-app
 ```
 
-Land und Anbieter in `verbindungen` brauchen zwei Offline-Datenbanken (zusammen etwa 18 MB, nicht im Git): `sh tools/ipdb-bauen.sh ipdb` lädt sie mit fester Version und Prüfsumme. Ohne sie bleiben die beiden Felder leer.
+Die `.dmg` baut wie im Release `cd app && npx --yes @tauri-apps/cli@2.12.4 build --bundles app,dmg` (Node, `ipdb` vorher holen), sie landet in `target/release/bundle/dmg/`.
 
 `app/vorschau.html` zeigt die ganze Oberfläche mit erfundenen Daten in jedem Browser, ohne die App zu starten. Daraus stammen auch die Bilder oben.
 
