@@ -39,3 +39,6 @@
 [data-ansicht='dieses-netz'] .ort-karte .zeile.aktionszeile { display: flex; }
 [data-ansicht='dieses-netz'] .ort-karte .ort-status { margin: 0; }
 /* Nur für VoiceOver: Ergebnis der DNS-Messung, einmal höflich angesagt. */
+/* Lange Netznamen und Zonen-IDs brechen um. */
+[data-ansicht='dieses-netz'] .kopf h2 { overflow-wrap: anywhere; }
+[data-ansicht='dieses-netz'] .stapel, [data-ansicht='dieses-netz'] .stand .label { overflow-wrap: anywhere; }

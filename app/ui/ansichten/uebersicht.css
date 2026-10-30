@@ -15,3 +15,6 @@
 /* Hinter „Details“ stehen die alten Ansichten untereinander; die erste braucht keinen Abstand nach oben. */
 [data-ansicht='uebersicht'] .details > .eingebettet:first-of-type > :first-child { margin-top: 12px; }
 @media (prefers-reduced-motion: reduce) { [data-ansicht='uebersicht'] * { animation: none !important; } }
+/* Lange Namen (60 Zeichen, Emoji, ohne Leerzeichen) brechen um, statt die Spalte zu sprengen. */
+[data-ansicht='uebersicht'] .kopf h2.antwort > span:not(.punkt) { min-width: 0; overflow-wrap: anywhere; }
+[data-ansicht='uebersicht'] .kopf .meldung, [data-ansicht='uebersicht'] .kopf .fuss, [data-ansicht='uebersicht'] .kopf .status { overflow-wrap: anywhere; }
