@@ -236,7 +236,7 @@
     if (!fritz.erkannt || !fritz.geladen) { fritzOrt.replaceChildren(); return; }
     const teile = [el('h4', { class: 'router-titel', text: 'Fritz!Box-Geräteliste' })];
     const e = fritz.ergebnis;
-    const zuEinstellungen = (text) => el('button', { class: 'knopf fritz-einrichten', type: 'button', text, onclick: () => Netz.zeige('gemerkte-netze') });
+    const zuEinstellungen = (text) => el('button', { class: 'knopf fritz-einrichten', type: 'button', text, onclick: () => Netz.fritzEintragen() });
     if (!fritz.benutzer) {
       teile.push(el('div', { class: 'fein', text: 'Die Fritz!Box kennt jedes Gerät im Heimnetz, auch die, die auf keinen Scan antworten. Dafür braucht Netzinfo einen eigenen Zugang. Den trägst du in den Einstellungen ein.' }),
         el('div', { class: 'karte-aktionen' }, zuEinstellungen('Zugang in den Einstellungen eintragen')));

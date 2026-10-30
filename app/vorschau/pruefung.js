@@ -77,4 +77,5 @@
     quellen: [], dns_verdaechtig: null,
   });
   VORSCHAU.portal_im_browser_oeffnen = async () => {};
+  VORSCHAU.breitbandmessung_oeffnen = async () => {};
 })();

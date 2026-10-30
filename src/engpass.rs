@@ -199,7 +199,7 @@ pub fn bewerten(
         return (
             Engpass::Unklar,
             format!(
-                "Die Leitung schafft {} Mbit/s{wlan_teil}. Was am Mac ankommt, zeigt „Messen“.",
+                "Die Leitung schafft {} Mbit/s{wlan_teil}. Was am Mac ankommt, zeigt „Tempo messen“.",
                 zahl(down)
             ),
             None,
@@ -683,7 +683,7 @@ mod tests {
         assert_eq!(e, Engpass::Unklar);
         assert_eq!(
             satz,
-            "Die Leitung schafft 116 Mbit/s, das WLAN etwa 520. Was am Mac ankommt, zeigt „Messen“."
+            "Die Leitung schafft 116 Mbit/s, das WLAN etwa 520. Was am Mac ankommt, zeigt „Tempo messen“."
         );
         // ohne Vertragswert bleibt „reicht das für den Vertrag?“ offen, auch bei guter Messung
         let (e, satz, _) = bewerten(Some(&leitung(95.0, 0.0, None)), None, true, Some(90.0));
