@@ -97,6 +97,7 @@ pub fn fuer_pruefen(daten: &Path, key: &str, meins: bool) -> Vec<(Klasse, String
         return Vec::new();
     };
     let pfad = daten.with_file_name("gateway.json");
+    let _sperre = crate::netze::sperre(&pfad);
     let Ok(mut speicher) = crate::netze::load_json::<Speicher>(&pfad) else {
         return Vec::new();
     };

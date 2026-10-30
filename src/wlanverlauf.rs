@@ -58,16 +58,21 @@ pub struct Spanne {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Besuch {
     pub von: u64,
+    #[serde(default)]
     pub dauer_s: u64,
     pub signal: Option<Spanne>,
     pub rate: Option<Spanne>,
+    #[serde(default)]
     pub wechsel: u32,
+    #[serde(default)]
     pub abbrueche: u32,
     /// `false`: kein BSSID-Hash gesehen, Roaming war nicht erkennbar.
+    #[serde(default)]
     pub roaming_erkennbar: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)] // Dateien älterer Versionen haben nicht alle Felder.
 pub struct NetzVerlauf {
     pub besuche: Vec<Besuch>,
     pub ereignisse: Vec<Ereignis>,
@@ -125,6 +130,8 @@ pub struct Verlauf {
     wechsel: u32,
     abbrueche: u32,
     hash_gesehen: bool,
+    /// Sekunden ohne Probe (Ruhezustand des Macs), zählen nicht zur Dauer.
+    pausen_s: u64,
 }
 
 impl Verlauf {
@@ -136,10 +143,15 @@ impl Verlauf {
             wechsel: 0,
             abbrueche: 0,
             hash_gesehen: false,
+            pausen_s: 0,
         }
     }
 
     pub fn push(&mut self, p: Probe) -> Vec<Ereignis> {
+        let luecke = p.zeit.saturating_sub(self.letzte_zeit());
+        if luecke > LUECKE_S {
+            self.pausen_s += luecke;
+        }
         let neu: Vec<Ereignis> = self
             .proben
             .back()
@@ -180,7 +192,10 @@ impl Verlauf {
         let werte = |f: fn(&Probe) -> Option<f64>| self.proben.iter().filter_map(f).collect();
         Some(Besuch {
             von: self.von,
-            dauer_s: letzte.zeit.saturating_sub(self.von),
+            dauer_s: letzte
+                .zeit
+                .saturating_sub(self.von)
+                .saturating_sub(self.pausen_s),
             signal: spanne(werte(|p| p.rssi.map(f64::from))),
             rate: spanne(werte(|p| p.rate)),
             wechsel: self.wechsel,
@@ -308,6 +323,7 @@ fn ablegen(ziel: &Ziel, v: &Verlauf) -> Result<Option<Besuch>, String> {
         return Ok(None);
     };
     if let Some((pfad, key)) = ziel {
+        let _sperre = netze::sperre(pfad);
         let mut store: Store = netze::load_json(pfad)?;
         speichern_in(&mut store, key, b.clone(), &v.ereignisse);
         netze::save(pfad, &store)?;
@@ -452,8 +468,20 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
     ));
     let start = Instant::now();
     let mut v = Verlauf::neu(netze::now());
+    crate::live::strg_c_abfangen();
+    let mut fehler = None;
     for i in 0..=gesamt {
-        let p = probe_lesen(netze::now())?;
+        if crate::live::unterbrochen() {
+            break;
+        }
+        let p = match probe_lesen(netze::now()) {
+            Ok(p) => p,
+            // Eine Probe, die scheitert, verwirft nicht den ganzen Besuch.
+            Err(e) => {
+                fehler = Some(e);
+                break;
+            }
+        };
         let zeile = if p.verbunden {
             format!(
                 "{:>4} dBm  {:>5.0} MBit/s",
@@ -478,8 +506,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         if i < gesamt
             && let Some(rest) = Duration::from_secs((i + 1) * TAKT_S).checked_sub(start.elapsed())
         {
-            std::thread::sleep(rest);
+            crate::live::schlafen(rest);
         }
+    }
+    if crate::live::unterbrochen() {
+        println!("\nAbgebrochen mit Strg-C, es folgt, was bis jetzt da ist.");
     }
     println!("\nEreignisse:");
     if v.ereignisse.is_empty() {
@@ -490,7 +521,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
         println!("  +{:02}:{:02}  {}", s / 60, s % 60, art_name(e.art));
     }
     let Some(b) = ablegen(&ziel, &v)? else {
-        return Ok(());
+        return fehler.map_or(Ok(()), Err);
     };
     println!("\nZusammenfassung:\n  {}", besuch_zeile(&b));
     if !b.roaming_erkennbar {
@@ -508,6 +539,11 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
                 "Ich vergleiche den Median dieses Besuchs mit dem Median der Mediane früherer Besuche in diesem Netz. Ist das Signal hier im Schnitt schwächer als bei deinen letzten Besuchen, lohnt sich ein Blick auf den Standort des Routers.",
             );
         }
+    }
+    if let Some(e) = fehler {
+        return Err(format!(
+            "Die Messung brach ab, der Besuch bis dahin ist gespeichert: {e}"
+        ));
     }
     if b.roaming_erkennbar {
         explain(
@@ -702,5 +738,38 @@ mod tests {
         assert!(a(&["--minuten", "0"]).is_err());
         assert!(a(&["--minuten"]).is_err());
         assert!(a(&["--quatsch"]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+
+    fn probe(zeit: u64) -> Probe {
+        Probe {
+            zeit,
+            verbunden: true,
+            rssi: Some(-50),
+            ..Probe::default()
+        }
+    }
+
+    /// Ruhezustand mitten im Besuch: die Pause zählt nicht zur Dauer.
+    #[test]
+    fn ruhezustand_zaehlt_nicht_zur_dauer() {
+        let mut v = Verlauf::neu(1000);
+        v.push(probe(1000));
+        v.push(probe(1005));
+        v.push(probe(1005 + 8 * 3600));
+        v.push(probe(1010 + 8 * 3600));
+        assert_eq!(v.besuch().unwrap().dauer_s, 10);
+    }
+
+    #[test]
+    fn alter_besuch_ohne_neue_felder_laedt() {
+        let nv: NetzVerlauf =
+            serde_json::from_str(r#"{"besuche":[{"von":5,"signal":null,"rate":null}]}"#).unwrap();
+        assert_eq!(nv.besuche[0].abbrueche, 0);
+        assert!(nv.ereignisse.is_empty());
     }
 }

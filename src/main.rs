@@ -315,11 +315,18 @@ fn aehnlich(eingabe: &str) -> Option<&'static str> {
 /// Bedienfehler (Exit 2) erkennt man an der Meldung: die Module liefern nur Text.
 // ponytail: Textmarker statt Fehlerart; sauberer wäre ein Fehlertyp mit Art in jedem Modul.
 fn ist_bedienfehler(msg: &str) -> bool {
+    // „fehlt“ nur als fehlende Angabe („Es fehlt das Ziel“, „Nach `--x` fehlt der Name“), nicht
+    // als fehlendes Programm oder fehlende Datei: das ist ein Fehler beim Ausführen (Exit 1).
+    if msg.starts_with("Nach ") && msg.contains(" fehlt ") {
+        return true;
+    }
     [
         "Unbekannte",
-        "fehlt",
+        "Es fehlt",
         "Aufruf:",
         "Es passt genau",
+        "gehört eine ganze Zahl",
+        "Gib ein bis vier",
         "Nur ein Ziel",
         "ist leer",
         "braucht keine",
@@ -328,7 +335,18 @@ fn ist_bedienfehler(msg: &str) -> bool {
     .any(|m| msg.contains(m))
 }
 
+/// `netzinfo <befehl> | head -1` soll leise enden wie jedes Unix-Werkzeug. Rust stellt SIGPIPE
+/// auf „ignorieren“, dann bricht `println!` an der geschlossenen Pipe mit einer Panik ab.
+fn sigpipe_wie_unix() {
+    #[cfg(unix)]
+    // SAFETY: setzt nur die Standardreaktion des Signals, vor dem ersten Thread.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
 fn main() -> ExitCode {
+    sigpipe_wie_unix();
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let explain_on = take_flag(&mut args, "--erklaer");
     let Some((command, rest)) = args.split_first() else {
@@ -567,5 +585,19 @@ mod tests {
         assert!(ist_bedienfehler("Es fehlt das Ziel."));
         assert!(ist_bedienfehler("Unbekannte Option „--x“."));
         assert!(!ist_bedienfehler("Keine Verbindung zum Router."));
+        assert!(ist_bedienfehler("Nach `--programm` fehlt der Name."));
+        assert!(ist_bedienfehler(
+            "Nach `--sekunden` gehört eine ganze Zahl von 1 bis 3600."
+        ));
+        assert!(ist_bedienfehler(
+            "Gib ein bis vier Ziele an: `netzinfo live 1.1.1.1`."
+        ));
+        assert!(!ist_bedienfehler(
+            "Das Programm `iw` fehlt. Installiere es."
+        ));
+        assert!(!ist_bedienfehler("Der Ordner ist unbekannt (HOME fehlt)."));
+        assert!(!ist_bedienfehler(
+            "networkQuality fehlt. Gibt es ab macOS 12."
+        ));
     }
 }

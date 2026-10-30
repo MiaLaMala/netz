@@ -367,6 +367,7 @@ fn main() {
         .on_window_event(|w, ev| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
                 api.prevent_close();
+                // Scheitert das Verstecken, bleibt das Fenster sichtbar: harmlos.
                 let _ = w.hide();
             }
         })

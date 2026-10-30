@@ -351,6 +351,7 @@ pub fn run(args: &[String], explain_on: bool) -> Result<(), String> {
 fn messen_und_merken(namen: &[String]) -> Result<Ergebnis, String> {
     let e = tempo(namen, dns::system_resolver()?);
     if let Some((pfad, key)) = ziel() {
+        let _sperre = netze::sperre(&pfad);
         let mut store: Store = netze::load_json(&pfad)?;
         ablegen(&mut store, &key, &e.zeilen, netze::now());
         netze::save(&pfad, &store)?;

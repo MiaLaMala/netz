@@ -16,6 +16,7 @@ pub(crate) const LOSS: u32 = u32::MAX;
 pub(crate) const SKIP: u32 = u32::MAX - 1;
 /// Raw samples older than this are merged into hourly values.
 const RAW_KEEP_SECS: u64 = 48 * 3600;
+const MAX_STUNDEN: usize = 90 * 24;
 /// A pause longer than this between two samples ends an outage run (the measuring had stopped).
 const GAP_SECS: u64 = 120;
 const TIMEOUT: Duration = Duration::from_secs(2);
@@ -79,12 +80,14 @@ impl Hour {
     }
 
     fn mean(&self, k: usize) -> Option<u32> {
-        let ok = u64::from(self.n[k] - self.lost[k]);
+        // `saturating_sub`: eine von Hand geänderte Datei darf nicht abstürzen.
+        let ok = u64::from(self.n[k].saturating_sub(self.lost[k]));
         (ok > 0).then(|| (self.sum[k] / ok) as u32)
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)] // Dateien älterer Versionen haben nicht alle Felder.
 struct NetData {
     samples: Vec<Sample>,
     hours: Vec<Hour>,
@@ -118,6 +121,9 @@ fn compact(d: &mut NetData, now: u64) {
         }
     }
     d.hours.sort_by_key(|x| x.h);
+    // Obergrenze: die Stundenwerte wachsen mit jeder Stunde, behalten werden 90 Tage.
+    let zuviel = d.hours.len().saturating_sub(MAX_STUNDEN);
+    d.hours.drain(..zuviel);
 }
 
 /// Median and nearest-rank percentile of microsecond values via `statistik` (f64 inside).
@@ -140,7 +146,7 @@ fn longest_outage(samples: &[Sample], k: usize) -> u64 {
         if let Some((st, last)) = run
             && s.t.saturating_sub(last) > GAP_SECS
         {
-            best = best.max(last - st);
+            best = best.max(last.saturating_sub(st));
             run = None;
         }
         if s.v[k] == LOSS {
@@ -150,7 +156,7 @@ fn longest_outage(samples: &[Sample], k: usize) -> u64 {
         }
     }
     if let Some((st, last)) = run {
-        best = best.max(last - st);
+        best = best.max(last.saturating_sub(st));
     }
     best
 }
@@ -184,7 +190,10 @@ fn stats(d: &NetData, k: usize) -> Option<Stats> {
         lost += h.lost[k];
         max = max.max(h.max[k]);
         if let Some(m) = h.mean(k) {
-            vals.extend(std::iter::repeat_n(m, (h.n[k] - h.lost[k]) as usize));
+            vals.extend(std::iter::repeat_n(
+                m,
+                h.n[k].saturating_sub(h.lost[k]) as usize,
+            ));
         }
         hours.entry(h.h).or_insert_with(|| Hour::new(h.h)).merge(h);
     }
@@ -499,6 +508,7 @@ fn ablegen_messung(path: &Path, key: &str, router: Option<IpAddr>) -> Result<Sam
 }
 
 fn ablegen(path: &Path, key: &str, s: &Sample) -> Result<(), String> {
+    let _sperre = netze::sperre(path);
     let mut store: Store = netze::load_json(path)?;
     let d = store.entry(key.to_string()).or_default();
     d.samples.push(s.clone());
@@ -627,7 +637,11 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
     );
     let path = store_path()?;
     let mut session = Vec::new();
+    crate::live::strg_c_abfangen();
     for i in 1..=total {
+        if crate::live::unterbrochen() {
+            break;
+        }
         let started = Instant::now();
         let s = ablegen_messung(&path, &key, router)?;
         println!(
@@ -640,7 +654,7 @@ pub fn run_messen(args: &[String], explain_on: bool) -> Result<(), String> {
         if i < total
             && let Some(left) = Duration::from_secs(takt).checked_sub(started.elapsed())
         {
-            std::thread::sleep(left);
+            crate::live::schlafen(left);
         }
     }
     let d = NetData {
@@ -988,5 +1002,50 @@ mod tests {
         assert!(num(&a(&["--minuten", "0"]), "--minuten", 1, 1440).is_err());
         assert!(num(&a(&["--minuten"]), "--minuten", 1, 1440).is_err());
         assert!(num(&a(&["--takt", "x"]), "--takt", 5, 3600).is_err());
+    }
+}
+
+#[cfg(test)]
+mod robust {
+    use super::*;
+
+    /// Eine von Hand veränderte Stunde (mehr verloren als gemessen) darf nicht abstürzen.
+    #[test]
+    fn stunde_mit_mehr_verlust_als_messungen() {
+        let mut h = Hour::new(0);
+        h.n = [1, 0, 0];
+        h.lost = [5, 0, 0];
+        assert_eq!(h.mean(0), None);
+        let d = NetData {
+            samples: vec![],
+            hours: vec![h],
+        };
+        let _ = stats(&d, 0);
+    }
+
+    #[test]
+    fn stundenwerte_haben_eine_obergrenze() {
+        let mut d = NetData::default();
+        for i in 0..(MAX_STUNDEN as u64 + 50) {
+            d.samples.push(Sample {
+                t: i * 3600,
+                v: [SKIP, 1000, 1000],
+            });
+        }
+        compact(&mut d, (MAX_STUNDEN as u64 + 50) * 3600 + RAW_KEEP_SECS * 2);
+        assert_eq!(d.hours.len(), MAX_STUNDEN);
+    }
+
+    #[test]
+    fn alte_datei_ohne_stunden_laedt() {
+        let d: NetData = serde_json::from_str(r#"{"samples":[]}"#).unwrap();
+        assert!(d.hours.is_empty());
+    }
+
+    /// Springt die Uhr zurück, ist die Länge des Ausfalls 0, kein Überlauf.
+    #[test]
+    fn laengster_ausfall_bei_rueckwaertsuhr() {
+        let s = |t, v| Sample { t, v: [v, 1, 1] };
+        assert_eq!(longest_outage(&[s(500, LOSS), s(400, LOSS)], 0), 0);
     }
 }
